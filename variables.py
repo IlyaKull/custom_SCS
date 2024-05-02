@@ -2,7 +2,7 @@
 class OptVar:
 	all_vars = {'primal': dict(), 'dual': dict()}
 	
-	def __init__(self, name, primal_or_dual, dims = ()):
+	def __init__(self, name, primal_or_dual, dims):
 		self.name = name
 		self.primal_or_dual = primal_or_dual
 		self.dims = dims
@@ -20,6 +20,6 @@ class OptVar:
 		for p_or_d in ('primal', 'dual'): 
 			print(f'{p_or_d} vars:', end= '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n')
 			for var_name, var in OptVar.all_vars[p_or_d].items():
-				print(f"{var_name:20} with dims {var.dims}")
+				print(f"{var_name:20} dims {var.dims}")
 			print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n')
 
