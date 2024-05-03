@@ -30,10 +30,6 @@ class OptVar:
 		print('~'*30 + ' VARIABLES: '.center(20) + '~'*30 )
 		print('='*80)
 		
-		
-		print('-'*80)
-		
-		
 		for i, var_list in enumerate((OptVar.primal_vars, OptVar.dual_vars)):
 			print('~'*10 + " {} VARS:".format(('PRIMAL', 'DUAL')[i]))
 			for var in var_list:
