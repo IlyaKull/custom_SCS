@@ -13,7 +13,7 @@ class Constraint:
 	
 	def __init__(self, label, maps, optVars, constant = None, dualVar = None):
 		
-		# todo exception if len(maps) != len(optVars)
+		assert len(maps) == len(optVars), f'Supplied Maps and variables do not match in length in constraint {label}'
 		self.label = label # constraint name
 		self.maps = maps
 		self.optVars = optVars
@@ -40,11 +40,14 @@ class Constraint:
 		
 		
 	def print_constr_list(self):
-		print('~~~~~~~~~~~~~~~~~~~ Printing constraints')
-		print(f'~~~~~~~~~~~~~~~~~~~ Total of {len(Constraint.all_constraints)} constraints')
+		print('~'*30 + ' CONSTRAINTS: '.center(20) + '~'*30 )
+		print(f'Total of {len(Constraint.all_constraints)} constraints')
+		print('='*80)
+		print('name'.ljust(16) +' : ' + 'dual var'.ljust(16) + ' : expression') 
+		print('-'*80)
 		for c in Constraint.all_constraints:
 			print_constraint(c)
-		
+		print('='*80)
 		
 	
 	
@@ -53,7 +56,7 @@ def print_constraint(c):
 		"""
 		print the expression for the constraint
 		"""
-		print(f"{c.label:16} : {c.dualVar.name:16}: ", end=' ')
+		print(f"{c.label:16} : {c.dualVar.name:16} : ", end=' ')
 		
 		for (CGmap, optVar) in zip(c.maps, c.optVars):
 			print(f"{signString(CGmap.sign)} {CGmap.name}({optVar.name}) ", end = '')

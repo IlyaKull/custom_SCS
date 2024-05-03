@@ -32,6 +32,9 @@ def main():
 	b_l = OptVar('beta_l', 'dual', dims = (D,d))
 	b_r = OptVar('beta_r', 'dual', dims = (d,D))
 	e = OptVar('epsilon', 'dual', dims = (1,))
+	e.print_var_list()
+	
+	
 	
 	Constraint('norm', (tr,), (rho,), constant = -1, dualVar = e)
 	Constraint('LTI', (tr_l_rho, tr_r_rho), (rho,rho), dualVar = a)
@@ -39,8 +42,6 @@ def main():
 	Constraint('right', (C_r, tr_r_omega), (rho,omega), dualVar = b_r).print_constr_list()
 
 	
-	
-	rho.print_var_list()
 	
 	
     

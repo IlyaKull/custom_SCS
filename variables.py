@@ -17,9 +17,12 @@ class OptVar:
 			
 		
 	def print_var_list(self):
+		print('~'*30 + ' VARIABLES: '.center(20) + '~'*30 )
+		print('='*80)
 		for p_or_d in ('primal', 'dual'): 
-			print(f'{p_or_d} vars:', end= '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n')
+			print('~'*20 + f' {p_or_d} vars:')
+			print('-'*80)
 			for var_name, var in OptVar.all_vars[p_or_d].items():
 				print(f"{var_name:20} dims {var.dims}")
-			print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n')
-
+			print('-'*80)
+		print('='*80)
