@@ -28,7 +28,6 @@ class OptVar:
 			last_index = var_list[-1].indices[1] 
 		
 		self.indices = (last_index +1, last_index + dim_symm_matrix(np.prod(dims)) ) 
-		print(self.indices)
 		
 		# add variable to list
 		var_list.append(self)			

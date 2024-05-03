@@ -9,12 +9,20 @@ class Maps:
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.
 		sign, # maps come with a sign (+/-1): determinig the sign with which they appear in a constraint
-		dims # input and output dimensions
+		dims, # input and output dimensions
+		adj = False
 		):
 		self.name = name
 		self.sign = sign
 		self.dims = dims
+		self.adjoint_flag = adj
 		
+	def adjoint(self):
+		s = self 
+		s.adjoint_flag = not self.adjoint_flag
+		s.dims['in'] = self.dims['out']
+		s.dims['out'] = self.dims['in']
+		return s
 		
 class CGmap(Maps):
 	"""

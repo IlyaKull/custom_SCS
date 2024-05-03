@@ -9,15 +9,18 @@ class Constraint:
 	Primal constraints are equality constraits (Aa+Bb==0), dual constraints are inequalities (>=0).
 	"""
 	
-	all_constraints = []
+	primal_constraints = []
+	dual_constraints = []
 	
-	def __init__(self, label, maps, optVars, constant = None, dualVar = None):
+	def __init__(self, label, maps, optVars, primal_or_dual, constr_type, constant = None, conjugateVar = None):
 		
 		assert len(maps) == len(optVars), f'Supplied Maps and variables do not match in length in constraint {label}'
 		self.label = label # constraint name
 		self.maps = maps
 		self.optVars = optVars
-				
+		
+		self.constr_type = constr_type
+		
 		try:
 			assert all( m.dims['out'] == maps[0].dims['out'] for m in maps ), \
 				f'Output dimension mismatch in constraint "{label}"'
@@ -27,27 +30,46 @@ class Constraint:
 				print(m.dims['out'])
 			raise xxx
 		else:
-			if dualVar: 
-				self.dualVar = dualVar
-				assert np.prod(dualVar.dims) == maps[0].dims['out'] , f'Dimension mismatch between constraint {label} and dual variable {dualVar.name}'
+			if conjugateVar: 
+				self.conjugateVar = conjugateVar
+				assert np.prod(conjugateVar.dims) == maps[0].dims['out'] , f'Dimension mismatch between constraint {label} and dual variable {conjugateVar.name}'
 			else:
 				self.dualVar = OptVar(f'MISSING VAR:{label}:','dual', dims = {'totaDims': maps[0].dims['out']})
 			
 		self.constant = constant
 		
+		# primal or dual constraint
+		assert primal_or_dual in ('primal', 'dual'), \
+			f"!!!!!!!!!!!!!!! Constraint {self.name} was not defined \n" + \
+			'!!!!!!!!!!!!!!! Specify if constraint is *primal* or *dual*'
 		
-		Constraint.all_constraints.append(self)
+		self.primal_or_dual = primal_or_dual
+		
+		# to which list to add
+		if primal_or_dual == 'primal': 
+			constr_list = Constraint.primal_constraints
+		else:
+			constr_list = Constraint.dual_constraints
+		
+		assert constr_type in ('eq', 'PSD'), \
+			f"!!!!!!!!!!!!!!! Constraint {self.name} was not defined \n" + \
+			'!!!!!!!!!!!!!!! Specify if equality constraint *eq* or positivity *PSD*'
+		
+		self.constr_type = constr_type
+		
+		constr_list.append(self)
 		
 		
 	def print_constr_list(self):
-		print('='*80)
-		print('~'*30 + ' CONSTRAINTS: '.center(20) + '~'*30 )
-		print(f'Total of {len(Constraint.all_constraints)} constraints')
-		print('='*80)
-		print('name'.ljust(16) +' : ' + 'dual var'.ljust(16) + ' : expression') 
-		print('-'*80)
-		for c in Constraint.all_constraints:
-			print_constraint(c)
+		for i, constr_list in enumerate((Constraint.primal_constraints, Constraint.dual_constraints)):
+			print('='*80)
+			print('~'*25 + ' {} CONSTRAINTS: '.format( ('PRIMAL', 'DUAL')[i]).center(20) + '~'*25 )
+			print(f'Total of {len(constr_list)} constraints')
+			print('='*80)
+			print('name'.ljust(12) +' : ' + 'conj var'.ljust(12) + ' : ' + 'constr type'.ljust(12) + ' : expression') 
+			print('-'*80)
+			for c in constr_list:
+				print_constraint(c)
 		
 		
 	
@@ -57,7 +79,7 @@ def print_constraint(c):
 		"""
 		print the expression for the constraint
 		"""
-		print(f"{c.label:16} : {c.dualVar.name:16} : ", end=' ')
+		print(f"{c.label:12} : {c.conjugateVar.name:12} : {c.constr_type:12} : ", end=' ')
 		
 		for (CGmap, optVar) in zip(c.maps, c.optVars):
 			print(f"{signString(CGmap.sign)} {CGmap.name}({optVar.name}) ", end = '')

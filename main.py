@@ -22,6 +22,7 @@ def main():
 	tr_l_rho = maps.PartTrace(subsystems = {1}, state_dims = dims_rho, sign = +1)
 	tr_r_rho = maps.PartTrace(subsystems = {5}, state_dims = dims_rho, sign = -1)
 	
+		
 	tr_l_omega = maps.PartTrace(subsystems = {1}, state_dims = dims_omega, sign = -1)
 	tr_r_omega = maps.PartTrace(subsystems = {3}, state_dims = dims_omega, sign = -1)
 	
@@ -35,11 +36,17 @@ def main():
 	e.print_var_list()
 	
 	
+	# primal constraints
+	Constraint('norm', (tr,), (rho,), 'primal', 'eq', constant = -1, conjugateVar = e)
+	Constraint('LTI', (tr_l_rho, tr_r_rho), (rho,rho), 'primal', 'eq', conjugateVar = a)
+	Constraint('left', (C_l, tr_l_omega), (rho,omega), 'primal', 'eq', conjugateVar = b_l)
+	Constraint('right', (C_r, tr_r_omega), (rho,omega), 'primal', 'eq', conjugateVar = b_r).print_constr_list()
 	
-	Constraint('norm', (tr,), (rho,), constant = -1, dualVar = e)
-	Constraint('LTI', (tr_l_rho, tr_r_rho), (rho,rho), dualVar = a)
-	Constraint('left', (C_l, tr_l_omega), (rho,omega), dualVar = b_l)
-	Constraint('right', (C_r, tr_r_omega), (rho,omega), dualVar = b_r).print_constr_list()
+	# dual constraints
+	# Constraint('1', (C_r, tr_r_omega), (rho,omega), 'primal', 'eq', conjugateVar = b_r)
+	
+	
+	
 
 	
 	
