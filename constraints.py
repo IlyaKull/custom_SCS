@@ -40,6 +40,7 @@ class Constraint:
 		
 		
 	def print_constr_list(self):
+		print('='*80)
 		print('~'*30 + ' CONSTRAINTS: '.center(20) + '~'*30 )
 		print(f'Total of {len(Constraint.all_constraints)} constraints')
 		print('='*80)
@@ -47,7 +48,7 @@ class Constraint:
 		print('-'*80)
 		for c in Constraint.all_constraints:
 			print_constraint(c)
-		print('='*80)
+		
 		
 	
 	

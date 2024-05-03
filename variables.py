@@ -1,3 +1,4 @@
+import numpy as np
 
 class OptVar:
 	
@@ -10,29 +11,42 @@ class OptVar:
 		self.primal_or_dual = primal_or_dual
 		self.dims = dims
 		
-		
-		# compute indices
-		
-		# Add variable to list of primal/dual variables
+		# primal or dual variable
 		assert primal_or_dual in ('primal', 'dual'), \
 			f"!!!!!!!!!!!!!!! Variable {self.name} was not defined \n" + \
 			'!!!!!!!!!!!!!!! Specify if varialbe is primal or dual'
-				
+		
+		# to which list to add
 		if primal_or_dual == 'primal': 
-			OptVar.primal_vars.append(self)
+			var_list = OptVar.primal_vars
 		else:
-			OptVar.dual_vars.append(self)
-			
+			var_list = OptVar.dual_vars
+		
+		if not var_list:
+			last_index = -1
+		else:
+			last_index = var_list[-1].indices[1] 
+		
+		self.indices = (last_index +1, last_index + dim_symm_matrix(np.prod(dims)) ) 
+		print(self.indices)
+		
+		# add variable to list
+		var_list.append(self)			
 		print(f"Variable {self.name} was added to the list of {primal_or_dual} variables")
 			
-		
+				
 	def print_var_list(self):
+		print('='*80)
 		print('~'*30 + ' VARIABLES: '.center(20) + '~'*30 )
 		print('='*80)
 		
 		for i, var_list in enumerate((OptVar.primal_vars, OptVar.dual_vars)):
 			print('~'*10 + " {} VARS:".format(('PRIMAL', 'DUAL')[i]))
 			for var in var_list:
-				print(f"{var.name:20} dims {var.dims}")
-		print('-'*80)
-		print('='*80)
+				print(f"{var.name:20} Indices: {var.indices[0] :<8d} -- {var.indices[1] : <16d} : dims: {var.dims} ")
+		
+		
+
+def dim_symm_matrix(d):
+	return int((d**2 + d)/2)
+	
