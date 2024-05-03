@@ -1,8 +1,8 @@
 
 class OptVar:
 	
-	primal_vars = dict()
-	dual_vars = dict()
+	primal_vars = []
+	dual_vars = []
 	
 	
 	def __init__(self, name, primal_or_dual, dims):
@@ -19,9 +19,9 @@ class OptVar:
 			'!!!!!!!!!!!!!!! Specify if varialbe is primal or dual'
 				
 		if primal_or_dual == 'primal': 
-			OptVar.primal_vars.update({self.name : self})
+			OptVar.primal_vars.append(self)
 		else:
-			OptVar.dual_vars.update({self.name : self})
+			OptVar.dual_vars.append(self)
 			
 		print(f"Variable {self.name} was added to the list of {primal_or_dual} variables")
 			
@@ -36,7 +36,7 @@ class OptVar:
 		
 		for i, var_list in enumerate((OptVar.primal_vars, OptVar.dual_vars)):
 			print('~'*10 + " {} VARS:".format(('PRIMAL', 'DUAL')[i]))
-			for var_name, var in var_list.items():
-				print(f"{var_name:20} dims {var.dims}")
+			for var in var_list:
+				print(f"{var.name:20} dims {var.dims}")
 		print('-'*80)
 		print('='*80)
