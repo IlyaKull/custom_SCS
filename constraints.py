@@ -20,18 +20,8 @@ class Constraint:
 		self.optVars = optVars
 		self.constr_type = constr_type
 		
-		# the map_list input is potentially modified and stored in the maps attribute
-		# note that the mod_map method of maps creates a deepcopy
-		self.maps = [] 
-		for i,m in enumerate(map_list):
-			if isinstance(m, maps.Identity):
-				print(f'map {m} is an identity')
-				var_dim = np.prod(optVars[i].dims)
-				self.maps.append(m.mod_map(dims= {'in': var_dim  , 'out': var_dim}))
-			else:
-				self.maps.append(m)
-		
-		
+		self.maps = map_list
+				
 		try:
 			assert all( m.dims['out'] == self.maps[0].dims['out'] for m in self.maps ), \
 				f'Output dimension mismatch in constraint "{label}"'

@@ -22,7 +22,7 @@ class Maps:
 		
 	
 	
-	def mod_map(self, sign = +1, adjoint = False, dims = None):
+	def mod_map(self, sign = +1, adjoint = False):
 		'''
 		returns a copy of the  map with the chosen attributes:
 			sign +/- int 
@@ -38,9 +38,6 @@ class Maps:
 				s.name = self.adj_name
 				s.adj_name = self.name
 		
-		if dims:
-			s.dims = dims
-			
 		return s
 		
 class CGmap(Maps):
@@ -58,7 +55,7 @@ class CGmap(Maps):
 					# dimsOut: tuple of output dims
 		):
 		dims = {'in': np.prod(action['dimsIn']), 'out': np.prod(action['dimsOut'])} # total dimensions
-		super().__init__(name, sign, dims)
+		super().__init__(name, sign, dims, adj_name = name + '^*')
 		self.representation = representation
 		self.action = action
 		
@@ -81,8 +78,8 @@ class Identity(Maps):
 	"""
 	maps x -> x 
 	"""
-	def __init__(self,  sign):
-		super().__init__('Id', sign, dims = {'in': None, 'out': None})
+	def __init__(self,  sign, dim):
+		super().__init__('Id', sign, dims = {'in': dim, 'out': dim})
 			
 
 class Trace(Maps):

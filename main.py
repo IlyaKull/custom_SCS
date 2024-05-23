@@ -29,7 +29,10 @@ def main():
 	tr = maps.Trace(+1, dim = np.prod(dims_rho) )
 	
 	one_var = OptVar('1','primal',dims = (1), add_to_var_list = False)
-	id_map = maps.Identity(+1)
+	
+	id_rho = maps.Identity(+1, dim = np.prod(dims_rho))
+	id_omega = maps.Identity(+1, dim = np.prod(dims_omega))
+	id_1 = maps.Identity(+1, dim = 1)
 	
 	H_map = maps.TraceWith( 'H', +1, operator = [2,22,222] ,dim = np.prod(dims_rho) )
 	
@@ -43,30 +46,26 @@ def main():
 	
 	# primal constraints
 	Constraint('P_obj', (H_map,), (rho,), 'primal', 'OBJ')
-	Constraint('pos_rho', (id_map,), (rho,), 'primal', 'PSD')
-	Constraint('pos_rho', (id_map,), (omega,), 'primal', 'PSD')
+	Constraint('pos_rho', (id_rho,), (rho,), 'primal', 'PSD')
+	Constraint('pos_rho', (id_omega,), (omega,), 'primal', 'PSD')
 	Constraint('norm', (tr,), (rho,), 'primal', 'EQ', constant = -1, conjugateVar = e)
 	Constraint('LTI', (tr_l_rho, tr_r_rho), (rho,rho), 'primal', 'EQ', conjugateVar = a)
 	Constraint('left', (C_l, tr_l_omega), (rho,omega), 'primal', 'EQ', conjugateVar = b_l)
-	Constraint('right', (C_r, tr_r_omega), (rho,omega), 'primal', 'EQ', conjugateVar = b_r).print_constr_list()
+	Constraint('right', (C_r, tr_r_omega), (rho,omega), 'primal', 'EQ', conjugateVar = b_r)
 	
 	e.print_var_list()
 	# dual constraints
-	Constraint('D_obj', (id_map,), (e,), 'dual', 'OBJ')
+	Constraint('D_obj', (id_1,), (e,), 'dual', 'OBJ')
 	
-	if False:
-		map_list = [m for m in [H_map, C_l, C_r, tr_l_rho, tr_r_rho, id_map.mod_map(sign = -1) ]]
-		
-		for m in map_list:
-			print( f"map name = {m.name} \nmap dims= {m.dims['out']},{m.dims['in']}" )
-		
-		map_list = [m.mod_map(adjoint = True) for m in [H_map, C_l, C_r, tr_l_rho, tr_r_rho, id_map.mod_map(sign = -1) ]]
-		
-		for m in map_list:
-			print( f"map name = {m.name} \nmap dims= {m.dims['out']},{m.dims['in']}" )
 	
-	Constraint('1', [m.mod_map(adjoint = True) for m in [H_map, C_l, C_r, tr_l_rho, tr_r_rho, id_map.mod_map(sign = -1) ]], [one_var, b_l, b_r, a, a, e] , 'dual', 'PSD', conjugateVar = rho)
+	constraintd1 = Constraint('D1', [m.mod_map(adjoint = True) for m in \
+										[H_map, C_l, C_r, tr_l_rho, tr_r_rho, id_rho.mod_map(sign = -1) ] \
+									],  [one_var, b_l, b_r, a, a, e] , 'dual', 'PSD', conjugateVar = rho)
+	constraintd2 = Constraint('D2', [m.mod_map(adjoint = True) for m in \
+										[tr_l_omega, tr_r_omega ] \
+									],	[b_l, b_r] , 'dual', 'PSD', conjugateVar = omega)
 	
+	constraintd1.print_constr_list()
 	
 	
 
