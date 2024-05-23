@@ -1,6 +1,7 @@
 import CGmaps
 from variables import OptVar 
 import numpy as np
+import maps
 
 class Constraint:
 	""" Each constraint is an expression of the form
@@ -12,30 +13,42 @@ class Constraint:
 	primal_constraints = []
 	dual_constraints = []
 	
-	def __init__(self, label, maps, optVars, primal_or_dual, constr_type, constant = None, conjugateVar = None):
+	def __init__(self, label, map_list, optVars, primal_or_dual, constr_type, constant = None, conjugateVar = None):
 		
-		assert len(maps) == len(optVars), f'Supplied Maps and variables do not match in length in constraint {label}'
+		assert len(map_list) == len(optVars), f'Supplied Maps and variables do not match in length in constraint {label}'
 		self.label = label # constraint name
-		self.maps = maps
 		self.optVars = optVars
-		
 		self.constr_type = constr_type
 		
+		# the map_list input is potentially modified and stored in the maps attribute
+		# note that the mod_map method of maps creates a deepcopy
+		self.maps = [] 
+		for i,m in enumerate(map_list):
+			if isinstance(m, maps.Identity):
+				print(f'map {m} is an identity')
+				var_dim = np.prod(optVars[i].dims)
+				self.maps.append(m.mod_map(dims= {'in': var_dim  , 'out': var_dim}))
+			else:
+				self.maps.append(m)
+		
+		
 		try:
-			assert all( m.dims['out'] == maps[0].dims['out'] for m in maps ), \
+			assert all( m.dims['out'] == self.maps[0].dims['out'] for m in self.maps ), \
 				f'Output dimension mismatch in constraint "{label}"'
 		except AssertionError as xxx:
 			print('!!!!!!!!!!!!! output dims:')
-			for m in maps:
+			for m in self.maps:
 				print(m.dims['out'])
 			raise xxx
+
+		if conjugateVar: 
+			self.conjugateVar = conjugateVar
+			assert np.prod(conjugateVar.dims) == self.maps[0].dims['out'] , f'Dimension mismatch between constraint {label} and dual variable {conjugateVar.name}'
 		else:
-			if conjugateVar: 
-				self.conjugateVar = conjugateVar
-				assert np.prod(conjugateVar.dims) == maps[0].dims['out'] , f'Dimension mismatch between constraint {label} and dual variable {conjugateVar.name}'
-			else:
-				self.dualVar = OptVar(f'MISSING VAR:{label}:','dual', dims = {'totaDims': maps[0].dims['out']})
+			self.conjugateVar = OptVar(f'MISSING VAR:{label}:','dual', dims =  self.maps[0].dims['out'], add_to_var_list = False)
+	
 			
+		
 		self.constant = constant
 		
 		# primal or dual constraint
@@ -51,9 +64,9 @@ class Constraint:
 		else:
 			constr_list = Constraint.dual_constraints
 		
-		assert constr_type in ('eq', 'PSD'), \
-			f"!!!!!!!!!!!!!!! Constraint {self.name} was not defined \n" + \
-			'!!!!!!!!!!!!!!! Specify if equality constraint *eq* or positivity *PSD*'
+		assert constr_type in ('EQ', 'PSD','OBJ'), \
+			f"!!!!!!!!!!!!!!! Constraint {self.label} was not defined \n" + \
+			'!!!!!!!!!!!!!!! Specify: *EQ* for equality constraint, *PSD* for positivity, or *OBJ* for objective function'
 		
 		self.constr_type = constr_type
 		

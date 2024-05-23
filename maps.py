@@ -1,5 +1,6 @@
 
 import numpy as np
+import copy
  
 class Maps:
 	"""
@@ -10,18 +11,36 @@ class Maps:
 		name, # the name of the map in your paper notes. Used to for display.
 		sign, # maps come with a sign (+/-1): determinig the sign with which they appear in a constraint
 		dims, # input and output dimensions
-		adj = False
-		):
+		adj = False, # adjoint flag: true to apply the adjoint
+		adj_name = None # display name for adjoint operator
+		): 
 		self.name = name
 		self.sign = sign
 		self.dims = dims
 		self.adjoint_flag = adj
+		self.adj_name = adj_name
 		
-	def adjoint(self):
-		s = self 
-		s.adjoint_flag = not self.adjoint_flag
-		s.dims['in'] = self.dims['out']
-		s.dims['out'] = self.dims['in']
+	
+	
+	def mod_map(self, sign = +1, adjoint = False, dims = None):
+		'''
+		returns a copy of the  map with the chosen attributes:
+			sign +/- int 
+			adjoint = true/false
+		'''
+		s = copy.deepcopy(self)
+		
+		if adjoint != self.adjoint_flag:
+			s.adjoint_flag = adjoint
+			s.dims['in'] = self.dims['out']
+			s.dims['out'] = self.dims['in']
+			if self.adj_name:
+				s.name = self.adj_name
+				s.adj_name = self.name
+		
+		if dims:
+			s.dims = dims
+			
 		return s
 		
 class CGmap(Maps):
@@ -53,9 +72,18 @@ class TraceWith(Maps):
 		operator = 0.0, # the operator with which the trace is taken
 		dim = () # dimension of input state
 		):
-		super().__init__(f"{op_name}*", sign, dims = {'in': dim, 'out': 1})
+		super().__init__(f"{op_name}*", sign, dims = {'in': dim, 'out': 1}, adj_name = op_name)
 		self.operator = operator
 		
+
+
+class Identity(Maps):
+	"""
+	maps x -> x 
+	"""
+	def __init__(self,  sign):
+		super().__init__('Id', sign, dims = {'in': None, 'out': None})
+			
 
 class Trace(Maps):
 	"""
@@ -64,7 +92,7 @@ class Trace(Maps):
 	def __init__(self,  sign, 
 		dim = ()  # dimension of input state
 		):
-		super().__init__('Trace', sign, dims = {'in': dim, 'out': 1})
+		super().__init__('Trace', sign, dims = {'in': dim, 'out': 1}, adj_name = '1*')
 			
 
 class PartTrace(Maps):
@@ -79,7 +107,7 @@ class PartTrace(Maps):
 		remaining_subsystems = {i+1 for i in range(len(state_dims))}.difference(subsystems)
 		dims = {'in': np.prod(state_dims),
 				'out': np.prod( [state_dims[i-1] for i in remaining_subsystems] ) }
-		super().__init__(name, sign, dims)
+		super().__init__(name, sign, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]')
 		self.subsystems = subsystems
 		
 		
