@@ -30,11 +30,8 @@ class Maps:
 		'''
 		 
 		s = copy.deepcopy(self)
-		
-		# print((self.name, self.adjoint_flag, self.sign))
-		# print((hex(id(self.name)), hex(id(self.adjoint_flag)), hex(id(self.sign))))
-		# print((s.name , s.adjoint_flag, s.sign) )
-		# print((hex(id(s.name)), hex(id(s.adjoint_flag)), hex(id(s.sign))))
+			# how to do it more nicely with self.__class__( modified self.__dict__)???
+			
 		
 		if adjoint != self.adjoint_flag:
 			s.adjoint_flag = adjoint
