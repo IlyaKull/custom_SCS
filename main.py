@@ -11,7 +11,7 @@ def main():
 	dims_rho = (d,d,d,d,d)
 	dims_omega = (d,D,d)
 	
-	rho = OptVar('rho','primal', dims = dims_rho )
+	rho = OptVar('rho','primal', dims = dims_rho , complex_var=False)
 	omega = OptVar('omega','primal', dims = dims_omega)
 	
 	action_l = {'dimsIn': dims_rho, 'pattern':(1,1,1,1,0), 'dimsOut':(D,d)}
@@ -23,7 +23,7 @@ def main():
 	tr_r_rho = maps.PartTrace(subsystems = {5}, state_dims = dims_rho, sign = -1)
 	
 		
-	tr_l_omega = maps.PartTrace(subsystems = {1}, state_dims = dims_omega, sign = +1)
+	tr_l_omega = maps.PartTrace(subsystems = {1}, state_dims = dims_omega, sign = -1)
 	tr_r_omega = maps.PartTrace(subsystems = {3}, state_dims = dims_omega, sign = -1)
 	
 	tr = maps.Trace(+1, dim = np.prod(dims_rho) )
