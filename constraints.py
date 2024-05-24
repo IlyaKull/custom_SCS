@@ -13,15 +13,16 @@ class Constraint:
 	primal_constraints = []
 	dual_constraints = []
 	
-	def __init__(self, label, map_list, optVars, primal_or_dual, constr_type, constant = None, conjugateVar = None):
+	def __init__(self, label, sign_list, map_list, var_list, primal_or_dual, constr_type, constant = None, conjugateVar = None):
 		
-		assert len(map_list) == len(optVars), f'Supplied Maps and variables do not match in length in constraint {label}'
+		assert len(map_list) == len(var_list), f'Supplied Maps and variables do not match in length in constraint {label}'
+		assert len(sign_list) == len(var_list), f'Supplied sign_list and map_list do not match in length in constraint {label}'
 		self.label = label # constraint name
-		self.optVars = optVars
-		self.constr_type = constr_type
-		
+		self.signs = sign_list
 		self.maps = map_list
-				
+		self.var_list = var_list
+		self.constr_type = constr_type
+						
 		try:
 			assert all( m.dims['out'] == self.maps[0].dims['out'] for m in self.maps ), \
 				f'Output dimension mismatch in constraint "{label}"'
@@ -84,8 +85,8 @@ def print_constraint(c):
 		"""
 		print(f"{c.label:12} : {c.conjugateVar.name:12} : {c.constr_type:12} : ", end=' ')
 		
-		for (CGmap, optVar) in zip(c.maps, c.optVars):
-			print(f"{signString(CGmap.sign)} {CGmap.name}({optVar.name}) ", end = '')
+		for (sign, CGmap, optVar) in zip(c.signs, c.maps, c.var_list):
+			print(f"{signString(sign)} {CGmap.name}({optVar.name}) ", end = '')
 		
 		if c.constant:
 			print(c.constant, end = ' ')

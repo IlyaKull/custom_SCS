@@ -59,9 +59,9 @@ class OptVar:
 			print('~'*10 + " {} VARS:".format(('PRIMAL', 'DUAL')[i]))
 			for var in var_list:
 				if var.complex:
-					print(f"{var.name:20} Inds_R,Inds_I: {var.indices}", end=' ')
+					print(f"{var.name:20} Inds: real, imag: {var.indices}", end=' ')
 				else:
-					print(f"{var.name:20} Indices: {var.indices}", end=' ')
+					print(f"{var.name:20} Inds: real: {var.indices}", end=' ')
 				print(f": dims: {var.dims}: {complex_or_real[var.complex]}")
 	
 
