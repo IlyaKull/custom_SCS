@@ -11,14 +11,13 @@ class Maps:
 		name, # the name of the map in your paper notes. Used to for display.
 		sign, # maps come with a sign (+/-1): determinig the sign with which they appear in a constraint
 		dims, # input and output dimensions
-		adjoint_flag = False, # adjoint flag: true to apply the adjoint
-		adj_name = None, # display name for adjoint operator
-		**kwargs): 
+		adj = False, # adjoint flag: true to apply the adjoint
+		adj_name = None # display name for adjoint operator
+		): 
 		self.name = name
 		self.sign = sign
 		self.dims = dims
-		
-		self.adjoint_flag = adjoint_flag
+		self.adjoint_flag = adj
 		self.adj_name = adj_name
 		
 	
@@ -30,18 +29,9 @@ class Maps:
 			adjoint = true/false
 		'''
 		 
-		kwargs = self.__dict__
-		print(kwargs)
+		 
+		# s = self.class.init(self.__dict__)
 		
-		kwargs['adjoint'] = adjoint
-		if sign:
-			kwargs['sign'] = sign
-		
-		s = self.__class__(**kwargs)
-				
-		print(s.__dict__)
-		
-				
 		# print((self.name, self.adjoint_flag, self.sign))
 		# print((hex(id(self.name)), hex(id(self.adjoint_flag)), hex(id(self.sign))))
 		# print((s.name , s.adjoint_flag, s.sign) )
@@ -71,13 +61,7 @@ class TraceWith(Maps):
 		dim = (), # dimension of input state
 		**kwargs):
 		
-		kwargs['name'] = name
-		kwargs['sign'] = sign
-		kwargs['adj_name'] = name
-		
-		if 'dims' not in kwargs:
-			kwargs['dims'] = {'in': dim, 'out': 1}
-		super().__init__(**kwargs)
+		super().__init__(name, sign, dims = {'in': dim, 'out': 1}, adj_name = name)
 		self.operator = operator
 		
 		
@@ -89,12 +73,7 @@ class Identity(Maps):
 	"""
 	def __init__(self,  sign, dim, **kwargs):
 		
-		if 'dims' not in kwargs:
-			kwargs['dims'] = {'in': dim, 'out': dim}
-		kwargs['name'] = 'Id'
-		kwargs['sign'] = sign
-		
-		super().__init__(**kwargs)
+		super().__init__('Id', sign, dims = {'in': dim, 'out': dim})
 		self.dim = dim
 			
 
@@ -105,15 +84,8 @@ class Trace(Maps):
 	def __init__(self,  sign, 
 		dim = (),  # dimension of input state
 		**kwargs):
-		if 'dims' not in kwargs:
-			kwargs['dims'] = {'in': dim, 'out': 1}
-		if 'adj_name' not in kwargs:
-			kwargs['adj_name'] = '1*'
 		
-		kwargs['name'] = 'Trace'
-		kwargs['sign'] = sign
-		
-		super().__init__(**kwargs)
+		super().__init__('Trace', sign, dims = {'in': dim, 'out': 1}, adj_name = '1*')
 		self.dim = dim
 
 class PartTrace(Maps):
@@ -125,21 +97,11 @@ class PartTrace(Maps):
 		state_dims, # tuple: dims of input
 		**kwargs):
 		
-		kwargs['name'] = f"Trace_[{subsystems}/{len(state_dims)}]"
-		kwargs['sign'] = sign
-		
+		name = f"Trace_[{subsystems}/{len(state_dims)}]"
 		remaining_subsystems = {i+1 for i in range(len(state_dims))}.difference(subsystems)
-		
-		if 'dims' not in kwargs:
-			kwargs['dims'] =  {'in': np.prod(state_dims),
-				'out': np.prod( [state_dims[i-1] for i in remaining_subsystems] ) 
-				}
-		
-		if 'adj_name' not in kwargs:
-			kwargs['adj_name'] = f'(x)Id_[{subsystems}/{len(state_dims)}]'
-
-		
-		super().__init__(**kwargs)
+		dims = {'in': np.prod(state_dims),
+				'out': np.prod( [state_dims[i-1] for i in remaining_subsystems] ) }
+		super().__init__(name, sign, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]')
 		self.subsystems = subsystems
 		self.state_dims = state_dims
 		
@@ -159,12 +121,9 @@ class CGmap(Maps):
 							# (0,0,1,1,2,2) means IdxIdxCxC is applied where Id is acting on 1 spin and  C is acting on 2 spins
 					# dimsOut: tuple of output dims
 		**kwargs):
-			
-		if 'dims' not in kwargs:
-			kwargs['dims'] = {'in': np.prod(action['dimsIn']), 'out': np.prod(action['dimsOut'])} # total dimensions
-		if 'adj_name' not in kwargs:
-			kwargs['adj_name'] = name + '^*'
-		super().__init__(name, sign, **kwargs)
+		
+		dims = {'in': np.prod(action['dimsIn']), 'out': np.prod(action['dimsOut'])} # total dimensions
+		super().__init__(name, sign, dims, adj_name = name + '^*')
 		self.representation = representation
 		self.action = action
 		
