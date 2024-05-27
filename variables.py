@@ -1,6 +1,8 @@
 import numpy as np
+from matrix_aux_functions import dim_symm_matrix, dim_AntiSymm_matrix
 
 complex_or_real = {True:'complex', False:'real'}
+
 
 class OptVar:
 	
@@ -65,11 +67,3 @@ class OptVar:
 				print(f": dims: {var.dims}: {complex_or_real[var.complex]}")
 	
 
-		
-
-def dim_symm_matrix(d):
-	return int((d**2 - d)/2 +d)
-	
-def dim_AntiSymm_matrix(d):
-	return int((d**2 - d)/2)
-	
