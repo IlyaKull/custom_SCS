@@ -55,14 +55,16 @@ def vec2mat(dim, real_part, imag_part = None):
 def mat2vec(dim, matrix, complex_input = True):
 	assert matrix.shape == (dim, dim), 'check simensions of input matrix'
 	
-	real_part = np.real(matrix(np.triu_indices(dim)))
+	real_part = np.real(matrix[np.triu_indices(dim)])
 	
 	if complex_input:
-		imag_part = np.imaginary(matrix(np.triu_indices(dim), k = 1))
+		imag_part = np.imag(matrix[np.triu_indices(dim, k = 1)])
 	else:
 		imag_part = None
 	
 	return (real_part, imag_part)
+
+
 
 
 rp = [1,2,3]
@@ -70,3 +72,6 @@ ip = [4]
 
 A = vec2mat(2, rp, ip)
 print(A)
+
+RP, IP = mat2vec(2, A)
+print(f'real part {RP}\n imag part {IP}')
