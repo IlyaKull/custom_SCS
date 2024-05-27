@@ -2,7 +2,7 @@
 import numpy as np
 import copy
 
-from matrix_aux_functions import vec2symm
+from matrix_aux_functions import vec2mat
  
 class Maps:
 	"""
@@ -46,31 +46,25 @@ class Maps:
 	def __call__(self, in_var, out_var, in_vec, out_vec):
 		""" 
 		applies the map to the components of in_vec contatining in_var from the list of variables 
-		and assigns the result to the components of out_vec contatining out_var. 
-		e.g.
-		constraint  = trace(rho*h) - 1 = 0 with conj bariable alpha
-		and in_vec = [rho, sigma, omega], out_vec = [alpha, beta]
-		then
-		TraceWith: rho --> trace(h*rho) --> alpha component of out_vec
 		"""
 		
-
 		
 		assert (in_var.primal_or_dual == 'primal' and out_var.primal_or_dual == 'dual') or \
-				(in_var.primal_or_dual == 'dual' and out_var.primal_or_dual == 'primal'), \  
-				('in_var and out_var sould be a prima-dual pair\n.' + f'in_var {in_var.name} is {in_var.primal_or_dual}\n' + 
-				f'out_var {out_var.name} in {out_var.primal_or_dual}' )
-			)
+				(in_var.primal_or_dual == 'dual' and out_var.primal_or_dual == 'primal'),  \
+				('in_var and out_var sould be a prima-dual pair\n.' + f'in_var {in_var.name} is {in_var.primal_or_dual}\n' + \
+				f'out_var {out_var.name} in {out_var.primal_or_dual}' ) 
+			
 		
-		
-		if np.prod(in_var.dims) == 1:
-			matrix_var = vec2symm(dim = 1 , in_vec[in_var.indices[0]]) # real scalar
-		else if in_var.complex:
-			matrix_var = vec2symm(dim = np.prod(in_var.dims) ,  in_vec[in_var.indices[0]:in_var.indices[1]])
+		 
+		if in_var.complex:
+			matrix_var = vec2mat(dim = np.prod(in_var.dims), real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[0]+1 ], \
+				imag_part = in_vec[in_var.indices_imag[0] : in_var.indices_imag[0]+1 ]		)
 		else:
-			matrix_var = vec2symm(dim = np.prod(in_var.dims) ,  real_part = in_vec[in_var.indices[0]:in_var.indices[1]],
-				imag_part =in_vec[in_var.indices[2]:in_var.indices[3]]
-			)
+			matrix_var = vec2mat(dim = np.prod(in_var.dims), real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[0]+1 ] )
+		
+		return self.__apply__(matrix_var)
+		
+		
 		
 		
 		
