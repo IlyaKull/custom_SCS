@@ -2,23 +2,28 @@
 import numpy as np
 import copy
 
-from matrix_aux_functions import vec2mat
+from matrix_aux_functions import vec2mat, partial_trace
  
 class Maps:
 	"""
 	
 	"""
+	check_inputs = False
 	
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.
 		dims, # input and output dimensions
 		adj = False, # adjoint flag: true to apply the adjoint
-		adj_name = None # display name for adjoint operator
+		adj_name = None, # display name for adjoint operator
+		check_inputs = False # class variable to switch on checks and debug
 		): 
 		self.name = name
 		self.dims = dims
 		self.adjoint_flag = adj
 		self.adj_name = adj_name
+		
+		if check_inputs:
+			Maps.check_inputs = check_inputs
 		
 	
 	
@@ -43,27 +48,29 @@ class Maps:
 		return s
 		
 		
-	def __call__(self, in_var, out_var, in_vec, out_vec):
+	def __call__(self, in_var,  in_vec):
 		""" 
-		applies the map to the components of in_vec contatining in_var from the list of variables 
+		applies the map to the components of in_vec[in_var.indices...] and returns the result
 		"""
 		
-		
-		assert (in_var.primal_or_dual == 'primal' and out_var.primal_or_dual == 'dual') or \
-				(in_var.primal_or_dual == 'dual' and out_var.primal_or_dual == 'primal'),  \
-				('in_var and out_var sould be a prima-dual pair\n.' + f'in_var {in_var.name} is {in_var.primal_or_dual}\n' + \
-				f'out_var {out_var.name} in {out_var.primal_or_dual}' ) 
-			
-		
-		 
-		if in_var.complex:
-			matrix_var = vec2mat(dim = np.prod(in_var.dims), real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[0]+1 ], \
-				imag_part = in_vec[in_var.indices_imag[0] : in_var.indices_imag[0]+1 ]		)
+		in_var.complex:
+			matrix_var = vec2mat(\
+				dim = np.prod(in_var.dims),\
+				real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[0]+1 ],\
+				imag_part = in_vec[in_var.indices_imag[0] : in_var.indices_imag[0]+1 ],\
+				check_inputs = Maps.check_inputs
+			)
 		else:
-			matrix_var = vec2mat(dim = np.prod(in_var.dims), real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[0]+1 ] )
+			matrix_var = vec2mat(\
+				dim = np.prod(in_var.dims),\
+				real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[0]+1 ],\
+				check_inputs = Maps.check_inputs
+			)
 		
-		return self.__apply__(matrix_var)
-		
+		if self.adjoint_flag:
+			return self.apply_adj(matrix_var)
+		else:
+			return self.apply(matrix_var)
 		
 		
 		
@@ -92,19 +99,32 @@ class CGmap(Maps):
 			
 class TraceWith(Maps):
 	"""
-	maps x -> trace(O*x) ; its adjoint is then c -> c*O
+	maps x -> trace(O^\dagger * x) ; its adjoint is then c -> c*O
 	"""
 	def __init__(self, op_name, 
-		operator = 0.0, # the operator with which the trace is taken
+		operator = np.array([0.0]), # the operator with which the trace is taken
 		dim = () # dimension of input state
 		):
 		 		
 		super().__init__(f"{op_name}*", dims = {'in': dim, 'out': 1}, adj_name = op_name)
 		self.operator = operator
+		self.op_name = op_name
 	
+	def apply(self, x):
+		
+		if Maps.check_inputs:
+			assert tuple(reversed(self.operator.shape)) == x.shape, f"dimensions of operator {self.op_name} don't match input matrix"
+			assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
+		
+		return np.trace(self.operator.T @ x)
 	
+	def apply_adj(self, x):
 		
-		
+		if Maps.check_inputs:
+			assert x.size == 1, f"to apply the adjoint of trace[{self.op_name} * ] the input should be a scalar, x has size {x.size}"
+			assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
+			
+		return x * self.operator
 		
 		
 
@@ -117,7 +137,11 @@ class Identity(Maps):
 				
 		super().__init__('Id', dims = {'in': dim, 'out': dim})
 		
-			
+	def apply(self, x ):
+		return	x	
+		
+	def apply_adj(self, x ):
+		return	x	
 
 class Trace(Maps):
 	"""
@@ -126,9 +150,18 @@ class Trace(Maps):
 	def __init__(self,  
 		dim = ()  # dimension of input state
 		):
-		self._initial_dim = dim
+		
 		super().__init__('Trace', dims = {'in': dim, 'out': 1}, adj_name = '1*')
+	
+	def apply(self, x):
+		return np.trace(x)
+	
+	def apply_adj(self, x):
+		
+		if Maps.check_inputs:
+			assert x.size == 1, f"to apply the adjoint of trace[*] the input should be a scalar, x has size {x.size}"
 			
+		return x * np.identity(self.dims['in'], dtype = float)
 
 class PartTrace(Maps):
 	"""
@@ -146,9 +179,9 @@ class PartTrace(Maps):
 		super().__init__(name, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]')
 		self.subsystems = subsystems
 		
-		
+	
 
-
+	def apply(
 	
 	
 	

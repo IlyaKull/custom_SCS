@@ -16,7 +16,7 @@ def main():
 	
 	action_l = {'dimsIn': dims_rho, 'pattern':(1,1,1,1,0), 'dimsOut':(D,d)}
 	action_r = {'dimsIn': dims_rho, 'pattern':(0,1,1,1,1), 'dimsOut':(d,D)}
-	C_l = maps.CGmap('C_l', +1, action = action_l )
+	C_l = maps.CGmap('C_l', +1, action = action_l , check_inputs = True)
 	C_r = maps.CGmap('C_r', +1, action = action_r )
 	
 	tr_l_rho = maps.PartTrace(subsystems = {1}, state_dims = dims_rho)
@@ -34,7 +34,7 @@ def main():
 	id_omega = maps.Identity( dim = np.prod(dims_omega))
 	id_1 = maps.Identity( dim = 1)
 	
-	H_map = maps.TraceWith( 'H', operator = [2,22,222] ,dim = np.prod(dims_rho) )
+	H_map = maps.TraceWith( 'H', operator = np.identify(np.prod(dims_rho), dtype=complex) ,dim = np.prod(dims_rho) )
 	
 	# dual varsiables
 	a = OptVar('alpha', 'dual', dims = (d,d,d,d) )

@@ -76,7 +76,15 @@ class Constraint:
 				print_constraint(c)
 		
 		
-	
+	'''
+	if Maps.check_inputs:
+			assert (in_var.primal_or_dual == 'primal' and out_var.primal_or_dual == 'dual') or \
+					(in_var.primal_or_dual == 'dual' and out_var.primal_or_dual == 'primal'),  \
+					('in_var and out_var sould be a prima-dual pair\n.' + f'in_var {in_var.name} is {in_var.primal_or_dual}\n' + \
+					f'out_var {out_var.name} in {out_var.primal_or_dual}' ) 
+				
+		
+	'''
 	
 
 def print_constraint(c):
