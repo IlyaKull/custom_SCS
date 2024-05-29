@@ -89,19 +89,49 @@ def partial_trace(x, subsystems, dims, checks = False):
 	if checks:
 		assert isinstance(subsystems, list) or isinstance(subsystems, tuple) , 'subsystems should be a list or a tuple'
 		assert max(subsystems) <= len(dims)
+		assert len(dims) <= 26, 'np.einsum cannot handle more than 52 indices  =[' 
 		
-	dim_out = np.prod( [d for i,d in enumerate(dims,1) if i not in subsystems])
 	
+	kept_sys = [ (i not in subsystems) for i in range(1,len(dims)+1)]
 	
-	inds= list(range(1,len(dims+dims)+1))  # dims = [2,3,2] ---> inds= [1,2,3,4,5,6]
-	inds[subsystems + [i+len(dims) for i in subsystems] ] = 0 #  subsystems = [3] ---> inds= [ 1,2,0,4,5,0]
+	dim_out = np.prod(np.array(dims)[kept_sys])
+		
+	# inds for np.einsum
+	inds_in = np.arange(1,2*len(dims)+1).reshape((2,len(dims)))  # dims = [2,3,2] ---> inds_in= [1,2,3; 4,5,6]
+	subsys_inds = np.array(subsystems)-1
+	inds_in[1,subsys_inds] = inds_in[0,subsys_inds] # subsystems = [2,3] ---> inds_in = [1,2,3; 4,2,3]
+	inds_out  = inds_in[:,np.array(kept_sys)] # [1,2,3; 4,2,3] --> [1;4] i.e. 'ijkljk-->il'
+	
+		
 	return np.reshape(
-			np.einsum( x.reshape(dims + dims), inds, [i for i in inds if i != 0]),  # [ 1,2,0,4,5,0] --> [1,2,4,5] i.e. 'ijklmk-->ijlm'
+			np.einsum( x.reshape(dims + dims), inds_in.flatten().tolist(), inds_out.flatten().tolist()), 
 			(dim_out,dim_out) 
 			)
 
 
 
+'''
+test partial_trace
 
 
+X = np.array([[0,1],[1,0]])
+A = np.array([[1,0],[0,3]])
 
+AX = np.kron(A,X)
+AXX= np.kron(AX,X)
+
+p1AX = partial_trace(AX, [1], [2,2])
+print(p1AX)
+
+p2AX = partial_trace(AX, [2], [2,2])
+print(p2AX)
+
+p1AXX = partial_trace(AXX, [1], [2,2,2])
+print(p1AXX)
+
+p2AXX = partial_trace(AXX, [2], [2,2,2])
+print(p2AXX)
+
+p3AXX = partial_trace(AXX, [3], [2,2,2])
+print(p3AXX)
+'''
