@@ -199,7 +199,7 @@ AX = np.kron(A,X)
 
 print(np.allclose( xOtimesI(AX, [4,2,2], [2]) , tensorProd(A,I2,X)))
 print(np.allclose( xOtimesI(AX, [4,2,3], [3]) , tensorProd(A,X,I3)))
-
+print(np.allclose( xOtimesI(AX, [3,4,2], [1]) , tensorProd(I3,A,X)))
 
 # XXAI = np.kron(XXA,np.identity(2))
 # lst = [X,X,A,I]
