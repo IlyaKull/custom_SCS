@@ -169,7 +169,7 @@ class PartTrace(Maps):
 	"""
 	def __init__(self,  
 		subsystems,  # subsystems to trace : set
-		state_dims # tuple: dims of input
+		state_dims #  dims of input
 		):
 				
 		name = f"Trace_[{subsystems}/{len(state_dims)}]"
@@ -177,11 +177,16 @@ class PartTrace(Maps):
 		dims = {'in': np.prod(state_dims),
 				'out': np.prod( [state_dims[i-1] for i in remaining_subsystems] ) }
 		super().__init__(name, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]')
+		self.state_dims = state_dims
 		self.subsystems = subsystems
 		
 	
 
-	def apply(
+	def apply(self, x):
+		return partial_trace(x, self.subsystems, self.state_dims)
+		
+	def apply_adj(self, x):
+	
 	
 	
 	

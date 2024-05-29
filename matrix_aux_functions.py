@@ -1,13 +1,27 @@
 
 		
 import numpy as np
+import functools as ft
+
+
+def tensorProd(*terms):
+	'''
+	admits list input as well as *args
+	'''
+
+	if len(terms)==1 and isinstance(terms[0], list):
+		terms = terms[0]
+		
+	return ft.reduce(np.kron, terms)
+		
+
+
 
 def dim_symm_matrix(d):
 	return int((d**2 - d)/2 +d)
 	
 def dim_AntiSymm_matrix(d):
 	return int((d**2 - d)/2)
-	
 	
 
 
@@ -109,6 +123,40 @@ def partial_trace(x, subsystems, dims, checks = False):
 			)
 
 
+def xOtimesI(x, fulldims, subsystems, checks = False):
+	''' 
+	adjoint of partial trace: adds \otimes \id terms in specified subsystems
+	'''
+	kept_sys = [ (i not in subsystems) for i in range(1,len(fulldims)+1)]
+
+	if checks:
+		assert x.shape[0] == x.shape[1] and x.shape[0] == np.prod(np.array(fulldims)[kept_sys]),\
+			f"x has wrong dimensions: x.shape = {x.shape}, dimsfull= {dimsfull}, subsystems= {subsystems}"
+	
+		
+	xI = np.kron(x,\
+			np.identity(\
+				np.prod(\
+					[ d for i,d in enumerate(fulldims) if not kept_sys[i]]
+				)
+			)
+		).reshape( fulldims + fulldims)
+		
+		
+	perm_l = np.zeros((len(fulldims)),dtype = int)
+	perm_l[kept_sys] = range(sum(kept_sys))
+	perm_l[[ not b for b in kept_sys] ] = range(sum(kept_sys),len(fulldims))
+	perm_r = np.zeros((len(fulldims)),dtype = int)
+	perm_r[kept_sys] = [ i+ len(fulldims) for i in range(sum(kept_sys))]
+	perm_r[[ not b for b in kept_sys] ] = [ i+ len(fulldims) for i in range(sum(kept_sys),len(fulldims)) ]
+	
+	perm  = perm_l.tolist() + perm_r.tolist()
+	
+	return np.transpose(xI, axes = perm).reshape( (np.prod(fulldims),np.prod(fulldims)) )
+	
+	
+
+
 
 '''
 test partial_trace
@@ -116,9 +164,11 @@ test partial_trace
 
 X = np.array([[0,1],[1,0]])
 A = np.array([[1,0],[0,3]])
-
+I = np.identity(2)
 AX = np.kron(A,X)
 AXX= np.kron(AX,X)
+XXA = np.kron(X,np.kron(X,A))
+
 
 p1AX = partial_trace(AX, [1], [2,2])
 print(p1AX)
@@ -135,3 +185,34 @@ print(p2AXX)
 p3AXX = partial_trace(AXX, [3], [2,2,2])
 print(p3AXX)
 '''
+
+'''
+test xOtimesI
+'''
+X = np.array([[0,1],[1,0]])
+A = np.arange(16).reshape((4,4))
+I2 = np.identity(2)
+I3 = np.identity(3)
+AX = np.kron(A,X)
+
+	
+
+print(np.allclose( xOtimesI(AX, [4,2,2], [2]) , tensorProd(A,I2,X)))
+print(np.allclose( xOtimesI(AX, [4,2,3], [3]) , tensorProd(A,X,I3)))
+
+
+# XXAI = np.kron(XXA,np.identity(2))
+# lst = [X,X,A,I]
+# print(tensorProd(lst).shape)
+# print(np.allclose(XXAI, tensorProd(*lst)))
+# # print(f"AXX = \n{AXX}")
+# # print(f"XXA = \n{XXA}")
+# dims = [2,2,2,2]
+# subsystems = [1,3]
+# # need to put id in 1st and 3rd slots
+# # x --> xII -->reshape --> transpose(xII, dims_x + dims_sys
+# print(np.allclose(np.transpose( AXX.reshape([2,2,2,2,2,2]), [1,2,0,4,5,3]).reshape((8,8)), XXA) )
+
+
+
+
