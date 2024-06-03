@@ -25,20 +25,23 @@ def dim_AntiSymm_matrix(d):
 	
 
 
-def vec2mat(dim, real_part, imag_part = None, checks = False):
+def vec2mat(dim, real_part, imag_part = [], check_inputs = False):
+	# print(f'~~~~~~~~~~~~~~~ dim = {dim}')
+	# print(f'~~~~~~~~~~~~~~~ real part len = {len(real_part)}')
+	# print(f'~~~~~~~~~~~~~~~ imag part len = {len(imag_part)}')
 	'''
 	combine vectors of real and imaginary parts into a hermitian matrix.
 	convention is to store the upper triangular part in row major form 
 	(= to lower triangular part in column major form)
 	'''
-	if checks: # validate input. will be switched off
+	if check_inputs: # validate input. will be switched off
 		if not isinstance(real_part, np.ndarray):
 			real_part = np.array(real_part, dtype = float)
 		
 		assert len(real_part) == dim_symm_matrix(dim), \
 			f'real part has wrong number of entries: len(real) = {len(real_part)}, dimSymmMat = {dim_symm_matrix(dim)}'
 		
-		if imag_part:
+		if len(imag_part) != 0:
 			
 			if not isinstance(imag_part, np.ndarray):
 				imag_part = np.array(imag_part, dtype = float)
@@ -47,7 +50,7 @@ def vec2mat(dim, real_part, imag_part = None, checks = False):
 			f'imagenary part has wrong number of entries: len(imag) = {len(imag_part)}, dimAntiSymmMat = {dim_AntiSymm_matrix(dim)}'
 				
 				
-	if imag_part:
+	if len(imag_part) != 0:
 		mat_out = np.zeros((dim,dim), dtype = np.cfloat )
 	else:
 		mat_out = np.zeros((dim,dim), dtype = np.double )
@@ -55,16 +58,22 @@ def vec2mat(dim, real_part, imag_part = None, checks = False):
 	if dim == 1:
 		mat_out = real_part
 	else:
+		# print((mat_out[np.triu_indices(dim)]) )
+		# print((real_part))
+		# print(sum(np.triu_indices(dim)))
+		
 		mat_out[np.triu_indices(dim)] += real_part
 		mat_out					 -= np.diag(np.diag(mat_out))
 		mat_out[np.tril_indices(dim)] += real_part
 		
-		if imag_part:
+		if len(imag_part) != 0:
 			# imag_part = imag_part.astype(complex)
 			mat_out[np.triu_indices(dim, k = 1)]  += 1.0j * imag_part
 			mat_out[np.tril_indices(dim, k = -1)] -= 1.0j * imag_part
 			
 	return mat_out
+
+
 
 
 def mat2vec(dim, matrix, complex_input = True):
@@ -81,20 +90,20 @@ def mat2vec(dim, matrix, complex_input = True):
 
 
 
-'''
+
 ################ Testing vec2mat
 
 rp = np.array([1,2,3])
 ip = np.array([4])
 
-A = vec2mat(2, rp, ip, checks=False)
+A = vec2mat(2, rp, ip, False)
 print(A)
 
 RP, IP = mat2vec(2, A)
 print(f'real part {RP}\n imag part {IP}')
 
 
-'''
+
 
 
 
@@ -448,6 +457,24 @@ test apply_cg_maps
 # # print(test_calc)
 # print(np.allclose( direct_calc,test_calc))
 	
+
+
+		
+# dims = [3,2,2,3]
+# A = np.random.rand( np.prod(dims), np.prod(dims))
+# action_pattern = [1,0,0,2]
+# kraus = [np.random.rand(3,6), np.random.rand(3,6) ]	
+
+# direct_calc = apply_kraus(\
+	# apply_kraus(A, [3,2,2,3], [k.T for k in kraus], 0),\
+	# [6,4,3], [k.T for k in kraus], 2) 
+
+# # print(direct_calc)
+# test_calc = apply_cg_maps(A, dims, [k.T for k in kraus], action_pattern, checks= True)
+# # print(test_calc)
+# print(np.allclose( direct_calc,test_calc))
+
+
 	
 
 		
@@ -467,19 +494,19 @@ test apply_cg_maps
 
 
 		
-dims = [2,3,2,2,3,2]
-A = np.random.rand( np.prod(dims), np.prod(dims))
-action_pattern = [0,0,0,0,0,0]
-kraus = [np.random.rand(3,6), ]	
+# dims = [2,3,2,2,3,2]
+# A = np.random.rand( np.prod(dims), np.prod(dims))
+# action_pattern = [0,0,0,0,0,0]
+# kraus = [np.random.rand(3,6), ]	
 
-# direct_calc = apply_kraus(\
-	# apply_kraus(A, [6,2,2,6], kraus, 0),\
-	# [3,4,6], kraus,2) 
+# # direct_calc = apply_kraus(\
+	# # apply_kraus(A, [6,2,2,6], kraus, 0),\
+	# # [3,4,6], kraus,2) 
 
-# print(direct_calc)
-test_calc = apply_cg_maps(A, dims, kraus, action_pattern, checks= True)
-# print(test_calc)
-print(np.allclose( A,test_calc))
+# # print(direct_calc)
+# test_calc = apply_cg_maps(A, dims, kraus, action_pattern, checks= True)
+# # print(test_calc)
+# print(np.allclose( A,test_calc))
 	
 		
 	

@@ -2,6 +2,7 @@ import CGmaps
 from variables import OptVar 
 import numpy as np
 import maps
+import matrix_aux_functions as mf
 
 class Constraint:
 	""" Each constraint is an expression of the form
@@ -38,8 +39,6 @@ class Constraint:
 		else:
 			self.conjugateVar = OptVar(f'MISSING VAR:{label}:','dual', dims =  self.maps[0].dims['out'], add_to_var_list = False)
 	
-			
-		
 		self.constant = constant
 		
 		# primal or dual constraint
@@ -63,6 +62,43 @@ class Constraint:
 		
 		constr_list.append(self)
 		
+	
+	
+	def __call__(self, in_vec, out_vec):
+		'''
+		Each constraint is an expression of the form \sum_i M_i(v_i) for some maps M_i and variables v_i.
+		To each constraint ther is an associated conjugate variable. 
+		When a (primal or dual) constraint is applied to a vector containing all (primal or dual) variables in_vec, the result of the expression  
+		\sum_i M_i(v_i)  is written to the appropriate entry of the vector of all (dual or primal) variables out_vec
+		'''
+		assert self.conjugateVar.added_to_var_list, f'the variable conjugate to constraint {self.label} ({self.conjugateVar.name})'\
+			'was not added to the list of variables and therefore does not have indices asigned'
+		
+		print(f' in_vec dims = {in_vec.shape}')
+		print(f' out_vec dims = {out_vec.shape}')
+		
+		y = 0
+		for s,M,v in zip(self.signs, self.maps, self.var_list):
+			
+			print(f'map = {M.name}, var = {v.name}')
+			print(f'conjugate var = {self.conjugateVar.name}')
+			print(f'inds of var = {v.indices_real}, {v.indices_imag}')
+			print(f'inds of conj var = {self.conjugateVar.indices_real}, {self.conjugateVar.indices_imag}')
+			
+			y += s * M.__call__(v, in_vec)
+		
+		if self.constant:
+			y += self.constant * np.identity( np.prod(self.conjugateVar.dims))
+		
+		if self.conjugateVar.complex:
+			real_part, imag_part = mf.mat2vec(np.prod(self.conjugateVar.dims), y, self.conjugateVar.complex)
+			out_vec[self.conjugateVar.indices_real[0] : self.conjugateVar.indices_real[1]+1 ] = real_part
+			out_vec[self.conjugateVar.indices_imag[0] : self.conjugateVar.indices_imag[1]+1 ] = imag_part
+		else:
+			real_part = mf.mat2vec(np.prod(self.conjugateVar.dims), y, self.conjugateVar.complex)
+			out_vec[self.conjugateVar.indices_real[0] : self.conjugateVar.indices_real[1]+1 ] = real_part
+		
+	
 		
 	def print_constr_list(self):
 		for i, constr_list in enumerate((Constraint.primal_constraints, Constraint.dual_constraints)):
@@ -75,16 +111,6 @@ class Constraint:
 			for c in constr_list:
 				print_constraint(c)
 		
-		
-	'''
-	if Maps.check_inputs:
-			assert (in_var.primal_or_dual == 'primal' and out_var.primal_or_dual == 'dual') or \
-					(in_var.primal_or_dual == 'dual' and out_var.primal_or_dual == 'primal'),  \
-					('in_var and out_var sould be a prima-dual pair\n.' + f'in_var {in_var.name} is {in_var.primal_or_dual}\n' + \
-					f'out_var {out_var.name} in {out_var.primal_or_dual}' ) 
-				
-		
-	'''
 	
 
 def print_constraint(c):

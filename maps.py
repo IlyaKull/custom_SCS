@@ -2,13 +2,14 @@
 import numpy as np
 import copy
 
-from matrix_aux_functions import vec2mat, partial_trace xOtimesI
+import matrix_aux_functions as mf
+   
  
 class Maps:
 	"""
 	
 	"""
-	check_inputs = False
+	check_inputs = True
 	
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.
@@ -53,17 +54,17 @@ class Maps:
 		applies the map to the components of in_vec[in_var.indices...] and returns the result
 		"""
 		
-		in_var.complex:
-			matrix_var = vec2mat(\
+		if in_var.complex:
+			matrix_var = mf.vec2mat(\
 				dim = np.prod(in_var.dims),\
-				real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[0]+1 ],\
-				imag_part = in_vec[in_var.indices_imag[0] : in_var.indices_imag[0]+1 ],\
+				real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[1]+1 ],\
+				imag_part = in_vec[in_var.indices_imag[0] : in_var.indices_imag[1]+1 ],\
 				check_inputs = Maps.check_inputs
 			)
 		else:
-			matrix_var = vec2mat(\
+			matrix_var = mf.vec2mat(\
 				dim = np.prod(in_var.dims),\
-				real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[0]+1 ],\
+				real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[1]+1 ],\
 				check_inputs = Maps.check_inputs
 			)
 		
@@ -80,22 +81,35 @@ class CGmap(Maps):
 	coare-graining map in kraus representation
 	"""
 	def __init__(self, name, 
-		representation = None,  # the kraus representation of the map: a tuple of matrices
-		action = {'dimsIn':(), 'pattern':(), 'dimsOut':()} # action pattern: 
-					# dimsIn: tuple  of dimensions of input satate
+		kraus = [],  # the kraus representation of the map: a list of matrices
+		action = {'dims_in':[], 'dims_out':[], 'pattern':[],'pattern_adj':[]} # action pattern: 
+					# dims_in: list of dimensions of input satate
+					# # dims_out: list of dimensions of out satate
 					# pattern: 
 							# 0 means Id is acting on that system. 
 							# integer values for blocks on which copies of the same map act:
 							# (0,0,1,1,2,2) means IdxIdxCxC is applied where Id is acting on 1 spin and  C is acting on 2 spins
-					# dimsOut: tuple of output dims
+							# in this case dims_in = [d,d,d,d,d,d] and dims_out = [d,d,D,D]
+					# pattern_adj: same as pattern but for adjoint map: in this case (0,0,1,2)
 		):
 				
-		dims = {'in': np.prod(action['dimsIn']), 'out': np.prod(action['dimsOut'])} # total dimensions
+		dims = {'in': np.prod(action['dims_in']), 'out': np.prod(action['dims_out'])} # total dimensions
 		super().__init__(name, dims, adj_name = name + '^*')
-		self.representation = representation
+		self.kraus = kraus
 		self.action = action
 		
-			
+	def apply(self, x, checks = False):
+		return mf.apply_cg_maps(x, self.action['dims_in'], self.kraus, self.action['pattern'], checks)
+	
+	def apply_adj(self, x, checks = False):
+		return mf.apply_cg_maps(x, self.action['dims_out'], [k.conj().T for k in self.kraus] , self.action['pattern_adj'], checks)
+	
+	
+	
+	
+	
+	
+	
 			
 class TraceWith(Maps):
 	"""
@@ -183,10 +197,10 @@ class PartTrace(Maps):
 	
 
 	def apply(self, x):
-		return partial_trace(x, self.subsystems, self.state_dims)
+		return mf.partial_trace(x, self.subsystems, self.state_dims)
 		
 	def apply_adj(self, x):
-		return xOtimesI(x, self.subsystems, self.state_dims)
+		return mf.xOtimesI(x, self.subsystems, self.state_dims)
 		
 		
 		

@@ -1,30 +1,31 @@
 
 import maps
 from variables import OptVar
-from constraints import Constraint 
+from constraints import Constraint, print_constraint
+import matrix_aux_functions as mf
 import numpy as np
 
 def main():
 	
 	d = 2
 	D = 3
-	dims_rho = (d,d,d,d,d)
-	dims_omega = (d,D,d)
+	dims_rho = [d,d,d,d,d]
+	dims_omega = [d,D,d]
 	
 	rho = OptVar('rho','primal', dims = dims_rho )
 	omega = OptVar('omega','primal', dims = dims_omega)
 	
-	action_l = {'dimsIn': dims_rho, 'pattern':(1,1,1,1,0), 'dimsOut':(D,d)}
-	action_r = {'dimsIn': dims_rho, 'pattern':(0,1,1,1,1), 'dimsOut':(d,D)}
-	C_l = maps.CGmap('C_l', +1, action = action_l , check_inputs = True)
-	C_r = maps.CGmap('C_r', +1, action = action_r )
+	action_l = {'dims_in': dims_rho, 'pattern':[1,1,1,1,0], 'dims_out':[D,d]}
+	action_r = {'dims_in': dims_rho, 'pattern':[0,1,1,1,1], 'dims_out':[d,D]}
+	C_l = maps.CGmap('C_l', [np.random.rand(D,d**4)], action = action_l )
+	C_r = maps.CGmap('C_r', [np.random.rand(D,d**4)], action = action_r )
 	
-	tr_l_rho = maps.PartTrace(subsystems = {1}, state_dims = dims_rho)
-	tr_r_rho = maps.PartTrace(subsystems = {5}, state_dims = dims_rho)
+	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho)
+	tr_r_rho = maps.PartTrace(subsystems = [5], state_dims = dims_rho)
 	
 		
-	tr_l_omega = maps.PartTrace(subsystems = {1}, state_dims = dims_omega)
-	tr_r_omega = maps.PartTrace(subsystems = {3}, state_dims = dims_omega)
+	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega)
+	tr_r_omega = maps.PartTrace(subsystems = [3], state_dims = dims_omega)
 	
 	tr = maps.Trace(dim = np.prod(dims_rho) )
 	
@@ -34,7 +35,7 @@ def main():
 	id_omega = maps.Identity( dim = np.prod(dims_omega))
 	id_1 = maps.Identity( dim = 1)
 	
-	H_map = maps.TraceWith( 'H', operator = np.identify(np.prod(dims_rho), dtype=complex) ,dim = np.prod(dims_rho) )
+	H_map = maps.TraceWith( 'H', operator = np.identity(np.prod(dims_rho), dtype=complex) ,dim = np.prod(dims_rho) )
 	
 	# dual varsiables
 	a = OptVar('alpha', 'dual', dims = (d,d,d,d) )
@@ -100,16 +101,29 @@ def main():
 	
 	constraintd1.print_constr_list()
 	
-	print(primal_obj.maps[0])
-	print(constraintd1.maps[0])
-	
-	print(hex(id(primal_obj.maps[0].operator)))
-	print(hex(id(constraintd1.maps[0].operator)))
-
 	
 	
+	##########################################################################################
 	
-    
-
+	print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'*10)
+	
+	vp = np.zeros(OptVar.primal_vars[-1].indices_imag[-1])
+	print(f'primal var vec shape = {vp.shape}')
+	try: 
+		imag_ind = OptVar.dual_vars[-1].indices_imag[-1]
+	except:
+		imag_ind =0
+		
+	vd = np.ones(max(imag_ind, OptVar.dual_vars[-1].indices_real[-1]))
+	print(f'dual var vec shape = {vd.shape}')
+	
+	cl = Constraint.primal_constraints
+	print_constraint(cl[5])
+	
+	cl[5](vp, vd)
+	print(vd)
+	print(sum(vd))
+	
+	
 if __name__ == '__main__':
 	main()

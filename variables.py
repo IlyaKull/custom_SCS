@@ -15,6 +15,7 @@ class OptVar:
 		self.primal_or_dual = primal_or_dual
 		self.dims = dims
 		self.complex = complex_var
+		self.added_to_var_list = add_to_var_list
 		
 		if add_to_var_list:
 			# primal or dual variable
