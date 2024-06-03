@@ -2,7 +2,7 @@
 import numpy as np
 import copy
 
-from matrix_aux_functions import vec2mat, partial_trace
+from matrix_aux_functions import vec2mat, partial_trace xOtimesI
  
 class Maps:
 	"""
@@ -186,7 +186,22 @@ class PartTrace(Maps):
 		return partial_trace(x, self.subsystems, self.state_dims)
 		
 	def apply_adj(self, x):
-	
+		return xOtimesI(x, self.subsystems, self.state_dims)
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
+		
 	
 	
 	
