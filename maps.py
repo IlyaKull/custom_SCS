@@ -51,23 +51,15 @@ class Maps:
 		
 	def __call__(self, in_var,  in_vec):
 		""" 
-		applies the map to the components of in_vec[in_var.indices...] and returns the result
+		applies the map to the components of in_vec[in_var.slice...] and returns the result
 		"""
-		
-		if in_var.complex:
-			matrix_var = mf.vec2mat(\
-				dim = np.prod(in_var.dims),\
-				real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[1]+1 ],\
-				imag_part = in_vec[in_var.indices_imag[0] : in_var.indices_imag[1]+1 ],\
-				check_inputs = Maps.check_inputs
-			)
-		else:
-			matrix_var = mf.vec2mat(\
-				dim = np.prod(in_var.dims),\
-				real_part = in_vec[in_var.indices_real[0] : in_var.indices_real[1]+1 ],\
-				check_inputs = Maps.check_inputs
-			)
-		
+		print(f'----------> calling map {self.name} on variable {in_var.name}')
+		print(f'----------> var dims = {in_var.dims}')
+		matrix_var = mf.vec2mat(\
+			dim = np.prod(in_var.dims),\
+			vec = in_vec[ in_var.slice ]\
+		)
+	
 		if self.adjoint_flag:
 			return self.apply_adj(matrix_var)
 		else:
@@ -99,10 +91,10 @@ class CGmap(Maps):
 		self.action = action
 		
 	def apply(self, x, checks = False):
-		return mf.apply_cg_maps(x, self.action['dims_in'], self.kraus, self.action['pattern'], checks)
+		return mf.apply_cg_maps(x, self.action['dims_in'], self.kraus, self.action['pattern'])
 	
 	def apply_adj(self, x, checks = False):
-		return mf.apply_cg_maps(x, self.action['dims_out'], [k.conj().T for k in self.kraus] , self.action['pattern_adj'], checks)
+		return mf.apply_cg_maps(x, self.action['dims_out'], [k.conj().T for k in self.kraus] , self.action['pattern_adj'])
 	
 	
 	

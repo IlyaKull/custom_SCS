@@ -12,13 +12,16 @@ def main():
 	dims_rho = [d,d,d,d,d]
 	dims_omega = [d,D,d]
 	
-	rho = OptVar('rho','primal', dims = dims_rho )
-	omega = OptVar('omega','primal', dims = dims_omega)
+	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD')
+	omega = OptVar('omega','primal', dims = dims_omega, cone = 'PSD')
 	
 	action_l = {'dims_in': dims_rho, 'pattern':[1,1,1,1,0], 'dims_out':[D,d]}
 	action_r = {'dims_in': dims_rho, 'pattern':[0,1,1,1,1], 'dims_out':[d,D]}
-	C_l = maps.CGmap('C_l', [np.random.rand(D,d**4)], action = action_l )
-	C_r = maps.CGmap('C_r', [np.random.rand(D,d**4)], action = action_r )
+	
+	krausOps = np.array(np.random.rand(D,d**4), dtype = rho.dtype)
+	
+	C_l = maps.CGmap('C_l', [krausOps,], action = action_l )
+	C_r = maps.CGmap('C_r', [krausOps,], action = action_r )
 	
 	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho)
 	tr_r_rho = maps.PartTrace(subsystems = [5], state_dims = dims_rho)
@@ -49,17 +52,17 @@ def main():
 	signs 		= [+1,]
 	operators 	= [H_map,]
 	operands	= [rho,]
-	primal_obj = Constraint('P_obj', signs, operators, operands, 'primal', 'OBJ')
+	primal_obj = Constraint('P_obj', signs, operators, operands, 'primal', 'OBJ', add_to_constr_list = False)
 	
 	signs 		= [+1,]
 	operators 	= [id_rho,]
 	operands	= [rho,]
-	Constraint('pos_rho', signs, operators, operands , 'primal', 'PSD')
+	Constraint('pos_rho', signs, operators, operands , 'primal', 'PSD', add_to_constr_list = False)
 	
 	signs 		= [+1,]
 	operators 	= [id_omega,]
 	operands	= [omega,]
-	Constraint('pos_omega', signs, operators, operands , 'primal', 'PSD')
+	Constraint('pos_omega', signs, operators, operands , 'primal', 'PSD', add_to_constr_list = False)
 	
 	signs 		= [+1,]
 	operators 	= [tr,]
@@ -87,7 +90,7 @@ def main():
 	signs 		= [+1,]
 	operators 	= [id_1,]
 	operands	= [e,]
-	Constraint('D_obj', signs, operators, operands, 'dual', 'OBJ')
+	Constraint('D_obj', signs, operators, operands, 'dual', 'OBJ', add_to_constr_list = False)
 	
 	signs 		= [+1, +1, +1, +1, -1, -1]
 	operators 	= [m.mod_map(adjoint = True) for m in [H_map, C_l, C_r, tr_l_rho, tr_r_rho, id_rho ] ]
@@ -107,23 +110,43 @@ def main():
 	
 	print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'*10)
 	
-	vp = np.zeros(OptVar.primal_vars[-1].indices_imag[-1])
+	vp = np.zeros(OptVar.primal_vars[-1].slice.stop, dtype = rho.dtype)
 	print(f'primal var vec shape = {vp.shape}')
-	try: 
-		imag_ind = OptVar.dual_vars[-1].indices_imag[-1]
-	except:
-		imag_ind =0
+	# rho_rand = np.random.rand( np.prod(rho.dims), np.prod(rho.dims))
+	# rho_rand = rho_rand + rho_rand.conj().T
+	# omega_rand = np.random.rand( np.prod(omega.dims), np.prod(omega.dims))
+	# omega_rand = omega_rand + omega_rand.conj().T
 		
-	vd = np.ones(max(imag_ind, OptVar.dual_vars[-1].indices_real[-1]))
+	# vp[rho.indices[0]:rho.indices[1]+1] = mf.mat2vec( dim = np.prod(rho.dims), mat = rho_rand)
+	# vp[omega.indices[0]:omega.indices[1]+1] = mf.mat2vec( dim = np.prod(omega.dims), mat = omega_rand)
+	# print(f"primal vec = \n{vp}")
+	
+	 
+	
+	vd = np.zeros(OptVar.dual_vars[-1].slice.stop, dtype = a.dtype)
+	
 	print(f'dual var vec shape = {vd.shape}')
+	vd[a.slice] = 1.0
+	vd[b_l.slice] = 22.0
+	vd[b_r.slice] = 333.0
+	vd[e.slice] = 4444.0
+	print(f"dual vec = \n{vd}")
 	
-	cl = Constraint.primal_constraints
-	print_constraint(cl[5])
 	
-	cl[5](vp, vd)
-	print(vd)
-	print(sum(vd))
+	# print(f"sliced: {vd[b_l.slice].shape}\n indexed: {vd[b_l.indices[0]:b_l.indices[1]+1].shape}")
 	
+	# from scs_funcs import proj_to_cone
+	# tau = -1.
+	# u = [vd,vp,tau]
+		
+	# project_to_cone(u)
+	
+	# print(f"primal vec = \n{vp}")
+	# print(f"dual vec = \n{vd}")
+	
+	# for c in Constraint.primal_constraints:
+		# c(vp, vd)
+			
 	
 if __name__ == '__main__':
 	main()

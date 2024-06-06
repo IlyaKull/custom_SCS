@@ -14,7 +14,15 @@ class Constraint:
 	primal_constraints = []
 	dual_constraints = []
 	
-	def __init__(self, label, sign_list, map_list, var_list, primal_or_dual, constr_type, constant = None, conjugateVar = None):
+	def __init__(self, label,
+					sign_list,
+					map_list,
+					var_list,
+					primal_or_dual,
+					constr_type,
+					constant = None,
+					conjugateVar = None, 
+					add_to_constr_list = True):
 		
 		assert len(map_list) == len(var_list), f'Supplied Maps and variables do not match in length in constraint {label}'
 		assert len(sign_list) == len(var_list), f'Supplied sign_list and map_list do not match in length in constraint {label}'
@@ -60,7 +68,8 @@ class Constraint:
 		
 		self.constr_type = constr_type
 		
-		constr_list.append(self)
+		if add_to_constr_list:
+			constr_list.append(self)
 		
 	
 	
@@ -71,32 +80,21 @@ class Constraint:
 		When a (primal or dual) constraint is applied to a vector containing all (primal or dual) variables in_vec, the result of the expression  
 		\sum_i M_i(v_i)  is written to the appropriate entry of the vector of all (dual or primal) variables out_vec
 		'''
-		assert self.conjugateVar.added_to_var_list, f'the variable conjugate to constraint {self.label} ({self.conjugateVar.name})'\
-			'was not added to the list of variables and therefore does not have indices asigned'
-		
-		print(f' in_vec dims = {in_vec.shape}')
-		print(f' out_vec dims = {out_vec.shape}')
-		
+		if not self.conjugateVar.added_to_var_list:
+			print('~~~~~~~~~~ !!!!!!!!!!!!!!!!! \n',\
+			f'the variable conjugate to constraint {self.label} ({self.conjugateVar.name})', \
+			'was not added to the list of variables and therefore does not have indices asigned' )
+			return None
+				
 		y = 0
 		for s,M,v in zip(self.signs, self.maps, self.var_list):
-			
-			print(f'map = {M.name}, var = {v.name}')
-			print(f'conjugate var = {self.conjugateVar.name}')
-			print(f'inds of var = {v.indices_real}, {v.indices_imag}')
-			print(f'inds of conj var = {self.conjugateVar.indices_real}, {self.conjugateVar.indices_imag}')
-			
 			y += s * M.__call__(v, in_vec)
 		
 		if self.constant:
 			y += self.constant * np.identity( np.prod(self.conjugateVar.dims))
 		
-		if self.conjugateVar.complex:
-			real_part, imag_part = mf.mat2vec(np.prod(self.conjugateVar.dims), y, self.conjugateVar.complex)
-			out_vec[self.conjugateVar.indices_real[0] : self.conjugateVar.indices_real[1]+1 ] = real_part
-			out_vec[self.conjugateVar.indices_imag[0] : self.conjugateVar.indices_imag[1]+1 ] = imag_part
-		else:
-			real_part = mf.mat2vec(np.prod(self.conjugateVar.dims), y, self.conjugateVar.complex)
-			out_vec[self.conjugateVar.indices_real[0] : self.conjugateVar.indices_real[1]+1 ] = real_part
+		vec = mf.mat2vec(np.prod(self.conjugateVar.dims), y)
+		out_vec[self.conjugateVar.slice ] = vec
 		
 	
 		

@@ -25,83 +25,45 @@ def dim_AntiSymm_matrix(d):
 	
 
 
-def vec2mat(dim, real_part, imag_part = [], check_inputs = False):
-	# print(f'~~~~~~~~~~~~~~~ dim = {dim}')
-	# print(f'~~~~~~~~~~~~~~~ real part len = {len(real_part)}')
-	# print(f'~~~~~~~~~~~~~~~ imag part len = {len(imag_part)}')
+def vec2mat(dim, vec):
 	'''
-	combine vectors of real and imaginary parts into a hermitian matrix.
 	convention is to store the upper triangular part in row major form 
 	(= to lower triangular part in column major form)
 	'''
-	if check_inputs: # validate input. will be switched off
-		if not isinstance(real_part, np.ndarray):
-			real_part = np.array(real_part, dtype = float)
-		
-		assert len(real_part) == dim_symm_matrix(dim), \
-			f'real part has wrong number of entries: len(real) = {len(real_part)}, dimSymmMat = {dim_symm_matrix(dim)}'
-		
-		if len(imag_part) != 0:
-			
-			if not isinstance(imag_part, np.ndarray):
-				imag_part = np.array(imag_part, dtype = float)
-			
-			assert len(imag_part) == dim_AntiSymm_matrix(dim), \
-			f'imagenary part has wrong number of entries: len(imag) = {len(imag_part)}, dimAntiSymmMat = {dim_AntiSymm_matrix(dim)}'
+	assert len(vec) == dim_symm_matrix(dim), \
+		f'vec has wrong number of entries: len(vec) = {len(vec)}, dimSymmMat = {dim_symm_matrix(dim)}'
+	
+	
+	mat = np.zeros((dim,dim), dtype = vec.dtype )
+	
+	mat[np.triu_indices(dim)] += vec
+	mat[np.tril_indices(dim)] += vec.conj()
+	mat[np.diag_indices(dim)] /= 2.0
 				
-				
-	if len(imag_part) != 0:
-		mat_out = np.zeros((dim,dim), dtype = np.cfloat )
-	else:
-		mat_out = np.zeros((dim,dim), dtype = np.double )
+	return mat
+
+
+
+
+def mat2vec(dim, mat):
+	assert mat.shape == (dim, dim), 'check simensions of input matrix'
 	
-	if dim == 1:
-		mat_out = real_part
-	else:
-		# print((mat_out[np.triu_indices(dim)]) )
-		# print((real_part))
-		# print(sum(np.triu_indices(dim)))
-		
-		mat_out[np.triu_indices(dim)] += real_part
-		mat_out					 -= np.diag(np.diag(mat_out))
-		mat_out[np.tril_indices(dim)] += real_part
-		
-		if len(imag_part) != 0:
-			# imag_part = imag_part.astype(complex)
-			mat_out[np.triu_indices(dim, k = 1)]  += 1.0j * imag_part
-			mat_out[np.tril_indices(dim, k = -1)] -= 1.0j * imag_part
-			
-	return mat_out
-
-
-
-
-def mat2vec(dim, matrix, complex_input = True):
-	assert matrix.shape == (dim, dim), 'check simensions of input matrix'
+	return mat[np.triu_indices(dim)]
 	
-	real_part = np.real(matrix[np.triu_indices(dim)])
-	
-	if complex_input:
-		imag_part = np.imag(matrix[np.triu_indices(dim, k = 1)])
-	else:
-		imag_part = None
-	
-	return (real_part, imag_part)
+	 
 
 
-
-
+'''
 ################ Testing vec2mat
 
-rp = np.array([1,2,3])
-ip = np.array([4])
+vec = np.array([1.,2.-1j,3.],)
+ 
+print(f'vec = \n{vec}') 
 
-A = vec2mat(2, rp, ip, False)
-print(A)
+print(f'mat = \n{vec2mat(2, vec)}')
 
-RP, IP = mat2vec(2, A)
-print(f'real part {RP}\n imag part {IP}')
-
+print(f'vec = \n{mat2vec(2,vec2mat(2, vec))}')
+'''
 
 
 
@@ -256,7 +218,7 @@ def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 	
 	dim_out = np.prod([d for i,d in enumerate(dims) if i != subsystem ]) * kraus[0].shape[0]
 	
-	y= np.zeros((dim_out,dim_out))
+	y = np.zeros((dim_out,dim_out), dtype = x.dtype)
 	
 	 
 	inds_r = list(range(len(dims)*2))
@@ -265,7 +227,8 @@ def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 	inds_r[subsystem + len(dims)] = 51
 	
 	for K in kraus:
-			
+		
+		# template for what is coded below:
 		# y1 = np.einsum(\
 				# K,[1,11],\
 				# np.einsum(\
@@ -372,7 +335,7 @@ def apply_cg_maps(x, dims_x, kraus, action_pattern, checks = False):
 	map_out_dim = kraus[0].shape[0]
 	
 	
-	dims = dims_x
+	dims = dims_x.copy()
 	out = x
 	
 	# print(f'action_pattern = {action_pattern}')
