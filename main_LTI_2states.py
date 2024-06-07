@@ -46,7 +46,8 @@ def main():
 	b_r = OptVar('beta_r', 'dual', dims = (d,D))
 	e = OptVar('epsilon', 'dual', dims = (1,))
 	
-	
+	e.print_var_list()
+	assert 0==1, 'STOP HERE' 
 	
 	# primal constraints
 	signs 		= [+1,]
@@ -84,7 +85,7 @@ def main():
 	operands	= [rho,omega]
 	Constraint('right', signs, operators, operands, 'primal', 'EQ', conjugateVar = b_r)
 	
-	e.print_var_list()
+	
 	
 	# dual constraints
 	signs 		= [+1,]
