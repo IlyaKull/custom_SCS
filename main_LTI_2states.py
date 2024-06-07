@@ -131,13 +131,13 @@ def main():
 	omega_out = mf.vec2mat(np.prod(omega.dims), vp[omega.slice])
  	 	
 	# print(f"omega is symmetric {np.allclose(omega_init, omega_init.T)}")
-	print(f"rho init and rho out are close: {np.allclose(rho_init,rho_out)}")
-	print(f"omega init and omega out are close: {np.allclose(omega_init,omega_out)}")
+	# print(f"rho init and rho out are close: {np.allclose(rho_init,rho_out)}")
+	# print(f"omega init and omega out are close: {np.allclose(omega_init,omega_out)}")
 	# print(f"omega init: \n{omega_init}")
 	# print(f"omega out: \n{omega_out}")
 	# print(f"diff: \n{omega_init-omega_out}")
 	
-	print(f"omega vec: \n{vp[omega.slice]}")
+	print(f"rho vec head: \n{vp[rho.slice][0:16]}")
 	
 	
 	
@@ -160,8 +160,17 @@ def main():
 	from scs_funcs import project_to_cone
 	tau = -1.
 	u = [vd,vp,tau]
-		
-	project_to_cone(u)
+	
+	import copy
+	u_copy = u.copy()
+	u_deepcopy = copy.deepcopy(u)
+	
+	Pu = project_to_cone(u)
+	
+	print(f"u: \n{u[0][0:16]}\n{u[1][0:16]}\n{u[2]}")
+	print(f"u_copy: \n{u_copy[0][0:16]}\n{u_copy[1][0:16]}\n{u_copy[2]}")
+	print(f"u_deepcopy: \n{u_deepcopy[0][0:16]}\n{u_deepcopy[1][0:16]}\n{u_deepcopy[2]}")
+	print(f"Pu: \n{Pu[0][0:16]}\n{Pu[1][0:16]}\n{Pu[2]}")
 	
 	# print(f"primal vec = \n{vp}")
 	# print(f"dual vec = \n{vd}")
