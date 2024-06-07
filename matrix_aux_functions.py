@@ -37,8 +37,9 @@ def vec2mat(dim, vec):
 	mat = np.zeros((dim,dim), dtype = vec.dtype )
 	
 	mat[np.triu_indices(dim)] += vec
-	mat[np.tril_indices(dim)] += vec.conj()
+	mat += mat.T.conj()
 	mat[np.diag_indices(dim)] /= 2.0
+	
 				
 	return mat
 
@@ -53,17 +54,17 @@ def mat2vec(dim, mat):
 	 
 
 
-'''
-################ Testing vec2mat
-
-vec = np.array([1.,2.-1j,3.],)
  
-print(f'vec = \n{vec}') 
+# ################ Testing vec2mat
 
-print(f'mat = \n{vec2mat(2, vec)}')
+# vec = np.arange(10.)
+ 
+# print(f'vec = \n{vec}') 
 
-print(f'vec = \n{mat2vec(2,vec2mat(2, vec))}')
-'''
+# print(f'mat = \n{vec2mat(4, vec)}')
+
+# print(f'vecFmat = \n{mat2vec(4,vec2mat(4, vec))}')
+ 
 
 
 

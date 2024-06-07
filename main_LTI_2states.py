@@ -12,7 +12,7 @@ def main():
 	dims_rho = [d,d,d,d,d]
 	dims_omega = [d,D,d]
 	
-	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD')
+	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = complex)
 	omega = OptVar('omega','primal', dims = dims_omega, cone = 'PSD')
 	
 	action_l = {'dims_in': dims_rho, 'pattern':[1,1,1,1,0], 'dims_out':[D,d]}
@@ -112,13 +112,35 @@ def main():
 	
 	vp = np.zeros(OptVar.primal_vars[-1].slice.stop, dtype = rho.dtype)
 	print(f'primal var vec shape = {vp.shape}')
-	# rho_rand = np.random.rand( np.prod(rho.dims), np.prod(rho.dims))
-	# rho_rand = rho_rand + rho_rand.conj().T
-	# omega_rand = np.random.rand( np.prod(omega.dims), np.prod(omega.dims))
-	# omega_rand = omega_rand + omega_rand.conj().T
-		
-	# vp[rho.indices[0]:rho.indices[1]+1] = mf.mat2vec( dim = np.prod(rho.dims), mat = rho_rand)
-	# vp[omega.indices[0]:omega.indices[1]+1] = mf.mat2vec( dim = np.prod(omega.dims), mat = omega_rand)
+	rho_init = np.random.rand( np.prod(rho.dims), np.prod(rho.dims))
+	rho_init = rho_init + rho_init.conj().T
+	omega_init = np.random.rand( np.prod(omega.dims), np.prod(omega.dims))
+	omega_init = omega_init + omega_init.conj().T
+	
+	vp[rho.slice] = mf.mat2vec( dim = np.prod(rho.dims), mat = rho_init)
+	vp[omega.slice] = mf.mat2vec( dim = np.prod(omega.dims), mat = omega_init)
+	
+	
+	# print(f"vecs are close: {np.allclose(vp[omega.slice], omega_init[np.triu_indices(np.prod(omega.dims))])}")
+	
+	# rho_init = np.diag(np.arange(np.prod(rho.dims)) - 10.)
+	# rho_init = np.diag(np.arange(np.prod(rho.dims))- 10.)
+	
+	
+	rho_out = mf.vec2mat(np.prod(rho.dims), vp[rho.slice])
+	omega_out = mf.vec2mat(np.prod(omega.dims), vp[omega.slice])
+ 	 	
+	# print(f"omega is symmetric {np.allclose(omega_init, omega_init.T)}")
+	print(f"rho init and rho out are close: {np.allclose(rho_init,rho_out)}")
+	print(f"omega init and omega out are close: {np.allclose(omega_init,omega_out)}")
+	# print(f"omega init: \n{omega_init}")
+	# print(f"omega out: \n{omega_out}")
+	# print(f"diff: \n{omega_init-omega_out}")
+	
+	print(f"omega vec: \n{vp[omega.slice]}")
+	
+	
+	
 	# print(f"primal vec = \n{vp}")
 	
 	 
@@ -130,16 +152,16 @@ def main():
 	vd[b_l.slice] = 22.0
 	vd[b_r.slice] = 333.0
 	vd[e.slice] = 4444.0
-	print(f"dual vec = \n{vd}")
+	# print(f"dual vec = \n{vd}")
 	
 	
 	# print(f"sliced: {vd[b_l.slice].shape}\n indexed: {vd[b_l.indices[0]:b_l.indices[1]+1].shape}")
 	
-	# from scs_funcs import proj_to_cone
-	# tau = -1.
-	# u = [vd,vp,tau]
+	from scs_funcs import project_to_cone
+	tau = -1.
+	u = [vd,vp,tau]
 		
-	# project_to_cone(u)
+	project_to_cone(u)
 	
 	# print(f"primal vec = \n{vp}")
 	# print(f"dual vec = \n{vd}")
