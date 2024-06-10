@@ -73,7 +73,7 @@ class Constraint:
 		
 	
 	
-	def __call__(self, add_to_out = False):
+	def __call__(self, v_in, v_out, add_to_out = False):
 		'''
 		Each constraint is an expression of the form \sum_i M_i(v_i) for some maps M_i and variables v_i.
 		To each constraint ther is an associated conjugate variable. 
@@ -87,13 +87,19 @@ class Constraint:
 			return 1
 		
 		if not add_to_out:
-			self.conjugateVar.matrix[...] = np.zeros((np.prod(self.conjugateVar.dims),)*2, dtype = self.conjugateVar.dtype )
+			v_out[ self.conjugateVar.slice ] = np.zeros((np.prod(self.conjugateVar.dims),)*2, dtype = self.conjugateVar.dtype ).ravel()
 			
-		for s,M,v in zip(self.signs, self.maps, self.var_list):
-			self.conjugateVar.matrix += s * M.__call__(v)
+		for s,M,var in zip(self.signs, self.maps, self.var_list):
+			v_out[ self.conjugateVar.slice ] += \
+				(\
+				s * M.__call__( var, v_in ) \
+				).ravel()
 		
 		if self.constant:
-			self.conjugateVar.matrix += self.constant * np.identity( np.prod(self.conjugateVar.dims))
+			v_out[ self.conjugateVar.slice ] += \
+				(\
+				self.constant * np.identity( np.prod(self.conjugateVar.dims))\
+				).ravel()
 		
 		return 0
 	

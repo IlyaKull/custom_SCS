@@ -49,17 +49,19 @@ class Maps:
 		return s
 		
 		
-	def __call__(self, v):
+	def __call__(self, var, v_in):
 		""" 
 		apply map on v (or adjoint of map if adjoint_flag == True)
 		"""
-		print(f'----------> calling map {self.name} on variable {v.name}')
-		print(f'----------> var dims = {v.dims}')
-			
+		print(f'----------> calling map {self.name} on variable {var.name}')
+		print(f'----------> var dims = {var.dims}')
+		
+		mat = v_in[var.slice].reshape( (np.prod(var.dims),)*2 )
+		
 		if self.adjoint_flag:
-			return self.apply_adj(v.matrix)
+			return self.apply_adj( mat )
 		else:
-			return self.apply(v.matrix)
+			return self.apply( mat )
 		
 		
 		

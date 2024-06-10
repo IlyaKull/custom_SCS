@@ -38,9 +38,7 @@ class OptVar:
 			
 			# self.indices = [last_index +1, last_index + dim_symm_matrix(np.prod(dims)) ]
 			self.slice = slice(last_s, last_s + dim_symm_matrix(np.prod(dims)) )
-				
-			self.matrix = np.zeros((np.prod(self.dims) ,np.prod(self.dims) ) , dtype = self.dtype)
-					
+									
 			
 			# add variable to list
 			var_list.append(self)			
@@ -57,7 +55,7 @@ class OptVar:
 		for i, var_list in enumerate((OptVar.primal_vars, OptVar.dual_vars)):
 			print('~'*10 + " {} VARS:".format(('PRIMAL', 'DUAL')[i]))
 			for var in var_list:
-				print(f"{var.name:20} : matrix base: {var.matrix.base}", end=' ')
+				print(f"{var.name:20} : slice: {var.slice}", end=' ')
 				print(f": dims: {var.dims}: {var.dtype} : cone = {var.cone}")
 	
 
