@@ -17,39 +17,39 @@ def tensorProd(*terms):
 
 
 
-def dim_symm_matrix(d):
-	return int((d**2 - d)/2 +d)
+# # # # def dim_symm_matrix(d):
+	# # # # return int((d**2 - d)/2 +d)
 	
-def dim_AntiSymm_matrix(d):
-	return int((d**2 - d)/2)
+# # # # def dim_AntiSymm_matrix(d):
+	# # # # return int((d**2 - d)/2)
 	
 
 
-def vec2mat(dim, vec):
-	'''
-	convention is to store the upper triangular part in row major form 
-	(= to lower triangular part in column major form)
-	'''
-	assert len(vec) == dim_symm_matrix(dim), \
-		f'vec has wrong number of entries: len(vec) = {len(vec)}, dimSymmMat = {dim_symm_matrix(dim)}'
+# # # # # # # def vec2mat(dim, vec):
+	# # # # # # # '''
+	# # # # # # # convention is to store the upper triangular part in row major form 
+	# # # # # # # (= to lower triangular part in column major form)
+	# # # # # # # '''
+	# # # # # # # assert len(vec) == dim_symm_matrix(dim), \
+		# # # # # # # f'vec has wrong number of entries: len(vec) = {len(vec)}, dimSymmMat = {dim_symm_matrix(dim)}'
 	
 	
-	mat = np.zeros((dim,dim), dtype = vec.dtype )
+	# # # # # # # mat = np.zeros((dim,dim), dtype = vec.dtype )
 	
-	mat[np.triu_indices(dim)] += vec
-	mat += mat.T.conj()
-	mat[np.diag_indices(dim)] /= 2.0
+	# # # # # # # mat[np.triu_indices(dim)] += vec
+	# # # # # # # mat += mat.T.conj()
+	# # # # # # # mat[np.diag_indices(dim)] /= 2.0
 	
 				
-	return mat
+	# # # # # # # return mat
 
 
 
 
-def mat2vec(dim, mat):
-	assert mat.shape == (dim, dim), 'check simensions of input matrix'
+# # # # # # # def mat2vec(dim, mat):
+	# # # # # # # assert mat.shape == (dim, dim), 'check simensions of input matrix'
 	
-	return mat[np.triu_indices(dim)]
+	# # # # # # # return mat[np.triu_indices(dim)]
 	
 	 
 

@@ -49,21 +49,17 @@ class Maps:
 		return s
 		
 		
-	def __call__(self, in_var,  in_vec):
+	def __call__(self, v):
 		""" 
-		applies the map to the components of in_vec[in_var.slice...] and returns the result
+		apply map on v (or adjoint of map if adjoint_flag == True)
 		"""
-		print(f'----------> calling map {self.name} on variable {in_var.name}')
-		print(f'----------> var dims = {in_var.dims}')
-		matrix_var = mf.vec2mat(\
-			dim = np.prod(in_var.dims),\
-			vec = in_vec[ in_var.slice ]\
-		)
-	
+		print(f'----------> calling map {self.name} on variable {v.name}')
+		print(f'----------> var dims = {v.dims}')
+			
 		if self.adjoint_flag:
-			return self.apply_adj(matrix_var)
+			return self.apply_adj(v.matrix)
 		else:
-			return self.apply(matrix_var)
+			return self.apply(v.matrix)
 		
 		
 		
@@ -122,7 +118,7 @@ class TraceWith(Maps):
 			assert tuple(reversed(self.operator.shape)) == x.shape, f"dimensions of operator {self.op_name} don't match input matrix"
 			assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
 		
-		return np.trace(self.operator.T @ x)
+		return np.trace(self.operator.T.conj() @ x)
 	
 	def apply_adj(self, x):
 		
@@ -172,6 +168,9 @@ class Trace(Maps):
 class PartTrace(Maps):
 	"""
 	maps x -> trace_{subsystems}(x) ;  y -> id_{subsystems} \otimes y
+	!!!!!!!!!! TODO:::::::::
+	move index calculations from matrix_aux_funcs module into self 
+	(so that it computes once at init and not at every call)
 	"""
 	def __init__(self,  
 		subsystems,  # subsystems to trace : set

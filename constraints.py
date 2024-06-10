@@ -73,29 +73,29 @@ class Constraint:
 		
 	
 	
-	def __call__(self, in_vec, out_vec):
+	def __call__(self, add_to_out = False):
 		'''
 		Each constraint is an expression of the form \sum_i M_i(v_i) for some maps M_i and variables v_i.
 		To each constraint ther is an associated conjugate variable. 
-		When a (primal or dual) constraint is applied to a vector containing all (primal or dual) variables in_vec, the result of the expression  
-		\sum_i M_i(v_i)  is written to the appropriate entry of the vector of all (dual or primal) variables out_vec
+		When a (primal or dual) constraint is called, the expression \sum_i M_i(v_i) is written to the the conjugate var
+		add_to_out specifies whether out = expr or out = out + expr
 		'''
 		if not self.conjugateVar.added_to_var_list:
 			print('~~~~~~~~~~ !!!!!!!!!!!!!!!!! \n',\
 			f'the variable conjugate to constraint {self.label} ({self.conjugateVar.name})', \
-			'was not added to the list of variables and therefore does not have indices asigned' )
-			return None
-				
-		y = 0
+			'was not added to the list of variables and therefore does not have a buffer assigned' )
+			return 1
+		
+		if not add_to_out:
+			self.conjugateVar.matrix[...] = np.zeros((np.prod(self.conjugateVar.dims),)*2, dtype = self.conjugateVar.dtype )
+			
 		for s,M,v in zip(self.signs, self.maps, self.var_list):
-			y += s * M.__call__(v, in_vec)
+			self.conjugateVar.matrix += s * M.__call__(v)
 		
 		if self.constant:
-			y += self.constant * np.identity( np.prod(self.conjugateVar.dims))
+			self.conjugateVar.matrix += self.constant * np.identity( np.prod(self.conjugateVar.dims))
 		
-		vec = mf.mat2vec(np.prod(self.conjugateVar.dims), y)
-		out_vec[self.conjugateVar.slice ] = vec
-		
+		return 0
 	
 		
 	def print_constr_list(self):
