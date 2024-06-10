@@ -17,8 +17,8 @@ def tensorProd(*terms):
 
 
 
-# # # # def dim_symm_matrix(d):
-	# # # # return int((d**2 - d)/2 +d)
+def dim_symm_matrix(d):
+	return int((d**2 - d)/2 +d)
 	
 # # # # def dim_AntiSymm_matrix(d):
 	# # # # return int((d**2 - d)/2)

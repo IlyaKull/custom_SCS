@@ -29,7 +29,16 @@ class OptVar:
 			else:
 				var_list = OptVar.dual_vars
 			
-						
+			if not var_list:
+				last_index = -1
+				last_s = 0
+			else:
+				last_s = var_list[-1].slice.stop
+			
+			
+			# self.indices = [last_index +1, last_index + dim_symm_matrix(np.prod(dims)) ]
+			self.slice = slice(last_s, last_s + dim_symm_matrix(np.prod(dims)) )
+				
 			self.matrix = np.zeros((np.prod(self.dims) ,np.prod(self.dims) ) , dtype = self.dtype)
 					
 			
