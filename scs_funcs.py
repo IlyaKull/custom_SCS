@@ -5,6 +5,9 @@ import matrix_aux_functions as mf
 from scipy.sparse.linalg import LinearOperator
 from constraints import Constraint
 
+import inspect 
+ 
+
 
 def scs_iteration():
 	return
@@ -22,7 +25,7 @@ def project_to_cone(v, primal_or_dual = 'primal'):
 	for var in var_list:
 		if var.cone == 'PSD': # else if == 'Rn': projection to Rn = identity
 					
-			eigenvals, U =  la.eigh( np.reshape(v[var.slice], (np.prod(var.dims),)*2 ) )
+			eigenvals, U =  la.eigh( np.reshape(v[var.slice], (var.matdim, var.matdim) ) )
 			eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
 
 			v[var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
@@ -31,43 +34,78 @@ def project_to_cone(v, primal_or_dual = 'primal'):
 	return 0
 
 
-def apply_primal_constr(y, out = None, add_to_out = False):
-	if out:
-		x = out
-	else: # allocate fresh array
-		x = np.zeros( OptVar.dual_vars[-1].slice.stop, dtype = OptVar.dual_vars[-1].dtype)
-	
+def apply_primal_constr(y, out, add_to_out = False):
 	for c in Constraint.primal_constraints:
 		c.__call__(v_in = y, v_out = x, add_to_out = add_to_out)
 		
 
-
-def apply_dual_constr(x, out = None, add_to_out = False):
-	if out:
-		y = out
-	else: # allocate fresh array
-		y = np.zeros( OptVar.primal_vars[-1].slice.stop, dtype = OptVar.primal_vars[-1].dtype)
-	
+def apply_dual_constr(x, out, add_to_out = False):
 	for c in Constraint.dual_constraints:
-		c.__call__(v_in = x, v_out = y, add_to_out = add_to_out)
+		c.__call__(v_in = x, v_out = out, add_to_out = add_to_out)
 
 
 def id_plus_AT_A(x, y_buffer):
     # y_buffer <-- A*x
-    apply_dual_constr( v_in = x, v_out = y_buffer)
+    apply_dual_constr( x = x, out = y_buffer)
     # x += A^T*y
-    apply_primal_constr( v_in = y_buffer, v_out = x, add_to_out = True)
+    apply_primal_constr( y = y_buffer, out = x, add_to_out = True)
     return x
 
-A = LinearOperator((dimY,dimX), matvec=id_plus_AT_A) ################# to do subclass to pass params!!!!!!!!!!!!!!!!!!
+
+class LinOpWithBuffer(LinearOperator):
+	'''
+	linear operator with a buffer to store the intermediate y = Ax vector in the calculation of (1 + A^T @ A)x
+	'''
+	def __init__(self, y_buffer = None, matvec = None):
+		if not y_buffer:
+			assert OptVar.lists_closed, \
+				'''
+				!!!!! need length of y vector to set buffer for linear op.\n
+				variable lists in OptVar are not closed.\n
+				run OptVar._close_var_lists() to close the lists and to fix OptVar.len_primal_vec_y
+				'''
+			
+			self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		else: 
+			self.y_buffer = y_buffer
+		if matvec:		
+			super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype )
+			self._matvec = lambda x: matvec(x, self.y_buffer) 
+			
+		else: 
+			print('did not make operator because matvec function not specified')
+		
+
+class LinOp_id_plus_AT_A(LinearOperator):
+	'''
+	linear operator with a buffer to store the intermediate y = Ax vector in the calculation of (1 + A^T @ A)x
+	'''
+	def __init__(self, y_buffer = None):
+		if not y_buffer:
+			assert OptVar.lists_closed, \
+				'''
+				!!!!! need length of y vector to set buffer for linear op.\n
+				variable lists in OptVar are not closed.\n
+				run OptVar._close_var_lists() to close the lists and to fix OptVar.len_primal_vec_y
+				'''
+			
+			self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		else: 
+			self.y_buffer = y_buffer
+				
+		super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype    )
+	
+	def _matvec(self,x):
+		apply_dual_constr( x = x, out = self.y_buffer)
+		# x += A^T*y
+		apply_primal_constr( y = self.y_buffer, out = x, add_to_out = True)
+		return x		
 
 
 
 
 
-
-
-def project_to_affine(w)
+def project_to_affine(w):
 	pass
 
 # function [u,stats] = projectToAffine(w,iter,PD,FH)

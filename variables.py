@@ -1,18 +1,26 @@
 import numpy as np
-from matrix_aux_functions import dim_symm_matrix, dim_AntiSymm_matrix
+
 
 class OptVar:
 	
 	primal_vars = []
 	dual_vars = []
 	
+	len_primal_vec_y = 0
+	len_dual_vec_x = 0
+	lists_closed = False
+	dtype = None
 	
 	def __init__(self, name, primal_or_dual, dims, cone = 'Rn', dtype = complex, add_to_var_list = True):
+		
+		assert not OptVar.lists_closed, '!!!!!!!!!!! cannot add variables because variable list is closed (OptVar.lists_closed = True)'
+		
 		self.name = name
 		self.primal_or_dual = primal_or_dual
 		self.dims = dims
 		self.dtype = dtype
 		self.added_to_var_list = add_to_var_list
+		self.matdim = np.prod(dims)
 		
 		assert cone in {'Rn','PSD'}, f"Specify cone to which variable {self.name} belongs: 'Rn' or 'PSD'"
 		self.cone = cone
@@ -37,7 +45,7 @@ class OptVar:
 			
 			
 			# self.indices = [last_index +1, last_index + dim_symm_matrix(np.prod(dims)) ]
-			self.slice = slice(last_s, last_s + dim_symm_matrix(np.prod(dims)) )
+			self.slice = slice(last_s, last_s + self.matdim**2 )
 									
 			
 			# add variable to list
@@ -45,6 +53,25 @@ class OptVar:
 			
 			print(f"{dtype.__name__} variable {self.name} was added to the list of {primal_or_dual} variables")
 			
+	
+	def _close_var_lists(self):
+		print('>>>>>>>>>>>>>>>>>>> closing variable list')
+		print('>>>>>>>>>>>>>>>>>>> adding variables is no longer possible (OptVar.lists_closed = True )')
+		OptVar.len_dual_vec_x = OptVar.dual_vars[-1].slice.stop
+		OptVar.len_primal_vec_y = OptVar.primal_vars[-1].slice.stop
+		OptVar.lists_closed = True
+		OptVar.primal_vars[-1].print_var_list()
+		
+		# determine dtype of x and y
+		dtypes = [ v.dtype for v in OptVar.dual_vars + OptVar.primal_vars ]
+		if complex in dtypes:
+			OptVar.dtype = complex
+		else:
+			OptVar.dtype = float
+		
+		print(f"length of primal vector (y): {OptVar.len_primal_vec_y}")
+		print(f"length of dual vector (x): {OptVar.len_dual_vec_x}")
+		print(f"dtype of x and y: {OptVar.dtype}")
 	
 				
 	def print_var_list(self):

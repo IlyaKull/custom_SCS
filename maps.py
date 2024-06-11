@@ -56,7 +56,7 @@ class Maps:
 		print(f'----------> calling map {self.name} on variable {var.name}')
 		print(f'----------> var dims = {var.dims}')
 		
-		mat = v_in[var.slice].reshape( (np.prod(var.dims),)*2 )
+		mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
 		
 		if self.adjoint_flag:
 			return self.apply_adj( mat )

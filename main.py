@@ -26,15 +26,15 @@ def main():
 	tr_l_omega = maps.PartTrace(subsystems = {1}, state_dims = dims_omega, sign = -1)
 	tr_r_omega = maps.PartTrace(subsystems = {3}, state_dims = dims_omega, sign = -1)
 	
-	tr = maps.Trace(+1, dim = np.prod(dims_rho) )
+	tr = maps.Trace(+1, dim = rho.matdim )
 	
 	one_var = OptVar('1','primal',dims = (1), add_to_var_list = False)
 	
-	id_rho = maps.Identity(+1, dim = np.prod(dims_rho))
-	id_omega = maps.Identity(+1, dim = np.prod(dims_omega))
+	id_rho = maps.Identity(+1, dim = rho.matdim))
+	id_omega = maps.Identity(+1, dim = omega.matdim))
 	id_1 = maps.Identity(+1, dim = 1)
 	
-	H_map = maps.TraceWith( 'H', +1, operator = [2,22,222] ,dim = np.prod(dims_rho) )
+	H_map = maps.TraceWith( 'H', +1, operator = [2,22,222] ,dim = rho.matdim )
 	
 	# dual varsiables
 	a = OptVar('alpha', 'dual', dims = (d,d,d,d) )

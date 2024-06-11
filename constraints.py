@@ -43,7 +43,7 @@ class Constraint:
 
 		if conjugateVar: 
 			self.conjugateVar = conjugateVar
-			assert np.prod(conjugateVar.dims) == self.maps[0].dims['out'] , f'Dimension mismatch between constraint {label} and dual variable {conjugateVar.name}'
+			assert self.conjugateVar.matdim == self.maps[0].dims['out'] , f'Dimension mismatch between constraint {label} and dual variable {conjugateVar.name}'
 		else:
 			self.conjugateVar = OptVar(f'MISSING VAR:{label}:','dual', dims =  self.maps[0].dims['out'], add_to_var_list = False)
 	
@@ -87,7 +87,7 @@ class Constraint:
 			return 1
 		
 		if not add_to_out:
-			v_out[ self.conjugateVar.slice ] = np.zeros((np.prod(self.conjugateVar.dims),)*2, dtype = self.conjugateVar.dtype ).ravel()
+			v_out[ self.conjugateVar.slice ] = np.zeros((self.conjugateVar.matdim,)*2, dtype = self.conjugateVar.dtype ).ravel()
 			
 		for s,M,var in zip(self.signs, self.maps, self.var_list):
 			v_out[ self.conjugateVar.slice ] += \
@@ -98,7 +98,7 @@ class Constraint:
 		if self.constant:
 			v_out[ self.conjugateVar.slice ] += \
 				(\
-				self.constant * np.identity( np.prod(self.conjugateVar.dims))\
+				self.constant * np.identity( self.conjugateVar.matdim)\
 				).ravel()
 		
 		return 0

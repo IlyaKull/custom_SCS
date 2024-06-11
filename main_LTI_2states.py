@@ -4,6 +4,8 @@ from variables import OptVar
 from constraints import Constraint, print_constraint
 import matrix_aux_functions as mf
 import numpy as np
+import scs_funcs
+
 
 def main():
 	
@@ -30,15 +32,15 @@ def main():
 	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega)
 	tr_r_omega = maps.PartTrace(subsystems = [3], state_dims = dims_omega)
 	
-	tr = maps.Trace(dim = np.prod(dims_rho) )
+	tr = maps.Trace(dim = rho.matdim )
 	
 	one_var = OptVar('1','primal',dims = (1), add_to_var_list = False)
 	
-	id_rho = maps.Identity( dim = np.prod(dims_rho))
-	id_omega = maps.Identity( dim = np.prod(dims_omega))
+	id_rho = maps.Identity( dim = rho.matdim)
+	id_omega = maps.Identity( dim = omega.matdim)
 	id_1 = maps.Identity( dim = 1)
 	
-	H_map = maps.TraceWith( 'H', operator = np.identity(np.prod(dims_rho), dtype=complex) ,dim = np.prod(dims_rho) )
+	H_map = maps.TraceWith( 'H', operator = np.identity(rho.matdim, dtype=complex) ,dim = rho.matdim )
 	
 	# dual varsiables
 	a = OptVar('alpha', 'dual', dims = (d,d,d,d) )
@@ -46,9 +48,11 @@ def main():
 	b_r = OptVar('beta_r', 'dual', dims = (d,D))
 	e = OptVar('epsilon', 'dual', dims = (1,))
 	
-	e.print_var_list()
-	assert 0==1, 'STOP HERE' 
 	
+	
+	
+	
+ 	
 	# primal constraints
 	signs 		= [+1,]
 	operators 	= [H_map,]
@@ -105,21 +109,44 @@ def main():
 	
 	constraintd1.print_constr_list()
 	
+	e._close_var_lists()
 	
-	
-	##########################################################################################
+	###################################################################
 	
 	print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'*10)
 	
-	vp = np.zeros(OptVar.primal_vars[-1].slice.stop, dtype = rho.dtype)
-	print(f'primal var vec shape = {vp.shape}')
-	rho_init = np.random.rand( np.prod(rho.dims), np.prod(rho.dims))
-	rho_init = rho_init + rho_init.conj().T
-	omega_init = np.random.rand( np.prod(omega.dims), np.prod(omega.dims))
-	omega_init = omega_init + omega_init.conj().T
+	# vp = np.zeros(OptVar.primal_vars[-1].slice.stop, dtype = rho.dtype)
+	# print(f'primal var vec shape = {vp.shape}')
+	# rho_init = np.random.rand( rho.matdim, rho.matdim)
+	# rho_init = rho_init + rho_init.conj().T
+	# omega_init = np.random.rand( omega.matdim, omega.matdim)
+	# omega_init = omega_init + omega_init.conj().T
 	
-	vp[rho.slice] = mf.mat2vec( dim = np.prod(rho.dims), mat = rho_init)
-	vp[omega.slice] = mf.mat2vec( dim = np.prod(omega.dims), mat = omega_init)
+	# vp[rho.slice] = mf.mat2vec( dim = rho.matdim, mat = rho_init)
+	# vp[omega.slice] = mf.mat2vec( dim = omega.matdim, mat = omega_init)
+	
+	
+	
+	vd = np.zeros(OptVar.dual_vars[-1].slice.stop, dtype = a.dtype)
+	
+	print(f'dual var vec shape = {vd.shape}')
+	vd[a.slice] = 1.0
+	vd[b_l.slice] = 22.0
+	vd[b_r.slice] = 333.0
+	vd[e.slice] = 4444.0
+	
+	A = scs_funcs.LinOp_id_plus_AT_A()
+	print(A._matvec(vd))
+	B = scs_funcs.LinOpWithBuffer(matvec = scs_funcs.id_plus_AT_A)
+	print(B._matvec(vd))
+	
+	
+	
+	'''
+	##########################################################################################
+	
+	
+	
 	
 	
 	# print(f"vecs are close: {np.allclose(vp[omega.slice], omega_init[np.triu_indices(np.prod(omega.dims))])}")
@@ -128,8 +155,8 @@ def main():
 	# rho_init = np.diag(np.arange(np.prod(rho.dims))- 10.)
 	
 	
-	rho_out = mf.vec2mat(np.prod(rho.dims), vp[rho.slice])
-	omega_out = mf.vec2mat(np.prod(omega.dims), vp[omega.slice])
+	rho_out = mf.vec2mat(rho.matdim, vp[rho.slice])
+	omega_out = mf.vec2mat(omega.matdim, vp[omega.slice])
  	 	
 	# print(f"omega is symmetric {np.allclose(omega_init, omega_init.T)}")
 	# print(f"rho init and rho out are close: {np.allclose(rho_init,rho_out)}")
@@ -145,14 +172,6 @@ def main():
 	# print(f"primal vec = \n{vp}")
 	
 	 
-	
-	vd = np.zeros(OptVar.dual_vars[-1].slice.stop, dtype = a.dtype)
-	
-	print(f'dual var vec shape = {vd.shape}')
-	vd[a.slice] = 1.0
-	vd[b_l.slice] = 22.0
-	vd[b_r.slice] = 333.0
-	vd[e.slice] = 4444.0
 	# print(f"dual vec = \n{vd}")
 	
 	
@@ -179,6 +198,6 @@ def main():
 	# for c in Constraint.primal_constraints:
 		# c(vp, vd)
 			
-	
+	'''
 if __name__ == '__main__':
 	main()
