@@ -90,10 +90,14 @@ class Constraint:
 			v_out[ self.conjugateVar.slice ] = np.zeros((self.conjugateVar.matdim,)*2, dtype = self.conjugateVar.dtype ).ravel()
 			
 		for s,M,var in zip(self.signs, self.maps, self.var_list):
-			v_out[ self.conjugateVar.slice ] += \
-				(\
-				s * M.__call__( var, v_in ) \
-				).ravel()
+			print(f"s = {s}")
+			print(f"M = {M.name}")
+			print(f"var = {var}")
+			
+			# print(f"outslice = {v_out[ self.conjugateVar.slice ].shape}")
+			# print(f"result size = {(	s * M.__call__( var, v_in ) ).ravel().shape}")
+			
+			v_out[ self.conjugateVar.slice ] += (	s * M.__call__( var, v_in ) ).ravel()
 		
 		if self.constant:
 			v_out[ self.conjugateVar.slice ] += \
@@ -124,7 +128,10 @@ def print_constraint(c):
 		print(f"{c.label:12} : {c.conjugateVar.name:12} : {c.constr_type:12} : ", end=' ')
 		
 		for (sign, CGmap, optVar) in zip(c.signs, c.maps, c.var_list):
-			print(f"{signString(sign)} {CGmap.name}({optVar.name}) ", end = '')
+			if optVar is None:
+				print(f"{signString(sign)} {CGmap.name}*1 ", end = '')
+			else:
+				print(f"{signString(sign)} {CGmap.name}({optVar.name}) ", end = '')
 		
 		if c.constant:
 			print(c.constant, end = ' ')

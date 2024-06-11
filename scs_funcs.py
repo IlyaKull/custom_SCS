@@ -36,7 +36,7 @@ def project_to_cone(v, primal_or_dual = 'primal'):
 
 def apply_primal_constr(y, out, add_to_out = False):
 	for c in Constraint.primal_constraints:
-		c.__call__(v_in = y, v_out = x, add_to_out = add_to_out)
+		c.__call__(v_in = y, v_out = out, add_to_out = add_to_out)
 		
 
 def apply_dual_constr(x, out, add_to_out = False):

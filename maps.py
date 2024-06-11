@@ -53,10 +53,16 @@ class Maps:
 		""" 
 		apply map on v (or adjoint of map if adjoint_flag == True)
 		"""
-		print(f'----------> calling map {self.name} on variable {var.name}')
-		print(f'----------> var dims = {var.dims}')
-		
-		mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
+		if var is None:
+			print(f'----------> calling map {self.name} on 1')
+		else:
+			print(f'----------> calling map {self.name} on variable {var.name}')
+			print(f'----------> var dims = {var.dims}')
+			
+		if var is None:
+			mat = np.array(1.0) # this takes care of the H*1 map
+		else:
+			mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
 		
 		if self.adjoint_flag:
 			return self.apply_adj( mat )

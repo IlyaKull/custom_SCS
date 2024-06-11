@@ -17,8 +17,8 @@ def main():
 	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = complex)
 	omega = OptVar('omega','primal', dims = dims_omega, cone = 'PSD')
 	
-	action_l = {'dims_in': dims_rho, 'pattern':[1,1,1,1,0], 'dims_out':[D,d]}
-	action_r = {'dims_in': dims_rho, 'pattern':[0,1,1,1,1], 'dims_out':[d,D]}
+	action_l = {'dims_in': dims_rho, 'pattern':[1,1,1,1,0], 'pattern_adj':[1,0], 'dims_out':[D,d]}
+	action_r = {'dims_in': dims_rho, 'pattern':[0,1,1,1,1], 'pattern_adj':[0,1], 'dims_out':[d,D]}
 	
 	krausOps = np.array(np.random.rand(D,d**4), dtype = rho.dtype)
 	
@@ -34,13 +34,12 @@ def main():
 	
 	tr = maps.Trace(dim = rho.matdim )
 	
-	one_var = OptVar('1','primal',dims = (1), add_to_var_list = False)
-	
+ 	
 	id_rho = maps.Identity( dim = rho.matdim)
 	id_omega = maps.Identity( dim = omega.matdim)
 	id_1 = maps.Identity( dim = 1)
 	
-	H_map = maps.TraceWith( 'H', operator = np.identity(rho.matdim, dtype=complex) ,dim = rho.matdim )
+	H_map = maps.TraceWith( 'H', operator = np.identity(rho.matdim, dtype=float) ,dim = rho.matdim )
 	
 	# dual varsiables
 	a = OptVar('alpha', 'dual', dims = (d,d,d,d) )
@@ -99,7 +98,7 @@ def main():
 	
 	signs 		= [+1, +1, +1, +1, -1, -1]
 	operators 	= [m.mod_map(adjoint = True) for m in [H_map, C_l, C_r, tr_l_rho, tr_r_rho, id_rho ] ]
-	operands	= [one_var, b_l, b_r, a, a, e]
+	operands	= [None, b_l, b_r, a, a, e]
 	constraintd1 = Constraint('D1', signs, operators, operands, 'dual', 'PSD', conjugateVar = rho)
 	
 	signs 		= [-1, -1]
@@ -137,6 +136,9 @@ def main():
 	
 	A = scs_funcs.LinOp_id_plus_AT_A()
 	print(A._matvec(vd))
+	print('computed A*vd')
+	print('+'*100)
+	
 	B = scs_funcs.LinOpWithBuffer(matvec = scs_funcs.id_plus_AT_A)
 	print(B._matvec(vd))
 	
