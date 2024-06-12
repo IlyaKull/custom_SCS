@@ -6,19 +6,20 @@ import matrix_aux_functions as mf
 import numpy as np
 import scs_funcs
 
+# @profile
 
 def main():
 	
 	d = 2
 	D = 3
-	dims_rho = [d,d,d,d,d]
-	dims_omega = [d,D,d]
+	dims_rho = (d,d,d,d,d)
+	dims_omega = (d,D,d)
 	
 	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = complex)
 	omega = OptVar('omega','primal', dims = dims_omega, cone = 'PSD')
 	
-	action_l = {'dims_in': dims_rho, 'pattern':[1,1,1,1,0], 'pattern_adj':[1,0], 'dims_out':[D,d]}
-	action_r = {'dims_in': dims_rho, 'pattern':[0,1,1,1,1], 'pattern_adj':[0,1], 'dims_out':[d,D]}
+	action_l = {'dims_in': dims_rho, 'pattern':(1,1,1,1,0), 'pattern_adj':(1,0), 'dims_out':(D,d)}
+	action_r = {'dims_in': dims_rho, 'pattern':(0,1,1,1,1), 'pattern_adj':(0,1), 'dims_out':(d,D)}
 	
 	krausOps = np.array(np.random.rand(D,d**4), dtype = rho.dtype)
 	
@@ -124,24 +125,34 @@ def main():
 	# vp[rho.slice] = mf.mat2vec( dim = rho.matdim, mat = rho_init)
 	# vp[omega.slice] = mf.mat2vec( dim = omega.matdim, mat = omega_init)
 	
-	
-	
 	vd = np.zeros(OptVar.dual_vars[-1].slice.stop, dtype = a.dtype)
-	
+		
 	print(f'dual var vec shape = {vd.shape}')
 	vd[a.slice] = 1.0
 	vd[b_l.slice] = 22.0
 	vd[b_r.slice] = 333.0
 	vd[e.slice] = 4444.0
 	
+	vd_init = vd.copy()
+	
+	print("shape of vd", vd.shape)
+		
 	A = scs_funcs.LinOp_id_plus_AT_A()
-	print(A._matvec(vd))
+	print("shape of y_buffer", A.y_buffer.shape)
+	for i in range(5):
+		vd[...] = vd_init
+		A._matvec(vd)
 	print('computed A*vd')
-	print('+'*100)
 	
-	B = scs_funcs.LinOpWithBuffer(matvec = scs_funcs.id_plus_AT_A)
-	print(B._matvec(vd))
 	
+	# print("shape of vd", vd.shape)
+	# print("shape of y_buffer", A.y_buffer.shape)
+
+	# print(np.allclose(vd, Avd))
+	# print('+'*100)
+	# AAvd = A._matvec(vd)
+	
+	# print(np.allclose(vd, AAvd))
 	
 	
 	'''

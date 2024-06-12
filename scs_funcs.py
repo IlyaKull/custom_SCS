@@ -44,36 +44,16 @@ def apply_dual_constr(x, out, add_to_out = False):
 		c.__call__(v_in = x, v_out = out, add_to_out = add_to_out)
 
 
-def id_plus_AT_A(x, y_buffer):
+def _id_plus_AT_A(x, y_buffer):
     # y_buffer <-- A*x
     apply_dual_constr( x = x, out = y_buffer)
     # x += A^T*y
     apply_primal_constr( y = y_buffer, out = x, add_to_out = True)
     return x
 
-
-class LinOpWithBuffer(LinearOperator):
-	'''
-	linear operator with a buffer to store the intermediate y = Ax vector in the calculation of (1 + A^T @ A)x
-	'''
-	def __init__(self, y_buffer = None, matvec = None):
-		if not y_buffer:
-			assert OptVar.lists_closed, \
-				'''
-				!!!!! need length of y vector to set buffer for linear op.\n
-				variable lists in OptVar are not closed.\n
-				run OptVar._close_var_lists() to close the lists and to fix OptVar.len_primal_vec_y
-				'''
-			
-			self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
-		else: 
-			self.y_buffer = y_buffer
-		if matvec:		
-			super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype )
-			self._matvec = lambda x: matvec(x, self.y_buffer) 
-			
-		else: 
-			print('did not make operator because matvec function not specified')
+ 
+		
+		
 		
 
 class LinOp_id_plus_AT_A(LinearOperator):
@@ -96,7 +76,7 @@ class LinOp_id_plus_AT_A(LinearOperator):
 		super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype    )
 	
 	def _matvec(self,x):
-		apply_dual_constr( x = x, out = self.y_buffer)
+		apply_dual_constr( x = x, out = self.y_buffer, add_to_out = False)
 		# x += A^T*y
 		apply_primal_constr( y = self.y_buffer, out = x, add_to_out = True)
 		return x		

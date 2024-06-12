@@ -96,6 +96,31 @@ def partial_trace(x, subsystems, dims, checks = False):
 
 
 
+def partial_trace_inds(subsystems, dims):
+	
+	
+	kept_sys = [ (i not in subsystems) for i in range(1,len(dims)+1)]
+	
+	dim_out = np.prod(np.array(dims)[kept_sys])
+		
+	# inds for np.einsum
+	inds_in = np.arange(1,2*len(dims)+1).reshape((2,len(dims)))  # dims = [2,3,2] ---> inds_in= [1,2,3; 4,5,6]
+	subsys_inds = np.array(subsystems)-1
+	inds_in[1,subsys_inds] = inds_in[0,subsys_inds] # subsystems = [2,3] ---> inds_in = [1,2,3; 4,2,3]
+	inds_out  = inds_in[:,np.array(kept_sys)] # [1,2,3; 4,2,3] --> [1;4] i.e. 'ijkljk-->il'
+	
+	return inds_in.ravel().tolist(), inds_out.ravel().tolist(), dim_out
+	
+
+def partial_trace_no_inds(x, dims, inds_in, inds_out, dim_out):
+	
+	return np.reshape(
+				np.einsum( x.reshape(dims + dims), inds_in, inds_out), (dim_out,)*2 
+			)
+
+
+
+
 # # '''
 # # test partial_trace
 # # '''
@@ -130,6 +155,46 @@ def partial_trace(x, subsystems, dims, checks = False):
 # # print(np.allclose( partial_trace(tensorProd(B,A,I), [2], [3,2,2]), np.trace(A) * tensorProd(B,I)))
 
 
+
+def xOtimesI_inds(subsystems, fulldims):
+	''' 
+	computes indices for adjoint of partial trace
+	'''
+	kept_sys = [ (i not in subsystems) for i in range(1,len(fulldims)+1)]
+	
+	kept_dims = [fulldims[i] for i in range(len(fulldims)) if kept_sys[i]]
+	traced_dims = [fulldims[i] for i in range(len(fulldims)) if not kept_sys[i]]
+	 
+	 	
+	dim_I_in_xI = np.prod(	[ d for i,d in enumerate(fulldims) if not kept_sys[i]]	)
+	shape_for_reshape_xI = kept_dims + traced_dims + kept_dims + traced_dims 
+		
+	
+	perm_l = np.zeros((len(fulldims)),dtype = int)
+	perm_l[kept_sys] = range(sum(kept_sys))
+	perm_l[[ not b for b in kept_sys] ] = range(sum(kept_sys),len(fulldims))
+	perm_r = np.zeros((len(fulldims)),dtype = int)
+	perm_r[kept_sys] = [ i+ len(fulldims) for i in range(sum(kept_sys))]
+	perm_r[[ not b for b in kept_sys] ] = [ i+ len(fulldims) for i in range(sum(kept_sys),len(fulldims)) ]
+	
+	axes_for_transpose  = perm_l.tolist() + perm_r.tolist()
+	
+	return dim_I_in_xI, shape_for_reshape_xI, axes_for_transpose
+
+
+
+def xOtimesI_no_Inds(x, dim_I_in_xI, shape_for_reshape_xI, axes_for_transpose, totaldim):
+	''' 
+	adjoint of partial trace: adds \otimes \id terms in specified subsystems
+	'''
+	
+	# id terms are added on the right and then permuted to their place 
+	xI = np.kron(x,\
+			np.identity(dim_I_in_xI	)
+		).reshape( shape_for_reshape_xI )
+		
+	return np.transpose(xI, axes = axes_for_transpose).reshape( (totaldim,)*2 )
+	
 
 
 def xOtimesI(x, subsystems, fulldims, checks = False):
@@ -316,7 +381,7 @@ def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 
 	
 	
-def apply_cg_maps(x, dims_x, kraus, action_pattern, checks = False):
+def apply_cg_maps(x, dims_x, kraus, action_pattern_in, checks = False):
 	'''
 	apply x --> sum_i K_i x K_i^\dagger for K_i in karus according to action_pattern.
 	action_pattern specifies on which indices of x each copy of the map acts, e.g. :
@@ -329,14 +394,15 @@ def apply_cg_maps(x, dims_x, kraus, action_pattern, checks = False):
 		(i.e. *not* action_pattern = [0,1,0,1]),
 	and only one map.
 	'''
-	
+	action_pattern = list(action_pattern_in)
+
 	n_copies = max(action_pattern)
 	
 	map_in_dim = kraus[0].shape[1]
 	map_out_dim = kraus[0].shape[0]
 	
 	
-	dims = dims_x.copy()
+	dims = list(dims_x)
 	out = x
 	
 	# print(f'action_pattern = {action_pattern}')

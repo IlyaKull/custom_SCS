@@ -10,6 +10,7 @@ class Maps:
 	
 	"""
 	check_inputs = True
+	verbose= False
 	
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.
@@ -53,11 +54,12 @@ class Maps:
 		""" 
 		apply map on v (or adjoint of map if adjoint_flag == True)
 		"""
-		if var is None:
-			print(f'----------> calling map {self.name} on 1')
-		else:
-			print(f'----------> calling map {self.name} on variable {var.name}')
-			print(f'----------> var dims = {var.dims}')
+		if Maps.verbose:
+			if var is None:
+				print(f'----------> calling map {self.name} on 1')
+			else:
+				print(f'----------> calling map {self.name} on variable {var.name}')
+				print(f'----------> var dims = {var.dims}')
 			
 		if var is None:
 			mat = np.array(1.0) # this takes care of the H*1 map
@@ -98,6 +100,10 @@ class CGmap(Maps):
 		return mf.apply_cg_maps(x, self.action['dims_in'], self.kraus, self.action['pattern'])
 	
 	def apply_adj(self, x, checks = False):
+		# print('applying adjoint CG map')
+		# print(self.action['pattern_adj'])
+		# print(self.kraus[0])
+		# print(self.action['dims_out'])
 		return mf.apply_cg_maps(x, self.action['dims_out'], [k.conj().T for k in self.kraus] , self.action['pattern_adj'])
 	
 	
@@ -193,17 +199,29 @@ class PartTrace(Maps):
 		self.state_dims = state_dims
 		self.subsystems = subsystems
 		
-	
-
+		# pre compute inds for pTr op
+		self.pTr_inds_in, self.pTr_inds_out, self.pTr_dim_out = mf.partial_trace_inds(subsystems, state_dims)
+		
+		
+		# pre compute inds for adjoint op
+		self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose = \
+			mf.xOtimesI_inds(subsystems, state_dims)
+		
+		self.totaldim = np.prod(state_dims)
+		
+		
 	def apply(self, x):
-		return mf.partial_trace(x, self.subsystems, self.state_dims)
+		
+		return mf.partial_trace_no_inds(x, self.state_dims, self.pTr_inds_in, self.pTr_inds_out, self.pTr_dim_out)
+		
 		
 	def apply_adj(self, x):
-		return mf.xOtimesI(x, self.subsystems, self.state_dims)
 		
-		
-		
-		
+		return mf.xOtimesI_no_Inds(x, self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose, self.totaldim)
+	
+	
+	
+ 
 		
 		
 		
