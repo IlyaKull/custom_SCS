@@ -139,7 +139,7 @@ def main():
 		
 	A = scs_funcs.LinOp_id_plus_AT_A()
 	print("shape of y_buffer", A.y_buffer.shape)
-	for i in range(5):
+	for i in range(3000):
 		vd[...] = vd_init
 		A._matvec(vd)
 	print('computed A*vd')
