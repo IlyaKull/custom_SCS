@@ -73,6 +73,16 @@ class OptVar:
 		print(f"length of dual vector (x): {OptVar.len_dual_vec_x}")
 		print(f"dtype of x and y: {OptVar.dtype}")
 	
+	
+	def initilize_vecs(self, f_init = np.ones):
+		assert OptVar.lists_closed , 'close variable lists to initialize vectors ( OptVar._close_var_lists() )'
+		
+		x = f_init(OptVar.len_dual_vec_x, dtype = OptVar.dtype)
+				
+		y = f_init(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		
+		return x,y
+	
 				
 	def print_var_list(self):
 		print('='*80)
@@ -86,3 +96,38 @@ class OptVar:
 				print(f": dims: {var.dims}: {var.dtype} : cone = {var.cone}")
 	
 
+
+# define subclass of dict that allows only certain keys
+# this is all just because I don't want to store k-body states omega_k in a_list[k]
+
+import collections.abc
+
+class DuplicateKeyError(KeyError):
+	pass
+	
+
+class RestrictedKeysDict(collections.abc.MutableMapping, dict):
+
+	def __init__(self, *args, allowed_keys,  **kwargs):
+		self._dict = dict(*args, **kwargs)
+		self.allowed_keys = allowed_keys
+		
+	def __getitem__(self, key):
+		return self._dict[key]
+
+	def __setitem__(self, key, value):
+		if key not in self.allowed_keys:
+			raise DuplicateKeyError(f"Key '{key}' is not a member of allowed keys: {self.allowed_keys}.")
+		self._dict[key] = value
+
+	def __delitem__(self, key):
+		del self._dict[key]
+
+	def __iter__(self):
+		return iter(self._dict)
+
+	def __len__(self):
+		return len(self._dict)
+	
+	def __str__(self):
+		return self._dict.__str__() + "_{dict with restricted keys: " + f"{self.allowed_keys}" + "}"

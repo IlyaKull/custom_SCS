@@ -9,7 +9,7 @@ class Maps:
 	"""
 	
 	"""
-	check_inputs = True
+	check_inputs = False
 	verbose= False
 	
 	def __init__(self, 
@@ -49,8 +49,8 @@ class Maps:
 				
 		return s
 		
-		
-	def __call__(self, var, v_in):
+ 
+	def __call__(self, var, v_in, sign = +1. , out = None):
 		""" 
 		apply map on v (or adjoint of map if adjoint_flag == True)
 		"""
@@ -65,13 +65,22 @@ class Maps:
 			mat = np.array(1.0) # this takes care of the H*1 map
 		else:
 			mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
-		
-		if self.adjoint_flag:
-			return self.apply_adj( mat )
+			if Maps.check_inputs:
+				assert not (mat.base is None), 'mat is a copy!'
+				
+		if not (out is None):
+			if Maps.check_inputs:
+				assert not (out.base is None), 'out is a copy!'
+				
+			if self.adjoint_flag:
+				out += sign * self.apply_adj( mat ).ravel()
+			else:
+				out += sign * self.apply( mat ).ravel()
 		else:
-			return self.apply( mat )
-		
-		
+			if self.adjoint_flag:
+				return self.apply_adj( mat )
+			else:
+				return self.apply( mat )
 		
 		
 class CGmap(Maps):
@@ -89,10 +98,11 @@ class CGmap(Maps):
 							# (0,0,1,1,2,2) means IdxIdxCxC is applied where Id is acting on 1 spin and  C is acting on 2 spins
 							# in this case dims_in = [d,d,d,d,d,d] and dims_out = [d,d,D,D]
 					# pattern_adj: same as pattern but for adjoint map: in this case (0,0,1,2)
-		):
+		,
+		**kwargs):
 				
 		dims = {'in': np.prod(action['dims_in']), 'out': np.prod(action['dims_out'])} # total dimensions
-		super().__init__(name, dims, adj_name = name + '^*')
+		super().__init__(name, dims, adj_name = name + '^*', **kwargs)
 		self.kraus = kraus
 		self.action = action
 		

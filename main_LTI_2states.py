@@ -23,7 +23,7 @@ def main():
 	
 	krausOps = np.array(np.random.rand(D,d**4), dtype = rho.dtype)
 	
-	C_l = maps.CGmap('C_l', [krausOps,], action = action_l )
+	C_l = maps.CGmap('C_l', [krausOps,], action = action_l ,check_inputs = True)
 	C_r = maps.CGmap('C_r', [krausOps,], action = action_r )
 	
 	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho)
@@ -139,10 +139,16 @@ def main():
 		
 	A = scs_funcs.LinOp_id_plus_AT_A()
 	print("shape of y_buffer", A.y_buffer.shape)
-	for i in range(3000):
-		vd[...] = vd_init
+	for i in range(1000):
+		if (i % 100) == 0:
+			vd[...] = vd_init
 		A._matvec(vd)
 	print('computed A*vd')
+	
+	# print(vd_init.base)
+	# print(vd.base)
+	# print(vd_init[-20:])
+	# print(vd[-20:])
 	
 	
 	# print("shape of vd", vd.shape)

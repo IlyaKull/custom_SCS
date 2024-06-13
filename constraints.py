@@ -72,7 +72,7 @@ class Constraint:
 			constr_list.append(self)
 		
 	
-	
+	@profile
 	def __call__(self, v_in, v_out, add_to_out = False):
 		'''
 		Each constraint is an expression of the form \sum_i M_i(v_i) for some maps M_i and variables v_i.
@@ -99,17 +99,16 @@ class Constraint:
 				print(f"s = {s}")
 				print(f"M = {M.name}")
 				print(f"var = {var}")
-				
 				print(f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
 				print(f"result size = {(	s * M.__call__( var, v_in ) ).ravel().shape}")
 			
-			v_out[ self.conjugateVar.slice ] += (	s * M.__call__( var, v_in ) ).ravel()
-		
+			
+			# maps act in place (M can also return the value if not 'out' argument is specified)
+			M.__call__( var, v_in, sign = s, out = v_out[ self.conjugateVar.slice ]) 
+			
 		if self.constant:
 			v_out[ self.conjugateVar.slice ] += \
-				(\
-				self.constant * np.identity( self.conjugateVar.matdim)\
-				).ravel()
+				(	self.constant * np.identity( self.conjugateVar.matdim)	).ravel()
 		
 		return 0
 	
