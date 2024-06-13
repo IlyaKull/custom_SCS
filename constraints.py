@@ -71,7 +71,7 @@ class Constraint:
 		if add_to_constr_list:
 			constr_list.append(self)
 		
-	
+
 	@profile
 	def __call__(self, v_in, v_out, add_to_out = False):
 		'''
