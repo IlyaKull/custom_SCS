@@ -72,7 +72,7 @@ class Constraint:
 			constr_list.append(self)
 		
 
-	@profile
+	# @profile
 	def __call__(self, v_in, v_out, add_to_out = False):
 		'''
 		Each constraint is an expression of the form \sum_i M_i(v_i) for some maps M_i and variables v_i.
@@ -80,8 +80,9 @@ class Constraint:
 		When a (primal or dual) constraint is called, the expression \sum_i M_i(v_i) is written to the the conjugate var
 		add_to_out specifies whether out = expr or out = out + expr
 		'''
-		# print(f"v_in shape = {v_in.shape}")
-		# print(f"v_out shape = {v_out.shape}")
+		if maps.Maps.verbose:
+			print(f"calling constraint {self.label}")
+		
 		if not self.conjugateVar.added_to_var_list:
 			print('~~~~~~~~~~ !!!!!!!!!!!!!!!!! \n',\
 			f'the variable conjugate to constraint {self.label} ({self.conjugateVar.name})', \
@@ -91,8 +92,8 @@ class Constraint:
 		if not add_to_out:
 			v_out[ self.conjugateVar.slice ] = np.zeros((self.conjugateVar.matdim,)*2, dtype = self.conjugateVar.dtype ).ravel()
 		
-			if maps.Maps.verbose:
-				print(f"conj var: {self.conjugateVar.name}")
+		if maps.Maps.verbose:
+			print(f"conj var: {self.conjugateVar.name}")
 		
 		for s,M,var in zip(self.signs, self.maps, self.var_list):
 			if maps.Maps.verbose:
@@ -100,13 +101,14 @@ class Constraint:
 				print(f"M = {M.name}")
 				print(f"var = {var}")
 				print(f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
-				print(f"result size = {(	s * M.__call__( var, v_in ) ).ravel().shape}")
-			
+				 
 			
 			# maps act in place (M can also return the value if not 'out' argument is specified)
 			M.__call__( var, v_in, sign = s, out = v_out[ self.conjugateVar.slice ]) 
 			
 		if self.constant:
+			if maps.Maps.verbose:
+				print(f"adding constant term {self.constant} with dims {self.conjugateVar.matdim}")
 			v_out[ self.conjugateVar.slice ] += \
 				(	self.constant * np.identity( self.conjugateVar.matdim)	).ravel()
 		

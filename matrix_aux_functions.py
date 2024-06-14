@@ -271,7 +271,7 @@ def xOtimesI(x, subsystems, fulldims, checks = False):
 	
 	
 	
-@profile
+# @profile
 def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 	'''
 	apply map to single subsystem of x: 
@@ -380,7 +380,7 @@ def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 # # print(np.allclose( expl_prod, apply_kraus(A, dims, kraus, 0)))
 
 	
-@profile
+# @profile
 def apply_cg_maps(x, dims_x, kraus, action_pattern_in, checks = False):
 	'''
 	apply x --> sum_i K_i x K_i^\dagger for K_i in karus according to action_pattern.

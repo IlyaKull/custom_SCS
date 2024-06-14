@@ -10,7 +10,7 @@ class Maps:
 	
 	"""
 	check_inputs = False
-	verbose= False
+	verbose= True
 	
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.

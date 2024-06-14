@@ -15,26 +15,19 @@ def main():
 	d = 2
 	D = 6
 	n = 100
-
-	try:
-		k0 = next( k for k in range(n+1) if D**2 < d**k)	
-		print(f'k0 = {k0}')
-		assert n > k0+1
-	except StopIteration:
-		print('n too low for chosen D,d', f'd^n = {d**n} while D^2 = {D**2}' )
-		print('!!!!!!!!!!!!!! TERMINATING')
-		sys.exit(1)
-	except AssertionError:
-		print('n has to be at least k0+2: ', f'k0+2 = {k0+2} while n = {n}' )
-		print('!!!!!!!!!!!!!! TERMINATING')
-		sys.exit(1)
-
+	
+	k0 = determine_k0(d,D)
+	
+	assert n >= k0+2 , f'n has to be at least {k0+2}: n = {n}'
+	 
+	
+	
 	dims_rho = (d,)*(k0+1)
 	dims_omega = (d,D,D,d)
 
 	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = complex)
 
-	# states is a dict with **key = the number of spins**
+	# states is a dict with >>key = the number of spins<<
 	states = RestrictedKeysDict(allowed_keys = list(range(k0+1,n+1)))
 	states[k0+1] = rho
 	for k in range(k0+2,n+1):
@@ -90,9 +83,6 @@ def main():
 	
 	
 	
-	
-	
- 	
 	# primal constraints
 	 
 	
@@ -168,6 +158,17 @@ def main():
 		A._matvec(vd)
 	print('computed A*vd')
 	
+
+def determine_k0:
+	
+	try:
+		k0 = next( k for k in range(100) if D**2 < d**k)	
+	except StopIteration:
+		print('Could not determine k0 value < 100' )
+		raise
+	
+	return k0
+		
 	
 	
 if __name__ == '__main__':

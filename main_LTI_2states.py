@@ -15,8 +15,8 @@ def main():
 	dims_rho = (d,d,d,d,d)
 	dims_omega = (d,D,d)
 	
-	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = complex)
-	omega = OptVar('omega','primal', dims = dims_omega, cone = 'PSD')
+	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = float)
+	omega = OptVar('omega','primal', dims = dims_omega, cone = 'PSD',dtype = float)
 	
 	action_l = {'dims_in': dims_rho, 'pattern':(1,1,1,1,0), 'pattern_adj':(1,0), 'dims_out':(D,d)}
 	action_r = {'dims_in': dims_rho, 'pattern':(0,1,1,1,1), 'pattern_adj':(0,1), 'dims_out':(d,D)}
@@ -43,10 +43,10 @@ def main():
 	H_map = maps.TraceWith( 'H', operator = np.identity(rho.matdim, dtype=float) ,dim = rho.matdim )
 	
 	# dual varsiables
-	a = OptVar('alpha', 'dual', dims = (d,d,d,d) )
-	b_l = OptVar('beta_l', 'dual', dims = (D,d))
-	b_r = OptVar('beta_r', 'dual', dims = (d,D))
-	e = OptVar('epsilon', 'dual', dims = (1,))
+	a = OptVar('alpha', 'dual', dims = (d,d,d,d),dtype = float )
+	b_l = OptVar('beta_l', 'dual', dims = (D,d),dtype = float)
+	b_r = OptVar('beta_r', 'dual', dims = (d,D),dtype = float)
+	e = OptVar('epsilon', 'dual', dims = (1,),dtype = float)
 	
 	
 	
@@ -115,108 +115,43 @@ def main():
 	
 	print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'*10)
 	
-	# vp = np.zeros(OptVar.primal_vars[-1].slice.stop, dtype = rho.dtype)
-	# print(f'primal var vec shape = {vp.shape}')
-	# rho_init = np.random.rand( rho.matdim, rho.matdim)
-	# rho_init = rho_init + rho_init.conj().T
-	# omega_init = np.random.rand( omega.matdim, omega.matdim)
-	# omega_init = omega_init + omega_init.conj().T
-	
-	# vp[rho.slice] = mf.mat2vec( dim = rho.matdim, mat = rho_init)
-	# vp[omega.slice] = mf.mat2vec( dim = omega.matdim, mat = omega_init)
-	
-	vd = np.zeros(OptVar.dual_vars[-1].slice.stop, dtype = a.dtype)
-		
-	print(f'dual var vec shape = {vd.shape}')
-	vd[a.slice] = 1.0
-	vd[b_l.slice] = 22.0
-	vd[b_r.slice] = 333.0
-	vd[e.slice] = 4444.0
-	
-	vd_init = vd.copy()
-	
-	print("shape of vd", vd.shape)
-		
-	A = scs_funcs.LinOp_id_plus_AT_A()
-	print("shape of y_buffer", A.y_buffer.shape)
-	for i in range(1000):
-		if (i % 100) == 0:
-			vd[...] = vd_init
-		A._matvec(vd)
-	print('computed A*vd')
-	
-	# print(vd_init.base)
-	# print(vd.base)
-	# print(vd_init[-20:])
-	# print(vd[-20:])
 	
 	
-	# print("shape of vd", vd.shape)
-	# print("shape of y_buffer", A.y_buffer.shape)
-
-	# print(np.allclose(vd, Avd))
-	# print('+'*100)
-	# AAvd = A._matvec(vd)
-	
-	# print(np.allclose(vd, AAvd))
-	
-	
-	'''
-	##########################################################################################
+	x, y = OptVar.initilize_vecs(np.random.rand)
+	print(len(x))
+	print(len(y))
 	
 	
 	
-	
-	
-	# print(f"vecs are close: {np.allclose(vp[omega.slice], omega_init[np.triu_indices(np.prod(omega.dims))])}")
-	
-	# rho_init = np.diag(np.arange(np.prod(rho.dims)) - 10.)
-	# rho_init = np.diag(np.arange(np.prod(rho.dims))- 10.)
-	
-	
-	rho_out = mf.vec2mat(rho.matdim, vp[rho.slice])
-	omega_out = mf.vec2mat(omega.matdim, vp[omega.slice])
- 	 	
-	# print(f"omega is symmetric {np.allclose(omega_init, omega_init.T)}")
-	# print(f"rho init and rho out are close: {np.allclose(rho_init,rho_out)}")
-	# print(f"omega init and omega out are close: {np.allclose(omega_init,omega_out)}")
-	# print(f"omega init: \n{omega_init}")
-	# print(f"omega out: \n{omega_out}")
-	# print(f"diff: \n{omega_init-omega_out}")
-	
-	print(f"rho vec head: \n{vp[rho.slice][0:16]}")
+	# u = np.zeros(len(vd)+len(vp)+1)
+	# u[OptVar.x_slice] = x
+	# u[OptVar.y_slice] = y
+	# u[OptVar.tao_slice] = 4.
 	
 	
 	
-	# print(f"primal vec = \n{vp}")
-	
-	 
-	# print(f"dual vec = \n{vd}")
+	x2 = np.zeros(len(x))
+	scs_funcs.apply_primal_constr(y, x2)
 	
 	
-	# print(f"sliced: {vd[b_l.slice].shape}\n indexed: {vd[b_l.indices[0]:b_l.indices[1]+1].shape}")
 	
-	from scs_funcs import project_to_cone
-	tau = -1.
-	u = [vd,vp,tau]
+	# lin_op = scs_funcs.LinOp_id_plus_AT_A()
 	
-	import copy
-	u_copy = u.copy()
-	u_deepcopy = copy.deepcopy(u)
+	# Mxy_x, Mxy_y = scs_funcs._apply_M(x,y)
+	# print(len(Mxy_x))
+	# print(len(Mxy_y))
 	
-	Pu = project_to_cone(u)
+	# scs_funcs.solve_M_inv(Mxy_x,Mxy_y,lin_op) #  
 	
-	print(f"u: \n{u[0][0:16]}\n{u[1][0:16]}\n{u[2]}")
-	print(f"u_copy: \n{u_copy[0][0:16]}\n{u_copy[1][0:16]}\n{u_copy[2]}")
-	print(f"u_deepcopy: \n{u_deepcopy[0][0:16]}\n{u_deepcopy[1][0:16]}\n{u_deepcopy[2]}")
-	print(f"Pu: \n{Pu[0][0:16]}\n{Pu[1][0:16]}\n{Pu[2]}")
+	# print(np.allclose(Mxy_x,x), np.allclose(Mxy_y,y))
 	
-	# print(f"primal vec = \n{vp}")
-	# print(f"dual vec = \n{vd}")
+	# print(Mxy_x[:10])
+	# print(x[:10])
 	
-	# for c in Constraint.primal_constraints:
-		# c(vp, vd)
-			
-	'''
+	
+	# print(Mxy_y[:10])
+	# print(y[:10])
+	
+	
 if __name__ == '__main__':
 	main()

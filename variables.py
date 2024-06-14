@@ -11,6 +11,10 @@ class OptVar:
 	lists_closed = False
 	dtype = None
 	
+	x_slice = None
+	y_slice = None
+	tao_slice = None
+ 	
 	def __init__(self, name, primal_or_dual, dims, cone = 'Rn', dtype = complex, add_to_var_list = True):
 		
 		assert not OptVar.lists_closed, '!!!!!!!!!!! cannot add variables because variable list is closed (OptVar.lists_closed = True)'
@@ -61,6 +65,11 @@ class OptVar:
 		OptVar.len_primal_vec_y = OptVar.primal_vars[-1].slice.stop
 		OptVar.lists_closed = True
 		OptVar.primal_vars[-1].print_var_list()
+		# slice of all dual vars x in u=[x,y,tao]
+		OptVar.x_slice = slice(OptVar.dual_vars[0].slice.start, OptVar.dual_vars[-1].slice.stop)
+		OptVar.y_slice = slice(OptVar.x_slice.stop, OptVar.x_slice.stop + OptVar.primal_vars[-1].slice.stop) 
+		OptVar.tao_slice = slice(OptVar.y_slice.stop, OptVar.y_slice.stop +1)
+		 
 		
 		# determine dtype of x and y
 		dtypes = [ v.dtype for v in OptVar.dual_vars + OptVar.primal_vars ]
@@ -68,6 +77,8 @@ class OptVar:
 			OptVar.dtype = complex
 		else:
 			OptVar.dtype = float
+		
+		 
 		
 		print(f"length of primal vector (y): {OptVar.len_primal_vec_y}")
 		print(f"length of dual vector (x): {OptVar.len_dual_vec_x}")
