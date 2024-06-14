@@ -75,22 +75,32 @@ def project_to_cone(u, out ):
 	return 0
 
 
-def apply_primal_constr(y, out, add_to_out = False):
-	for c in Constraint.primal_constraints:
-		c.__call__(v_in = y, v_out = out, add_to_out = add_to_out)
-		
+def apply_primal_constr(y, out = None ):
+	if not out is None:
+		for c in Constraint.primal_constraints:
+			c.__call__(v_in = y, v_out = out )
+	else:
+		out = np.zeros(OptVar.len_dual_vec_x)
+		for c in Constraint.primal_constraints:
+			 c.__call__(v_in = y , v_out = out )
+		return out 
 
-def apply_dual_constr(x, out, add_to_out = False):
-	for c in Constraint.dual_constraints:
-		c.__call__(v_in = x, v_out = out, add_to_out = add_to_out)
+def apply_dual_constr(x, out = None ):
+	if not out is None:
+		for c in Constraint.dual_constraints:
+			c.__call__(v_in = x, v_out = out )
+	else:
+		out = np.zeros(OptVar.len_primal_vec_y)
+		for c in Constraint.dual_constraints:
+			c.__call__(v_in = x ,v_out = out  )
+		return out
 
-
-def _id_plus_AT_A(x, y_buffer):
-    # y_buffer <-- A*x
-    apply_dual_constr( x = x, out = y_buffer)
-    # x += A^T*y
-    apply_primal_constr( y = y_buffer, out = x, add_to_out = True)
-    return x
+# # def _id_plus_AT_A(x, y_buffer):
+    # # # y_buffer <-- A*x
+    # # apply_dual_constr( x = x, out = y_buffer)
+    # # # x += A^T*y
+    # # apply_primal_constr( y = y_buffer, out = x, add_to_out = True)
+    # # return x
 
  
 		
@@ -117,10 +127,15 @@ class LinOp_id_plus_AT_A(LinearOperator):
 		super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype    )
 	
 	def _matvec(self,x):
-		apply_dual_constr( x = x, out = self.y_buffer, add_to_out = False)
-		# x += A^T*y
-		apply_primal_constr( y = self.y_buffer, out = x, add_to_out = True)
-		return x		
+		# self.y_buffer[...] = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		
+		# apply_dual_constr( x = x, out = self.y_buffer)
+		# # x += A^T*y
+		# apply_primal_constr( y = self.y_buffer, out = x)
+		
+		self.y_buffer = apply_dual_constr(x)
+		
+		return x + apply_primal_constr(self.y_buffer)		
 
 
  
@@ -210,12 +225,18 @@ def solve_M_inv(w_x,w_y,lin_op):
 	here the solution is written back into w_x,w_y
 	'''
 	
-	apply_primal_constr(-w_y, out = w_x, add_to_out = True) # w_x <-- w_x - A^T @ w_y
-	sol, exit_code = cg(lin_op, w_x) # w_x stores the solution z_x
-	print(f'cg exit code: {exit_code}')
+	ATw_y = apply_primal_constr(w_y)
+	z_x, exit_code = cg(lin_op, w_x - ATw_y, atol= 1e-8, tol= 1e-8)
+	Az_x = apply_dual_constr(z_x)
+	z_y = w_y + Az_x
+	return z_x, z_y
 	
-	w_x[...] = sol
-	apply_dual_constr(w_x, out = w_y, add_to_out = True) # w_y <-- w_y + A @ z_x : w_y stores the solution z_y
+	# apply_primal_constr(-w_y, out = w_x ) # w_x <-- w_x - A^T @ w_y
+	# sol, exit_code = cg(lin_op, w_x) # w_x stores the solution z_x
+	# print(f'cg exit code: {exit_code}')
+	
+	# w_x[...] = sol
+	# apply_dual_constr(w_x, out = w_y) # w_y <-- w_y + A @ z_x : w_y stores the solution z_y
 
 	
 	return
@@ -237,9 +258,11 @@ def _apply_M(x,y):
 	'''
 	x_out = x.copy()
 	y_out = y.copy()
-		
-	apply_primal_constr(y, out= x_out, add_to_out = True) # x_out += A^T @ y 
-	apply_dual_constr(-x, out= y_out, add_to_out = True) # y_out += -A @ x
+	
+	x_out += apply_primal_constr(y)
+	y_out += - apply_dual_constr(x)	
+	# apply_primal_constr(y, out= x_out ) # x_out += A^T @ y 
+	# apply_dual_constr(-x, out= y_out) # y_out += -A @ x
 	
 	return x_out, y_out
 	

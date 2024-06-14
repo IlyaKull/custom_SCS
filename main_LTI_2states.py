@@ -54,37 +54,23 @@ def main():
 	
  	
 	# primal constraints
-	signs 		= [+1,]
-	operators 	= [H_map,]
-	operands	= [rho,]
-	primal_obj = Constraint('P_obj', signs, operators, operands, 'primal', 'OBJ', add_to_constr_list = False)
 	
-	signs 		= [+1,]
-	operators 	= [id_rho,]
-	operands	= [rho,]
-	Constraint('pos_rho', signs, operators, operands , 'primal', 'PSD', add_to_constr_list = False)
-	
-	signs 		= [+1,]
-	operators 	= [id_omega,]
-	operands	= [omega,]
-	Constraint('pos_omega', signs, operators, operands , 'primal', 'PSD', add_to_constr_list = False)
-	
-	signs 		= [+1,]
+	signs 		= [-1,]
 	operators 	= [tr,]
 	operands	= [rho,]
-	Constraint('norm', signs, operators, operands , 'primal', 'EQ', constant = -1, conjugateVar = e)
+	Constraint('norm', signs, operators, operands , 'primal', 'EQ',   conjugateVar = e)
 	
-	signs 		= [+1, -1]
+	signs 		= [-1, +1]
 	operators 	= [tr_l_rho, tr_r_rho]
 	operands	= [rho, rho]
 	Constraint('LTI', signs, operators, operands, 'primal', 'EQ', conjugateVar = a)
 	
-	signs 		= [+1, -1]
+	signs 		= [-1, +1]
 	operators 	= [C_l, tr_l_omega]
 	operands	= [rho, omega]
 	Constraint('left', signs, operators, operands, 'primal', 'EQ', conjugateVar = b_l)
 	
-	signs 		= [+1, -1]
+	signs 		= [-1, +1]
 	operators 	= [C_r, tr_r_omega]
 	operands	= [rho,omega]
 	Constraint('right', signs, operators, operands, 'primal', 'EQ', conjugateVar = b_r)
@@ -92,17 +78,13 @@ def main():
 	
 	
 	# dual constraints
-	signs 		= [+1,]
-	operators 	= [id_1,]
-	operands	= [e,]
-	Constraint('D_obj', signs, operators, operands, 'dual', 'OBJ', add_to_constr_list = False)
 	
-	signs 		= [+1, +1, +1, +1, -1, -1]
-	operators 	= [m.mod_map(adjoint = True) for m in [H_map, C_l, C_r, tr_l_rho, tr_r_rho, id_rho ] ]
-	operands	= [None, b_l, b_r, a, a, e]
+	signs 		= [ -1, -1, -1, +1, -1]
+	operators 	= [m.mod_map(adjoint = True) for m in [ C_l, C_r, tr_l_rho, tr_r_rho, id_rho ] ]
+	operands	= [ b_l, b_r, a, a, e]
 	constraintd1 = Constraint('D1', signs, operators, operands, 'dual', 'PSD', conjugateVar = rho)
 	
-	signs 		= [-1, -1]
+	signs 		= [+1, +1]
 	operators 	= [m.mod_map(adjoint = True) for m in [tr_l_omega, tr_r_omega ]  ]
 	operands	= [b_l, b_r]
 	constraintd2 = Constraint('D2', signs, operators, operands  , 'dual', 'PSD', conjugateVar = omega)
@@ -117,9 +99,9 @@ def main():
 	
 	
 	
-	x, y = OptVar.initilize_vecs(np.random.rand)
-	print(len(x))
-	print(len(y))
+	x, y = rho.initilize_vecs( f_init = np.random.rand)
+	print(x[:10])
+	print(y[:10])
 	
 	
 	
@@ -130,27 +112,25 @@ def main():
 	
 	
 	
-	x2 = np.zeros(len(x))
-	scs_funcs.apply_primal_constr(y, x2)
+	# x2 = np.zeros(len(x))
+	# scs_funcs.apply_primal_constr(y, x2)
 	
 	
 	
-	# lin_op = scs_funcs.LinOp_id_plus_AT_A()
+	lin_op = scs_funcs.LinOp_id_plus_AT_A()
 	
-	# Mxy_x, Mxy_y = scs_funcs._apply_M(x,y)
+	Mxy_x, Mxy_y = scs_funcs._apply_M(x,y)
 	# print(len(Mxy_x))
 	# print(len(Mxy_y))
 	
-	# scs_funcs.solve_M_inv(Mxy_x,Mxy_y,lin_op) #  
+	sol_x, sol_y = scs_funcs.solve_M_inv(Mxy_x,Mxy_y,lin_op) #  
 	
-	# print(np.allclose(Mxy_x,x), np.allclose(Mxy_y,y))
+	print(max(abs(sol_x-x)), max(abs(sol_y-y)))
 	
-	# print(Mxy_x[:10])
-	# print(x[:10])
+	print((sol_x-x)[:10])
+ 
+	print((sol_y-y)[:10])
 	
-	
-	# print(Mxy_y[:10])
-	# print(y[:10])
 	
 	
 if __name__ == '__main__':

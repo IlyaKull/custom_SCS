@@ -14,7 +14,7 @@ def main():
 	
 	d = 2
 	D = 6
-	n = 100
+	n = 10
 	
 	k0 = determine_k0(d,D)
 	
@@ -86,33 +86,33 @@ def main():
 	# primal constraints
 	 
 	
-	signs 		= [+1,]
+	signs 		= [-1,]
 	operators 	= [tr,]
 	operands	= [rho,]
-	Constraint('norm', signs, operators, operands , 'primal', 'EQ', constant = -1, conjugateVar = e)
+	Constraint('norm', signs, operators, operands , 'primal', 'EQ', conjugateVar = e)
 	
-	signs 		= [+1, -1]
+	signs 		= [-1, +1]
 	operators 	= [tr_l_rho, tr_r_rho]
 	operands	= [rho, rho]
 	Constraint('LTI', signs, operators, operands, 'primal', 'EQ', conjugateVar = a)
 	
-	signs 		= [+1, -1]
+	signs 		= [-1, +1]
 	operators 	= [C_l0, tr_l_omega]
 	operands	= [rho, states[k0+2]]
 	Constraint(f'left_{k0+1}', signs, operators, operands, 'primal', 'EQ', conjugateVar = b_l)
 	
-	signs 		= [+1, -1]
+	signs 		= [-1, +1]
 	operators 	= [C_r0, tr_r_omega]
 	operands	= [rho,states[k0+2]]
 	Constraint(f'right_{k0+1}', signs, operators, operands, 'primal', 'EQ', conjugateVar = b_r)
 	
 	for k in range(k0+2,n):
-		signs 		= [+1, -1]
+		signs 		= [-1, +1]
 		operators 	= [C_l1, tr_l_omega]
 		operands	= [states[k], states[k+1]]
 		Constraint(f'left_{k}', signs, operators, operands, 'primal', 'EQ', conjugateVar = g_l[k])
 		
-		signs 		= [+1, -1]
+		signs 		= [-1, +1]
 		operators 	= [C_r1, tr_r_omega]
 		operands	= [states[k], states[k+1]]
 		Constraint(f'right_{k}', signs, operators, operands, 'primal', 'EQ', conjugateVar = g_r[k])
@@ -121,19 +121,19 @@ def main():
 	
 	# dual constraints
 	
-	signs 		= [+1, +1, +1, +1, -1, -1]
-	operators 	= [m.mod_map(adjoint = True) for m in [H_map, C_l0, C_r0, tr_l_rho, tr_r_rho, id_rho ] ]
-	operands	= [None, b_l, b_r, a, a, e]
+	signs 		= [ -1, -1, -1, +1, -1]
+	operators 	= [m.mod_map(adjoint = True) for m in [C_l0, C_r0, tr_l_rho, tr_r_rho, id_rho ] ]
+	operands	= [ b_l, b_r, a, a, e]
 	Constraint(f"D_{k0+1}", signs, operators, operands, 'dual', 'PSD', conjugateVar = rho)
 	
 	for k in range(k0+2,n-1):
-		signs 		= [-1, -1, +1, +1]
+		signs 		= [+1, +1, -1, -1]
 		operators 	= [m.mod_map(adjoint = True) for m in [tr_l_omega, tr_r_omega , C_l1, C_r1 ]  ]
 		operands	= [g_l[k-1], g_r[k-1], g_l[k], g_r[k]]
 		Constraint(f"D_{k}", signs, operators, operands  , 'dual', 'PSD', conjugateVar = states[k])
 	
 	
-	signs 		= [-1, -1]
+	signs 		= [+1, +1]
 	operators 	= [m.mod_map(adjoint = True) for m in [tr_l_omega, tr_r_omega ]  ]
 	operands	= [g_l[n-1], g_r[n-1]]
 	dual_constraint_n = Constraint(f"D_{n}", signs, operators, operands  , 'dual', 'PSD', conjugateVar = states[n])
@@ -142,6 +142,8 @@ def main():
 	
 	e._close_var_lists()
 	
+	
+	zibi
 	###################################################################
 	
 	print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'*10)
@@ -159,7 +161,7 @@ def main():
 	print('computed A*vd')
 	
 
-def determine_k0:
+def determine_k0(d,D):
 	
 	try:
 		k0 = next( k for k in range(100) if D**2 < d**k)	

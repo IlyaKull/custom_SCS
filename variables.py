@@ -88,9 +88,9 @@ class OptVar:
 	def initilize_vecs(self, f_init = np.ones):
 		assert OptVar.lists_closed , 'close variable lists to initialize vectors ( OptVar._close_var_lists() )'
 		
-		x = f_init(OptVar.len_dual_vec_x, dtype = OptVar.dtype)
+		x = f_init(OptVar.len_dual_vec_x )
 				
-		y = f_init(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		y = f_init(OptVar.len_primal_vec_y )
 		
 		return x,y
 	

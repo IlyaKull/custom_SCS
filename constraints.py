@@ -73,13 +73,11 @@ class Constraint:
 		
 
 	# @profile
-	def __call__(self, v_in, v_out, add_to_out = False):
+	def __call__(self, v_in, v_out):
 		'''
 		Each constraint is an expression of the form \sum_i M_i(v_i) for some maps M_i and variables v_i.
 		To each constraint ther is an associated conjugate variable. 
-		When a (primal or dual) constraint is called, the expression \sum_i M_i(v_i) is written to the the conjugate var
-		add_to_out specifies whether out = expr or out = out + expr
-		'''
+		When a (primal or dual) constraint is called, the expression \sum_i M_i(v_i) is added to the the conjugate var		'''
 		if maps.Maps.verbose:
 			print(f"calling constraint {self.label}")
 		
@@ -89,9 +87,7 @@ class Constraint:
 			'was not added to the list of variables and therefore does not have a buffer assigned' )
 			return 1
 		
-		if not add_to_out:
-			v_out[ self.conjugateVar.slice ] = np.zeros((self.conjugateVar.matdim,)*2, dtype = self.conjugateVar.dtype ).ravel()
-		
+		 
 		if maps.Maps.verbose:
 			print(f"conj var: {self.conjugateVar.name}")
 		
