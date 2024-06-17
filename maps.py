@@ -50,9 +50,10 @@ class Maps:
 		return s
 		
  
-	def __call__(self, var, v_in, sign = +1. , out = None):
+	def __call__(self, var, v_in, sign , out ):
 		""" 
 		apply map on v (or adjoint of map if adjoint_flag == True)
+		ALWAYS ACT IN PLACE (+=)
 		"""
 		if Maps.verbose:
 			if var is None:
@@ -65,23 +66,14 @@ class Maps:
 			mat = np.array(1.0) # this takes care of the H*1 map
 		else:
 			mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
-			if Maps.check_inputs:
-				assert not (mat.base is None), 'mat is a copy!'
+			
 				
-		if not (out is None):
-			if Maps.check_inputs:
-				assert not (out.base is None), 'out is a copy!'
-				
-			if self.adjoint_flag:
-				out += sign * self.apply_adj( mat ).ravel()
-			else:
-				out += sign * self.apply( mat ).ravel()
+			
+		if self.adjoint_flag:
+			out += sign * self.apply_adj( mat ).ravel()
 		else:
-			if self.adjoint_flag:
-				return self.apply_adj( mat )
-			else:
-				return self.apply( mat )
-		
+			out += sign * self.apply( mat ).ravel()
+	
 		
 class CGmap(Maps):
 	"""

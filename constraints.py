@@ -77,7 +77,9 @@ class Constraint:
 		'''
 		Each constraint is an expression of the form \sum_i M_i(v_i) for some maps M_i and variables v_i.
 		To each constraint ther is an associated conjugate variable. 
-		When a (primal or dual) constraint is called, the expression \sum_i M_i(v_i) is added to the the conjugate var		'''
+		When a (primal or dual) constraint is called, the expression \sum_i M_i(v_i) is added to the the conjugate var
+		I.E. CONSTRAINTS ALWAYS ACT IN PLACE  as +=
+		'''
 		if maps.Maps.verbose:
 			print(f"calling constraint {self.label}")
 		
@@ -98,15 +100,9 @@ class Constraint:
 				print(f"var = {var}")
 				print(f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
 				 
-			
-			# maps act in place (M can also return the value if not 'out' argument is specified)
+			# maps act in place as += 
 			M.__call__( var, v_in, sign = s, out = v_out[ self.conjugateVar.slice ]) 
 			
-		if self.constant:
-			if maps.Maps.verbose:
-				print(f"adding constant term {self.constant} with dims {self.conjugateVar.matdim}")
-			v_out[ self.conjugateVar.slice ] += \
-				(	self.constant * np.identity( self.conjugateVar.matdim)	).ravel()
 		
 		return 0
 	

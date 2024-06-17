@@ -5,11 +5,13 @@ from constraints import Constraint, print_constraint
 import matrix_aux_functions as mf
 import numpy as np
 import scs_funcs
+import cProfile
 
 # @profile
 
 def main():
 	
+	rng = np.random.default_rng(seed=17)
 	d = 2
 	D = 3
 	dims_rho = (d,d,d,d,d)
@@ -21,7 +23,7 @@ def main():
 	action_l = {'dims_in': dims_rho, 'pattern':(1,1,1,1,0), 'pattern_adj':(1,0), 'dims_out':(D,d)}
 	action_r = {'dims_in': dims_rho, 'pattern':(0,1,1,1,1), 'pattern_adj':(0,1), 'dims_out':(d,D)}
 	
-	krausOps = np.array(np.random.rand(D,d**4), dtype = rho.dtype)
+	krausOps = np.array(rng.random((D,d**4)), dtype = rho.dtype)
 	
 	C_l = maps.CGmap('C_l', [krausOps,], action = action_l ,check_inputs = True)
 	C_r = maps.CGmap('C_r', [krausOps,], action = action_r )
@@ -97,40 +99,38 @@ def main():
 	
 	print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'*10)
 	
-	
-	
-	x, y = rho.initilize_vecs( f_init = np.random.rand)
-	print(x[:10])
-	print(y[:10])
-	
-	
-	
-	# u = np.zeros(len(vd)+len(vp)+1)
-	# u[OptVar.x_slice] = x
-	# u[OptVar.y_slice] = y
-	# u[OptVar.tao_slice] = 4.
-	
-	
-	
-	# x2 = np.zeros(len(x))
-	# scs_funcs.apply_primal_constr(y, x2)
-	
-	
-	
-	lin_op = scs_funcs.LinOp_id_plus_AT_A()
-	
+	 
+	x, y = rho.initilize_vecs( f_init = rng.random)
+	# print(x[:10])
+	# print(y[:10])
+
+	control_dict = {1:'buffer', 2:'returns'}
+	control_flag=1
+	print(f'control_flag = {control_dict[control_flag]}')
+
+	lin_op = scs_funcs.LinOp_id_plus_AT_A(control_flag = control_flag)
+
 	Mxy_x, Mxy_y = scs_funcs._apply_M(x,y)
-	# print(len(Mxy_x))
-	# print(len(Mxy_y))
 	
-	sol_x, sol_y = scs_funcs.solve_M_inv(Mxy_x,Mxy_y,lin_op) #  
+	scs_funcs.solve_M_inv(Mxy_x,Mxy_y,lin_op) #  
+
+	print(max(abs(Mxy_x-x)), max(abs(Mxy_y-y)))
+
+ 	
 	
-	print(max(abs(sol_x-x)), max(abs(sol_y-y)))
 	
-	print((sol_x-x)[:10])
- 
-	print((sol_y-y)[:10])
+	control_flag=2
+	print(f'control_flag = {control_dict[control_flag]}')
+
+	lin_op = scs_funcs.LinOp_id_plus_AT_A(control_flag = control_flag)
+
+	Mxy_x, Mxy_y = scs_funcs._apply_M(x,y)
 	
+	scs_funcs.solve_M_inv(Mxy_x,Mxy_y,lin_op) #  
+
+	print(max(abs(Mxy_x-x)), max(abs(Mxy_y-y)))
+
+ 	
 	
 	
 if __name__ == '__main__':

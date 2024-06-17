@@ -74,25 +74,39 @@ def project_to_cone(u, out ):
 	
 	return 0
 
-
+@profile
 def apply_primal_constr(y, out = None ):
+	''' 
+	if out is specified then the function acts in place: v_out += primal_constraints(v_in)
+	otherwise (out=None) it returns v_out = primal_constraints(v_in)
+	'''
 	if not out is None:
 		for c in Constraint.primal_constraints:
 			c.__call__(v_in = y, v_out = out )
+		
+		return 0
 	else:
 		out = np.zeros(OptVar.len_dual_vec_x)
 		for c in Constraint.primal_constraints:
-			 c.__call__(v_in = y , v_out = out )
+			c.__call__(v_in = y, v_out = out )
+		
 		return out 
-
+@profile
 def apply_dual_constr(x, out = None ):
+	'''
+	if out is specified then the function acts in place: v_out += dual_constraints(v_in)
+	otherwise (out=None) it returns v_out = dual_constraints(v_in)
+	'''
 	if not out is None:
 		for c in Constraint.dual_constraints:
 			c.__call__(v_in = x, v_out = out )
+		
+		return 0
 	else:
 		out = np.zeros(OptVar.len_primal_vec_y)
 		for c in Constraint.dual_constraints:
 			c.__call__(v_in = x ,v_out = out  )
+		
 		return out
 
 # # def _id_plus_AT_A(x, y_buffer):
@@ -103,42 +117,175 @@ def apply_dual_constr(x, out = None ):
     # # return x
 
  
-		
+def _id_plus_AT_A(x):
+		return 	x + apply_primal_constr(apply_dual_constr(x))
 		
 		
 
+ 
 class LinOp_id_plus_AT_A(LinearOperator):
 	'''
 	linear operator with a buffer to store the intermediate y = Ax vector in the calculation of (1 + A^T @ A)x
 	'''
-	def __init__(self, y_buffer = None):
-		if not y_buffer:
-			assert OptVar.lists_closed, \
-				'''
-				!!!!! need length of y vector to set buffer for linear op.\n
-				variable lists in OptVar are not closed.\n
-				run OptVar._close_var_lists() to close the lists and to fix OptVar.len_primal_vec_y
-				'''
-			
-			self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
-		else: 
-			self.y_buffer = y_buffer
-				
+	def __init__(self):
+		 
+		self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		self.x_buffer = np.zeros(OptVar.len_dual_vec_x, dtype = OptVar.dtype)
+		
 		super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype    )
-	
+		
+		
+		
 	def _matvec(self,x):
-		# self.y_buffer[...] = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		'''
+		implements x <-- x + A^T @ A @ x
+		'''
 		
-		# apply_dual_constr( x = x, out = self.y_buffer)
-		# # x += A^T*y
-		# apply_primal_constr( y = self.y_buffer, out = x)
+		# y_buffer <-- A @ x:
+		self.y_buffer[...] = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		self.x_buffer[...] = x
+		apply_dual_constr( x = x, out = self.y_buffer) 
 		
-		self.y_buffer = apply_dual_constr(x)
-		
-		return x + apply_primal_constr(self.y_buffer)		
-
+		# x += A^T @ y
+		apply_primal_constr( y = self.y_buffer, out = self.x_buffer)
+		return self.x_buffer
+	
+ 
+ 
 
  
+
+ 
+
+def _solve_M_inv_return(w_x,w_y,lin_op):
+	'''
+	previous matlab func:
+		function [z_x,z_y,stats] = solveMinv(w_x,w_y,PD,FH,tol,maxIter)
+		% see (28) in https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf
+
+		stats=struct('CGflag',[],'CGrelres',[],'CGiters',[],'T_CG',[]);
+		if nargin < 5
+			tol=PD.CGtol;
+		end
+		if nargin < 6
+		   maxIter=PD.CGmaxIter;
+		end
+			
+		ATw_y   = FH.ATransposed_funcHandle(full(w_y));
+		ticCG=tic;
+		[z_x,stats.CGflag,stats.CGrelres,stats.CGiters]     = pcg(FH.eyePlusATA_funcHandle,full(w_x - ATw_y),tol,maxIter);
+		stats.T_CG=toc(ticCG);
+		Az_x    = FH.A_funcHandle(z_x);
+		z_y     = w_y + Az_x;
+	
+	'''
+	
+	ATw_y = apply_primal_constr(w_y)
+	z_x, exit_code = cg(lin_op, w_x - ATw_y, atol= 1e-8, tol= 1e-8, maxiter = 1000, 
+		# callback = lambda x: print(f"current iter: \n{x[:10]}")
+		)
+	Az_x = apply_dual_constr(z_x)
+	z_y = w_y + Az_x
+	print(f'cg exit code: {exit_code}')
+	return z_x, z_y
+
+
+@profile
+def solve_M_inv(w_x,w_y,lin_op):
+	'''
+	previous matlab func:
+		function [z_x,z_y,stats] = solveMinv(w_x,w_y,PD,FH,tol,maxIter)
+		% see (28) in https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf
+
+		stats=struct('CGflag',[],'CGrelres',[],'CGiters',[],'T_CG',[]);
+		if nargin < 5
+			tol=PD.CGtol;
+		end
+		if nargin < 6
+		   maxIter=PD.CGmaxIter;
+		end
+			
+		ATw_y   = FH.ATransposed_funcHandle(full(w_y));
+		ticCG=tic;
+		[z_x,stats.CGflag,stats.CGrelres,stats.CGiters]     = pcg(FH.eyePlusATA_funcHandle,full(w_x - ATw_y),tol,maxIter);
+		stats.T_CG=toc(ticCG);
+		Az_x    = FH.A_funcHandle(z_x);
+		z_y     = w_y + Az_x;
+	
+	here the solution is written back into w_x,w_y
+	'''
+	
+	apply_primal_constr(-w_y, out = w_x ) # w_x <-- w_x - A^T @ w_y
+	w_x[...], exit_code = cg(lin_op, w_x, atol= 1e-8, tol= 1e-8, maxiter = 1000) # w_x stores the solution z_x
+	print(f'cg exit code: {exit_code}')
+	
+	apply_dual_constr(w_x, out = w_y) # w_y <-- w_y + A @ z_x : w_y stores the solution z_y
+	
+	return 0
+	
+	
+	
+	
+def _apply_M(x,y):
+	'''
+	function [Mxy] = applyM(xy,PD,FH)
+	% M= [I,A^T; -A,I]
+	% applyMsymm takes  [x;y] and produces [x +A^T*y; -Ax+y];
+	 
+	[xindsInU,yindsInU]=Uinds(PD);
+
+	Mxy=nan(size(xy)); %initialize
+	Mxy(xindsInU) = xy(xindsInU) + FH.ATransposed_funcHandle(xy(yindsInU));
+	Mxy(yindsInU) = xy(yindsInU) - FH.A_funcHandle(xy(xindsInU));
+	'''
+
+	x_out = x.copy()
+	y_out = y.copy()
+	x_out += apply_primal_constr(y)
+	y_out += - apply_dual_constr(x)	
+	 
+	return x_out, y_out
+	
+	
+
+
+def _one_plus_Q(u,c,b):
+	'''
+	function [eyePlusQu] = eyePlusQ(u,PD,FH)
+	% apply eye+Q (see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 4.1)
+	% eye+Q = [M,h;-h^T,1] ie (eye+Q)[xy,tao] = [M*[xy]+h*tao ; -h^T*xy + tao]
+	 
+
+	[xindsInU,yindsInU,taoindInU]=Uinds(PD);
+	xyindsInU=[xindsInU,yindsInU];
+	 
+	h=[PD.c;PD.b];
+
+	eyePlusQu=nan(size(u)); %initialize
+	eyePlusQu(xyindsInU) =  applyM(u(xyindsInU),PD,FH) + h*u(taoindInU);
+	eyePlusQu(taoindInU) =  -h'*u(xyindsInU) + u(taoindInU);
+	'''
+	u_out = np.zeros(len(u))
+	
+	u_x = u[OptVar.x_slice]
+	u_y = u[OptVar.y_slice]
+	u_tao = u[OptVar.tao_slice]
+	
+	# eyePlusQu(xyindsInU) =  applyM(u(xyindsInU),PD,FH) + h*u(taoindInU);
+	u_out_x, u_out_y = _apply_M(u_x,u_y) 
+	u_out_x += u_tao * c 
+	u_out_y += u_tao * b
+	
+	# eyePlusQu(taoindInU) =  -h'*u(xyindsInU) + u(taoindInU);
+	u_out_tao = np.vdot(-b,u_y) + np.vdot(-c,u_x) + u_tao
+	
+	u_out[OptVar.x_slice] = u_out_x
+	u_out[OptVar.y_slice] = u_out_y
+	u_out[OptVar.tao_slice] = u_out_tao
+	
+	return u_out
+	
+
 
 
 def project_to_affine(w,out, lin_op,  c,  b, hMh, Minvh):
@@ -199,111 +346,5 @@ def project_to_affine(w,out, lin_op,  c,  b, hMh, Minvh):
 	return
 	
 
-
-
-def solve_M_inv(w_x,w_y,lin_op):
-	'''
-	previous matlab func:
-		function [z_x,z_y,stats] = solveMinv(w_x,w_y,PD,FH,tol,maxIter)
-		% see (28) in https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf
-
-		stats=struct('CGflag',[],'CGrelres',[],'CGiters',[],'T_CG',[]);
-		if nargin < 5
-			tol=PD.CGtol;
-		end
-		if nargin < 6
-		   maxIter=PD.CGmaxIter;
-		end
-			
-		ATw_y   = FH.ATransposed_funcHandle(full(w_y));
-		ticCG=tic;
-		[z_x,stats.CGflag,stats.CGrelres,stats.CGiters]     = pcg(FH.eyePlusATA_funcHandle,full(w_x - ATw_y),tol,maxIter);
-		stats.T_CG=toc(ticCG);
-		Az_x    = FH.A_funcHandle(z_x);
-		z_y     = w_y + Az_x;
-	
-	here the solution is written back into w_x,w_y
-	'''
-	
-	ATw_y = apply_primal_constr(w_y)
-	z_x, exit_code = cg(lin_op, w_x - ATw_y, atol= 1e-8, tol= 1e-8)
-	Az_x = apply_dual_constr(z_x)
-	z_y = w_y + Az_x
-	return z_x, z_y
-	
-	# apply_primal_constr(-w_y, out = w_x ) # w_x <-- w_x - A^T @ w_y
-	# sol, exit_code = cg(lin_op, w_x) # w_x stores the solution z_x
-	# print(f'cg exit code: {exit_code}')
-	
-	# w_x[...] = sol
-	# apply_dual_constr(w_x, out = w_y) # w_y <-- w_y + A @ z_x : w_y stores the solution z_y
-
-	
-	return
-	
-	
-	
-	
-def _apply_M(x,y):
-	'''
-	function [Mxy] = applyM(xy,PD,FH)
-	% M= [I,A^T; -A,I]
-	% applyMsymm takes  [x;y] and produces [x +A^T*y; -Ax+y];
-	 
-	[xindsInU,yindsInU]=Uinds(PD);
-
-	Mxy=nan(size(xy)); %initialize
-	Mxy(xindsInU) = xy(xindsInU) + FH.ATransposed_funcHandle(xy(yindsInU));
-	Mxy(yindsInU) = xy(yindsInU) - FH.A_funcHandle(xy(xindsInU));
-	'''
-	x_out = x.copy()
-	y_out = y.copy()
-	
-	x_out += apply_primal_constr(y)
-	y_out += - apply_dual_constr(x)	
-	# apply_primal_constr(y, out= x_out ) # x_out += A^T @ y 
-	# apply_dual_constr(-x, out= y_out) # y_out += -A @ x
-	
-	return x_out, y_out
-	
-	
-
-
-def _one_plus_Q(u,c,b):
-	'''
-	function [eyePlusQu] = eyePlusQ(u,PD,FH)
-	% apply eye+Q (see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 4.1)
-	% eye+Q = [M,h;-h^T,1] ie (eye+Q)[xy,tao] = [M*[xy]+h*tao ; -h^T*xy + tao]
-	 
-
-	[xindsInU,yindsInU,taoindInU]=Uinds(PD);
-	xyindsInU=[xindsInU,yindsInU];
-	 
-	h=[PD.c;PD.b];
-
-	eyePlusQu=nan(size(u)); %initialize
-	eyePlusQu(xyindsInU) =  applyM(u(xyindsInU),PD,FH) + h*u(taoindInU);
-	eyePlusQu(taoindInU) =  -h'*u(xyindsInU) + u(taoindInU);
-	'''
-	u_out = np.zeros(len(u))
-	
-	u_x = u[OptVar.x_slice]
-	u_y = u[OptVar.y_slice]
-	u_tao = u[OptVar.tao_slice]
-	
-	# eyePlusQu(xyindsInU) =  applyM(u(xyindsInU),PD,FH) + h*u(taoindInU);
-	u_out_x, u_out_y = _apply_M(u_x,u_y) 
-	u_out_x += u_tao * c 
-	u_out_y += u_tao * b
-	
-	# eyePlusQu(taoindInU) =  -h'*u(xyindsInU) + u(taoindInU);
-	u_out_tao = np.vdot(-b,u_y) + np.vdot(-c,u_x) + u_tao
-	
-	u_out[OptVar.x_slice] = u_out_x
-	u_out[OptVar.y_slice] = u_out_y
-	u_out[OptVar.tao_slice] = u_out_tao
-	
-	return u_out
-	
 
 

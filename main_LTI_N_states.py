@@ -7,14 +7,18 @@ import matrix_aux_functions as mf
 import numpy as np
 import scs_funcs
 import sys
+from scipy.sparse.linalg import LinearOperator
 
-# @profile
+
+@profile
 
 def main():
 	
 	d = 2
-	D = 6
-	n = 10
+	D = 5
+	n = 20
+	rng = np.random.default_rng(seed=17)
+	
 	
 	k0 = determine_k0(d,D)
 	
@@ -25,26 +29,26 @@ def main():
 	dims_rho = (d,)*(k0+1)
 	dims_omega = (d,D,D,d)
 
-	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = complex)
+	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = float)
 
 	# states is a dict with >>key = the number of spins<<
 	states = RestrictedKeysDict(allowed_keys = list(range(k0+1,n+1)))
 	states[k0+1] = rho
 	for k in range(k0+2,n+1):
-		states[k] = OptVar(f"omega_{k}",'primal', dims = dims_omega, cone = 'PSD')
+		states[k] = OptVar(f"omega_{k}",'primal', dims = dims_omega, cone = 'PSD', dtype = float)
 
 		
 	# cg maps acting on rho
 	action_l0 = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}
 	action_r0 = {'dims_in': dims_rho, 'pattern':(0,) + (1,)*k0, 'pattern_adj':(0,1,1), 'dims_out':(d,D,D)}
-	krausOps0 = [np.array(np.random.rand(D**2,d**k0), dtype = rho.dtype), ]
+	krausOps0 = [rng.random((D**2,d**k0)), ]
 	C_l0 = maps.CGmap('C_l0', krausOps0, action = action_l0 )
 	C_r0 = maps.CGmap('C_r0', krausOps0, action = action_r0 )
 
 	# cg maps acting on omegas 
 	action_l1 = {'dims_in': dims_omega, 'pattern':(1,1,1,0), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}
 	action_r1 = {'dims_in': dims_omega, 'pattern':(0,1,1,1), 'pattern_adj':(0,1,1), 'dims_out':(d,D,D)}
-	krausOps1 = [np.array(np.random.rand(D**2,D*D*d), dtype = rho.dtype),]
+	krausOps1 = [rng.random((D**2,D*D*d)),]
 	C_l1 = maps.CGmap('C_l1', krausOps1, action = action_l1 )
 	C_r1 = maps.CGmap('C_r1', krausOps1, action = action_r1 )
 
@@ -64,9 +68,9 @@ def main():
 	H_map = maps.TraceWith( 'H', operator = np.identity(rho.matdim, dtype=float) ,dim = rho.matdim )
 
 	# dual varsiables
-	a = OptVar('alpha', 'dual', dims = (d,)*k0 )
-	b_l = OptVar('beta_l', 'dual', dims = (D,D,d))
-	b_r = OptVar('beta_r', 'dual', dims = (d,D,D))
+	a = OptVar('alpha', 'dual', dims = (d,)*k0 , dtype = float )
+	b_l = OptVar('beta_l', 'dual', dims = (D,D,d), dtype = float)
+	b_r = OptVar('beta_r', 'dual', dims = (d,D,D), dtype = float)
 	g_l = RestrictedKeysDict(allowed_keys = list(range(k0+1,n))) 
 	g_r = RestrictedKeysDict(allowed_keys = list(range(k0+1,n)))
 
@@ -76,10 +80,10 @@ def main():
 	g_r[k0+1] = b_r
 
 	for k in range(k0+2,n):
-		g_l[k] = OptVar(f"gamma_L_{k}", 'dual', dims = (D,D,d))
-		g_r[k] = OptVar(f"gamma_R_{k}", 'dual', dims = (d,D,D))
+		g_l[k] = OptVar(f"gamma_L_{k}", 'dual', dims = (D,D,d), dtype = float)
+		g_r[k] = OptVar(f"gamma_R_{k}", 'dual', dims = (d,D,D), dtype = float)
 
-	e = OptVar('epsilon', 'dual', dims = (1,))
+	e = OptVar('epsilon', 'dual', dims = (1,), dtype = float)
 	
 	
 	
@@ -143,23 +147,35 @@ def main():
 	e._close_var_lists()
 	
 	
-	zibi
 	###################################################################
 	
 	print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'*10)
 	
 	 
-	vd, vp = OptVar.initilize_vecs(np.random.rand)
-		
-	vd_init = vd.copy()
+	x, y = rho.initilize_vecs( f_init = rng.random)
+	# print(x[:10])
+	# print(y[:10])
+
+	 
+	lin_op_buff = scs_funcs.LinOp_id_plus_AT_A()
+
+	Mxy_x, Mxy_y = scs_funcs._apply_M(x,y)
 	
-	A = scs_funcs.LinOp_id_plus_AT_A()
-	for i in range(100):
-		if (i % 10) == 0:
-			vd[...] = vd_init
-		A._matvec(vd)
-	print('computed A*vd')
+	scs_funcs.solve_M_inv(Mxy_x,Mxy_y,lin_op_buff) #  
+
+	print(max(abs(Mxy_x-x)), max(abs(Mxy_y-y)))
+
+ 	
 	
+	 
+	lin_op_simple =  LinearOperator((OptVar.len_dual_vec_x,)*2, matvec = scs_funcs._id_plus_AT_A )
+
+	Mxy_x, Mxy_y = scs_funcs._apply_M(x,y)
+	
+	scs_funcs.solve_M_inv(Mxy_x,Mxy_y,lin_op_simple) #  
+
+	print(max(abs(Mxy_x-x)), max(abs(Mxy_y-y)))
+
 
 def determine_k0(d,D):
 	
