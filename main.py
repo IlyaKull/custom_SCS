@@ -13,7 +13,7 @@ def main():
 	
 	rng = np.random.default_rng(seed=17)
 	
-	rho, tr, dual_constr_n = relax_LTI_N_problem.set_problem(n=20, D=4, d=2, xOtimesI_impl = 'kron')
+	rho, tr, dual_constr_n = relax_LTI_N_problem.set_problem(n=20, D=4, d=2, xOtimesI_impl = 'xOtimesI')
 	
 	x, y = rho.initilize_vecs( f_init = rng.random)
 	# print(x[:10])
