@@ -1,7 +1,7 @@
 
 import numpy as np
 import copy
-
+import time
 import matrix_aux_functions as mf
    
  
@@ -11,6 +11,8 @@ class Maps:
 	"""
 	check_inputs = False
 	verbose= False
+	list_all_maps = []
+	log_calls = True
 	
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.
@@ -27,6 +29,12 @@ class Maps:
 		if check_inputs:
 			Maps.check_inputs = check_inputs
 		
+		self.time = 0.
+		self.time_adj = 0.
+		self.calls = 0
+		self.calls_adj = 0
+		
+		Maps.list_all_maps.append(self)
 	
 	
 	def mod_map(self, adjoint = False):
@@ -46,6 +54,8 @@ class Maps:
 			if self.adj_name:
 				s.name = self.adj_name
 				s.adj_name = self.name
+		
+		Maps.list_all_maps.append(s)
 				
 		return s
 		
@@ -55,6 +65,9 @@ class Maps:
 		apply map on v (or adjoint of map if adjoint_flag == True)
 		ALWAYS ACT IN PLACE (+=)
 		"""
+		if Maps.log_calls:
+			t = time.perf_counter()
+		
 		if Maps.verbose:
 			if var is None:
 				print(f'----------> calling map {self.name} on 1')
@@ -73,6 +86,35 @@ class Maps:
 			out += sign * self.apply_adj( mat ).ravel()
 		else:
 			out += sign * self.apply( mat ).ravel()
+	
+		if Maps.log_calls:
+			t = time.perf_counter() - t
+			self.log_call(t)
+			
+	def log_call(self, t):
+		match self.adjoint_flag:
+			case False:
+				self.time += t
+				self.calls += 1
+			case True:
+				self.time_adj += t
+				self.calls_adj += 1
+		
+		
+	
+	def print_maps_log(self):
+		for m in Maps.list_all_maps:
+			print(f"Map {m.name} applied {m.calls} times with t_tot = {m.time:.2g}", end = ' ')
+			if m.calls > 0:
+				print(f": t/iter = {m.time / m.calls:.2g}")
+			else:
+				print('')
+			
+			print(f"...and in adjoint mode: {m.calls_adj} times with t_tot = {m.time_adj:.2g}", end = ' ')
+			if m.calls_adj > 0:
+				print(f": t/iter = {m.time_adj / m.calls_adj:.2g}")
+			else:
+				print('')
 	
 		
 class CGmap(Maps):
@@ -161,6 +203,8 @@ class Identity(Maps):
 	def apply_adj(self, x ):
 		return	x	
 
+
+
 class Trace(Maps):
 	"""
 	maps x -> trace(O*x) ; its adjoint is then c -> c*O
@@ -181,16 +225,17 @@ class Trace(Maps):
 			
 		return x * np.identity(self.dims['in'], dtype = float)
 
+
+
 class PartTrace(Maps):
 	"""
 	maps x -> trace_{subsystems}(x) ;  y -> id_{subsystems} \otimes y
-	!!!!!!!!!! TODO:::::::::
-	move index calculations from matrix_aux_funcs module into self 
-	(so that it computes once at init and not at every call)
+	
 	"""
 	def __init__(self,  
 		subsystems,  # subsystems to trace : set
-		state_dims #  dims of input
+		state_dims, #  dims of input
+		implementation = 'xOtimesI' # which function to call for the adjoint operation
 		):
 				
 		name = f"Trace_[{subsystems}/{len(state_dims)}]"
@@ -200,41 +245,68 @@ class PartTrace(Maps):
 		super().__init__(name, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]')
 		self.state_dims = state_dims
 		self.subsystems = subsystems
+		self.implementation = implementation 
 		
 		# pre compute inds for pTr op
 		self.pTr_inds_in, self.pTr_inds_out, self.pTr_dim_out = mf.partial_trace_inds(subsystems, state_dims)
 		
-		
-		# pre compute inds for adjoint op
-		self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose = \
-			mf.xOtimesI_inds(subsystems, state_dims)
-		
 		self.totaldim = np.prod(state_dims)
+
+		match self.implementation:
+			case 'xOtimesI':
+
+				self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose = \
+					mf.xOtimesI_inds(subsystems, state_dims)
+				self._adj_impl = lambda x:\
+					mf.xOtimesI_no_Inds(x, self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose, self.totaldim)
+
+			case 'kron':
+				try:
+					is_left = \
+						min(subsystems) == 1
+					is_right = \
+						max(subsystems) == len(state_dims)
+					
+					assert is_left or is_right
+					
+					subsys_contig = \
+						set(subsystems) == set(range(min(subsystems), max(subsystems)+1)) 
+					
+					compl_subsystems = set(range(1,len(state_dims)+1)) - set(subsystems)
+					compl_subsys_contig = \
+						compl_subsystems == set(range(min(compl_subsystems), max(compl_subsystems)+1)) 
+					assert compl_subsys_contig
+				except AssertionError:
+					print("to use the kron()-based implementation, subsystems must consist of leftmost and/or rightmost contiguous blocks")
+					
+				else:
+					tot_dim_subsys = np.prod([state_dims[i-1] for i in subsystems])
+					if subsys_contig:
+						if is_left:
+							self.id_left = np.identity(tot_dim_subsys)
+							self.id_right = []
+							self._adj_impl = lambda x: np.kron(self.id_left,x)
+							
+						if is_right:
+							self.id_left = []
+							self.id_right = np.identity(tot_dim_subsys)
+							self._adj_impl = lambda x: np.kron(x,self.id_right)
+					else:
+						left_dim = np.prod([state_dims[i-1] for i in range(1,min(compl_subsystems))])
+						right_dim = np.prod([state_dims[i-1] for i in range(max(compl_subsystems)+1, len(state_dims) +1 )])
+						self.id_left = np.identity(left_dim)
+						self.id_right = np.identity(right_dim)
+						self._adj_impl = lambda x: np.kron(self.id_left, np.kron(x ,self.id_right))
+						
+
+		
 		
 		
 	def apply(self, x):
-		
 		return mf.partial_trace_no_inds(x, self.state_dims, self.pTr_inds_in, self.pTr_inds_out, self.pTr_dim_out)
 		
 		
 	def apply_adj(self, x):
-		
-		return mf.xOtimesI_no_Inds(x, self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose, self.totaldim)
+		return self._adj_impl(x)
 	
-	
-	
- 
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-		
-	
-	
-	
+

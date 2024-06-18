@@ -1,78 +1,55 @@
 
-import maps
-from variables import OptVar
-from constraints import Constraint 
+
 import numpy as np
+from scs_funcs import solve_M_inv, _apply_M, LinOp_id_plus_AT_A, _id_plus_AT_A
+from  variables import OptVar
+from scipy.sparse.linalg import LinearOperator
+
+import relax_LTI_N_problem
+
+# @profile
 
 def main():
 	
-	d = 2
-	D = 3
-	dims_rho = (d,d,d,d,d)
-	dims_omega = (d,D,d)
+	rng = np.random.default_rng(seed=17)
 	
-	rho = OptVar('rho','primal', dims = dims_rho , complex_var=False)
-	omega = OptVar('omega','primal', dims = dims_omega)
+	rho, tr, dual_constr_n = relax_LTI_N_problem.set_problem(n=20, D=4, d=2, xOtimesI_impl = 'kron')
 	
-	action_l = {'dimsIn': dims_rho, 'pattern':(1,1,1,1,0), 'dimsOut':(D,d)}
-	action_r = {'dimsIn': dims_rho, 'pattern':(0,1,1,1,1), 'dimsOut':(d,D)}
-	C_l = maps.CGmap('C_l', +1, action = action_l )
-	C_r = maps.CGmap('C_r', +1, action = action_r )
-	
-	tr_l_rho = maps.PartTrace(subsystems = {1}, state_dims = dims_rho, sign = +1)
-	tr_r_rho = maps.PartTrace(subsystems = {5}, state_dims = dims_rho, sign = -1)
-	
-		
-	tr_l_omega = maps.PartTrace(subsystems = {1}, state_dims = dims_omega, sign = -1)
-	tr_r_omega = maps.PartTrace(subsystems = {3}, state_dims = dims_omega, sign = -1)
-	
-	tr = maps.Trace(+1, dim = rho.matdim )
-	
-	one_var = OptVar('1','primal',dims = (1), add_to_var_list = False)
-	
-	id_rho = maps.Identity(+1, dim = rho.matdim))
-	id_omega = maps.Identity(+1, dim = omega.matdim))
-	id_1 = maps.Identity(+1, dim = 1)
-	
-	H_map = maps.TraceWith( 'H', +1, operator = [2,22,222] ,dim = rho.matdim )
-	
-	# dual varsiables
-	a = OptVar('alpha', 'dual', dims = (d,d,d,d) )
-	b_l = OptVar('beta_l', 'dual', dims = (D,d))
-	b_r = OptVar('beta_r', 'dual', dims = (d,D))
-	e = OptVar('epsilon', 'dual', dims = (1,))
-	
-	
-	
-	# primal constraints
-	Constraint('P_obj', (H_map,), (rho,), 'primal', 'OBJ')
-	Constraint('pos_rho', (id_rho,), (rho,), 'primal', 'PSD')
-	Constraint('pos_rho', (id_omega,), (omega,), 'primal', 'PSD')
-	Constraint('norm', (tr,), (rho,), 'primal', 'EQ', constant = -1, conjugateVar = e)
-	Constraint('LTI', (tr_l_rho, tr_r_rho), (rho,rho), 'primal', 'EQ', conjugateVar = a)
-	Constraint('left', (C_l, tr_l_omega), (rho,omega), 'primal', 'EQ', conjugateVar = b_l)
-	Constraint('right', (C_r, tr_r_omega), (rho,omega), 'primal', 'EQ', conjugateVar = b_r)
-	
-	e.print_var_list()
-	# dual constraints
-	Constraint('D_obj', (id_1,), (e,), 'dual', 'OBJ')
-	
-	
-	constraintd1 = Constraint('D1', [m.mod_map(adjoint = True) for m in \
-										[H_map, C_l, C_r, tr_l_rho, tr_r_rho, id_rho.mod_map(sign = -1) ] \
-									],  [one_var, b_l, b_r, a, a, e] , 'dual', 'PSD', conjugateVar = rho)
-	constraintd2 = Constraint('D2', [m.mod_map(adjoint = True) for m in \
-										[tr_l_omega, tr_r_omega ] \
-									],	[b_l, b_r] , 'dual', 'PSD', conjugateVar = omega)
-	
-	constraintd1.print_constr_list()
-	
-	
+	x, y = rho.initilize_vecs( f_init = rng.random)
+	# print(x[:10])
+	# print(y[:10])
 
-	
-	
-	
-    
+	 
+	lin_op_buff_1 = LinOp_id_plus_AT_A(control_flag =1)
 
+	Mxy_x, Mxy_y = _apply_M(x,y)
+
+	solve_M_inv(Mxy_x,Mxy_y,lin_op_buff_1) #  
+
+	print(max(abs(Mxy_x-x)), max(abs(Mxy_y-y)))
+
+	###########
+
+	# lin_op_buff_2 = LinOp_id_plus_AT_A(control_flag =2)
+
+	# Mxy_x, Mxy_y = _apply_M(x,y)
+
+	# solve_M_inv(Mxy_x,Mxy_y,lin_op_buff_2) #  
+
+	# print(max(abs(Mxy_x-x)), max(abs(Mxy_y-y)))
+
+	# ############
+	 
+	# lin_op_simple =  LinearOperator((OptVar.len_dual_vec_x,)*2, matvec = _id_plus_AT_A )
+
+	# Mxy_x, Mxy_y =  _apply_M(x,y)
+
+	# solve_M_inv(Mxy_x,Mxy_y,lin_op_simple) #  
+
+	# print(max(abs(Mxy_x-x)), max(abs(Mxy_y-y)))
+
+ 
+	tr.print_maps_log()
+	
 if __name__ == '__main__':
 	main()

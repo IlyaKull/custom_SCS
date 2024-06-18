@@ -1,7 +1,11 @@
-import CGmaps
-from variables import OptVar 
 import numpy as np
+import CGmaps
+
+
+from variables import OptVar 
+
 import maps
+
 import matrix_aux_functions as mf
 
 class Constraint:
@@ -100,10 +104,13 @@ class Constraint:
 				print(f"var = {var}")
 				print(f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
 				 
+			
+			 
 			# maps act in place as += 
 			M.__call__( var, v_in, sign = s, out = v_out[ self.conjugateVar.slice ]) 
 			
-		
+			
+			
 		return 0
 	
 		

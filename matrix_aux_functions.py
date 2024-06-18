@@ -1,5 +1,5 @@
 
-		
+import scipy.sparse as sps		
 import numpy as np
 import functools as ft
 
@@ -271,7 +271,7 @@ def xOtimesI(x, subsystems, fulldims, checks = False):
 	
 	
 	
-@profile
+# @profile
 def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 	'''
 	apply map to single subsystem of x: 
@@ -320,67 +320,61 @@ def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 	return y
 	
 	
-'''
->>> a
-[1, 2, 1, 1]
->>> b = [ range(10)[i] if el!=2 else 100 for i,el in enumerate(a)]
->>> b
-[0, 100, 2, 3]
-'''
+# @profile	
+def test_apply_kraus():
 
-
-# # '''
-# # test apply_kraus
-# # '''
-
-# # dims = [2,4,2]
-# # A = np.random.rand( np.prod(dims), np.prod(dims))
-# # kraus = [np.random.rand(4,4), ]
-# # I2 = np.identity(2)
-
-# # expl_prod = 0
-# # for K in kraus:
-	# # IKI = tensorProd(I2,K,I2)
-	# # expl_prod += IKI @ A @ IKI.conj().T
-
-# # print(np.allclose( expl_prod, apply_kraus(A, dims, kraus, 1)))
-
+	'''
+	test apply_kraus
+	'''
  
- 
-# # dims = [2,4,3,5]
-# # A = np.random.rand( np.prod(dims), np.prod(dims))
-# # kraus = [np.random.rand(2,5), ]
-# # I2 = np.identity(2)
-# # I4 = np.identity(4)
-# # I3 = np.identity(3)
-
-# # expl_prod = 0
-# # for K in kraus:
-	# # IIIK = tensorProd(I2,I4,I3,K)
-	# # expl_prod += IIIK @ A @ IIIK.conj().T
-
-# # print(np.allclose( expl_prod, apply_kraus(A, dims, kraus, 3)))
-
-		
-		
-
-# # dims = [2,4,3,5]
-# # A = np.random.rand( np.prod(dims), np.prod(dims))
-# # kraus = [np.random.rand(3,2),np.random.rand(3,2),np.random.rand(3,2),np.random.rand(3,2) ]
-# # I2 = np.identity(2)
-# # I5 = np.identity(5)
-# # I4 = np.identity(4)
-# # I3 = np.identity(3)
-
-# # expl_prod = 0
-# # for K in kraus:
-	# # KIII = tensorProd(K,I4,I3,I5)
-	# # expl_prod += KIII @ A @ KIII.conj().T
-
-# # print(np.allclose( expl_prod, apply_kraus(A, dims, kraus, 0)))
-
+	 
+	 
+	dims = [4,4,4,4,4]
+	A = np.random.rand( np.prod(dims), np.prod(dims))
+	kraus = [np.random.rand(3,4**3), ]
 	
-@profile
+	I4 = np.identity(4)
+	I4s = sps.identity(4)
+	
+	for j in range(100): 
+	 
+
+		expl_prod = np.zeros((4*3*4, 4*3*4))
+		for K in kraus:
+			IKI = tensorProd(I4,K,I4)
+			expl_prod += IKI @ A @ IKI.conj().T
+		
+		expl_prod_s = sps.csr_matrix((4*3*4, 4*3*4) )
+		for K in kraus:
+			IKI = sps.kron(sps.kron(I4s,K), I4s)
+			expl_prod_s += IKI @ A @ IKI.conj().T
+		
+		using_apply = apply_kraus(A, [4, 4*4*4, 4], kraus, 1)
+		
+		print(np.allclose( expl_prod, using_apply ))
+		print(np.allclose( expl_prod_s, using_apply ))
+
+			
+			
+
+	# dims = [2,4,3,5]
+	# A = np.random.rand( np.prod(dims), np.prod(dims))
+	# kraus = [np.random.rand(3,2),np.random.rand(3,2),np.random.rand(3,2),np.random.rand(3,2) ]
+	# I2 = np.identity(2)
+	# I5 = np.identity(5)
+	# I4 = np.identity(4)
+	# I3 = np.identity(3)
+
+	# expl_prod = 0
+	# for K in kraus:
+		# KIII = tensorProd(K,I4,I3,I5)
+		# expl_prod += KIII @ A @ KIII.conj().T
+
+	# print(np.allclose( expl_prod, apply_kraus(A, dims, kraus, 0)))
+
+# test_apply_kraus()
+	
+# @profile
 def apply_cg_maps(x, dims_x, kraus, action_pattern_in, checks = False):
 	'''
 	apply x --> sum_i K_i x K_i^\dagger for K_i in karus according to action_pattern.

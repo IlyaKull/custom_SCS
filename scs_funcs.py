@@ -1,11 +1,13 @@
 import scipy.linalg as la
 import numpy as np
+
 from variables import OptVar
-import matrix_aux_functions as mf
+
 from scipy.sparse.linalg import LinearOperator, cg
+
 from constraints import Constraint
 
-import inspect 
+
  
 
 
@@ -74,7 +76,7 @@ def project_to_cone(u, out ):
 	
 	return 0
 
-@profile
+
 def apply_primal_constr(y, out = None ):
 	''' 
 	if out is specified then the function acts in place: v_out += primal_constraints(v_in)
@@ -91,7 +93,7 @@ def apply_primal_constr(y, out = None ):
 			c.__call__(v_in = y, v_out = out )
 		
 		return out 
-@profile
+
 def apply_dual_constr(x, out = None ):
 	'''
 	if out is specified then the function acts in place: v_out += dual_constraints(v_in)
@@ -118,40 +120,51 @@ def apply_dual_constr(x, out = None ):
 
  
 def _id_plus_AT_A(x):
-		return 	x + apply_primal_constr(apply_dual_constr(x))
-		
-		
+	return x + apply_primal_constr(apply_dual_constr(x))	
 
  
 class LinOp_id_plus_AT_A(LinearOperator):
 	'''
 	linear operator with a buffer to store the intermediate y = Ax vector in the calculation of (1 + A^T @ A)x
 	'''
-	def __init__(self):
-		 
-		self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+	def __init__(self, y_buffer = None, control_flag = 1):
+		if not y_buffer:
+			assert OptVar.lists_closed, \
+				'''
+				!!!!! need length of y vector to set buffer for linear op.\n
+				variable lists in OptVar are not closed.\n
+				run OptVar._close_var_lists() to close the lists and to fix OptVar.len_primal_vec_y
+				'''
+			
+			self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		else: 
+			self.y_buffer = y_buffer
+				
 		self.x_buffer = np.zeros(OptVar.len_dual_vec_x, dtype = OptVar.dtype)
 		
 		super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype    )
 		
-		
+		self.control_flag = control_flag
 		
 	def _matvec(self,x):
 		'''
 		implements x <-- x + A^T @ A @ x
 		'''
 		
-		# y_buffer <-- A @ x:
-		self.y_buffer[...] = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
-		self.x_buffer[...] = x
-		apply_dual_constr( x = x, out = self.y_buffer) 
+		if self.control_flag ==1:
+			# y_buffer <-- A @ x:
+			self.y_buffer[...] = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+			self.x_buffer[...] = x
+			apply_dual_constr( x = x, out = self.y_buffer) 
+			
+			# x += A^T @ y
+			apply_primal_constr( y = self.y_buffer, out = self.x_buffer)
+			return self.x_buffer
 		
-		# x += A^T @ y
-		apply_primal_constr( y = self.y_buffer, out = self.x_buffer)
-		return self.x_buffer
-	
- 
- 
+		elif self.control_flag==2:
+			self.y_buffer = apply_dual_constr(x)
+			return 	x + apply_primal_constr(self.y_buffer)
+
 
  
 
@@ -190,7 +203,7 @@ def _solve_M_inv_return(w_x,w_y,lin_op):
 	return z_x, z_y
 
 
-@profile
+
 def solve_M_inv(w_x,w_y,lin_op):
 	'''
 	previous matlab func:
