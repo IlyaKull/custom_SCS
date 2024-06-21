@@ -18,7 +18,7 @@ def determine_k0(d,D):
 	return k0
 		
 
-def set_problem(n,D,d, xOtimesI_impl = 'kron'):
+def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 
 	rng = np.random.default_rng(seed=17)
 	
@@ -46,15 +46,15 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron'):
 	action_l0 = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}
 	action_r0 = {'dims_in': dims_rho, 'pattern':(0,) + (1,)*k0, 'pattern_adj':(0,1,1), 'dims_out':(d,D,D)}
 	krausOps0 = [rng.random((D**2,d**k0)), ]
-	C_l0 = maps.CGmap('C_l0', krausOps0, action = action_l0 )
-	C_r0 = maps.CGmap('C_r0', krausOps0, action = action_r0 )
+	C_l0 = maps.CGmap('C_l0', krausOps0, action = action_l0 , implementation = cg_impl)
+	C_r0 = maps.CGmap('C_r0', krausOps0, action = action_r0 , implementation = cg_impl)
 
 	# cg maps acting on omegas 
 	action_l1 = {'dims_in': dims_omega, 'pattern':(1,1,1,0), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}
 	action_r1 = {'dims_in': dims_omega, 'pattern':(0,1,1,1), 'pattern_adj':(0,1,1), 'dims_out':(d,D,D)}
 	krausOps1 = [rng.random((D**2,D*D*d)),]
-	C_l1 = maps.CGmap('C_l1', krausOps1, action = action_l1 )
-	C_r1 = maps.CGmap('C_r1', krausOps1, action = action_r1 )
+	C_l1 = maps.CGmap('C_l1', krausOps1, action = action_l1 , implementation = cg_impl)
+	C_r1 = maps.CGmap('C_r1', krausOps1, action = action_r1 , implementation = cg_impl)
 
 	
 	

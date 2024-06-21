@@ -133,25 +133,50 @@ class CGmap(Maps):
 							# in this case dims_in = [d,d,d,d,d,d] and dims_out = [d,d,D,D]
 					# pattern_adj: same as pattern but for adjoint map: in this case (0,0,1,2)
 		,
-		**kwargs):
+		implementation = 'kron', # which function implements the map: 'contract' using np.einsum, 'kron' by buliding IxKxI
+		):
 				
 		dims = {'in': np.prod(action['dims_in']), 'out': np.prod(action['dims_out'])} # total dimensions
-		super().__init__(name, dims, adj_name = name + '^*', **kwargs)
+		super().__init__(name, dims, adj_name = name + '^*')
 		self.kraus = kraus
 		self.action = action
+		self.implementation = implementation
+		
+		if self.implementation == 'kron':
+			assert max(self.action['pattern']) == 1, f"action pattern for map '{self.name}' is incompatible with 'kron' implementation"
+			# TODO: calc tensor product of multiple kraus ops: I x K_i x K_j x I			
+			first_pos = next(i for i in range(len(self.action['pattern'])) if self.action['pattern'][i] == 1)
+			
+			self.IKI = []
+			self.IKI_dag = []
+			for Kop in kraus:
+				terms_to_tensor = []
+				for i,a in enumerate(self.action['pattern']):
+					if a == 0:
+						terms_to_tensor.append(np.identity(self.action['dims_in'][i]))
+					
+					if a==1 and i==first_pos:
+						terms_to_tensor.append(Kop)
+					
+				
+				self.IKI.append( mf.tensorProd(terms_to_tensor)	)
+				self.IKI_dag.append(self.IKI[-1].conj().T)	
+				
+		 	
 		
 	def apply(self, x, checks = False):
-		return mf.apply_cg_maps(x, self.action['dims_in'], self.kraus, self.action['pattern'])
+		if self.implementation == 'kron':
+			return mf.apply_kraus_kron(x, self.IKI)
+		elif self.implementation == 'contract':
+			return mf.apply_cg_maps(x, self.action['dims_in'], self.kraus, self.action['pattern'])
 	
 	def apply_adj(self, x, checks = False):
-		# print('applying adjoint CG map')
-		# print(self.action['pattern_adj'])
-		# print(self.kraus[0])
-		# print(self.action['dims_out'])
-		return mf.apply_cg_maps(x, self.action['dims_out'], [k.conj().T for k in self.kraus] , self.action['pattern_adj'])
-	
-	
-	
+		if self.implementation == 'kron':
+			return mf.apply_kraus_kron(x, self.IKI_dag)
+		elif self.implementation == 'contract':
+			return mf.apply_cg_maps(x, self.action['dims_out'], [k.conj().T for k in self.kraus] , self.action['pattern_adj'])
+		
+	 
 	
 	
 	
@@ -257,9 +282,8 @@ class PartTrace(Maps):
 
 				self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose = \
 					mf.xOtimesI_inds(subsystems, state_dims)
-				self._adj_impl = lambda x:\
-					mf.xOtimesI_no_Inds(x, self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose, self.totaldim)
-
+				self._adj_impl = self._impl_adj_xOtimesI
+ 
 			case 'kron':
 				try:
 					is_left = \
@@ -284,20 +308,18 @@ class PartTrace(Maps):
 					if subsys_contig:
 						if is_left:
 							self.id_left = np.identity(tot_dim_subsys)
-							self.id_right = []
-							self._adj_impl = lambda x: np.kron(self.id_left,x)
+							self.id_right = 1.0
 							
 						if is_right:
-							self.id_left = []
+							self.id_left = 1.0
 							self.id_right = np.identity(tot_dim_subsys)
-							self._adj_impl = lambda x: np.kron(x,self.id_right)
 					else:
 						left_dim = np.prod([state_dims[i-1] for i in range(1,min(compl_subsystems))])
 						right_dim = np.prod([state_dims[i-1] for i in range(max(compl_subsystems)+1, len(state_dims) +1 )])
 						self.id_left = np.identity(left_dim)
 						self.id_right = np.identity(right_dim)
-						self._adj_impl = lambda x: np.kron(self.id_left, np.kron(x ,self.id_right))
-						
+					
+					self._adj_impl = self._impl_adj_kron	
 
 		
 		
@@ -305,8 +327,11 @@ class PartTrace(Maps):
 	def apply(self, x):
 		return mf.partial_trace_no_inds(x, self.state_dims, self.pTr_inds_in, self.pTr_inds_out, self.pTr_dim_out)
 		
-		
 	def apply_adj(self, x):
 		return self._adj_impl(x)
 	
-
+	def _impl_adj_xOtimesI(self,x):
+		return mf.xOtimesI_no_Inds(x, self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose, self.totaldim)
+	
+	def _impl_adj_kron(self,x):
+		return mf.tensorProd(self.id_left, x, self.id_right )
