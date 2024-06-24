@@ -111,7 +111,7 @@ def partial_trace_inds(subsystems, dims):
 	
 	return inds_in.ravel().tolist(), inds_out.ravel().tolist(), dim_out
 	
-
+# @profile
 def partial_trace_no_inds(x, dims, inds_in, inds_out, dim_out):
 	
 	return np.reshape(
@@ -266,9 +266,8 @@ def xOtimesI(x, subsystems, fulldims, checks = False):
  
 
 
-	
-	
-	
+
+# @profile	
 def  apply_kraus_kron(x, IKI):
 	dim_out = IKI[0].shape[0]
 		

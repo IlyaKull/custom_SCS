@@ -21,10 +21,9 @@ class Constraint:
 	def __init__(self, label,
 					sign_list,
 					map_list,
+					adj_flag_list,
 					var_list,
 					primal_or_dual,
-					constr_type,
-					constant = None,
 					conjugateVar = None, 
 					add_to_constr_list = True):
 		
@@ -33,26 +32,11 @@ class Constraint:
 		self.label = label # constraint name
 		self.signs = sign_list
 		self.maps = map_list
+		self.adj_flags = adj_flag_list
 		self.var_list = var_list
-		self.constr_type = constr_type
-						
-		try:
-			assert all( m.dims['out'] == self.maps[0].dims['out'] for m in self.maps ), \
-				f'Output dimension mismatch in constraint "{label}"'
-		except AssertionError as xxx:
-			print('!!!!!!!!!!!!! output dims:')
-			for m in self.maps:
-				print(m.dims['out'])
-			raise xxx
-
-		if conjugateVar: 
-			self.conjugateVar = conjugateVar
-			assert self.conjugateVar.matdim == self.maps[0].dims['out'] , f'Dimension mismatch between constraint {label} and dual variable {conjugateVar.name}'
-		else:
-			self.conjugateVar = OptVar(f'MISSING VAR:{label}:','dual', dims =  self.maps[0].dims['out'], add_to_var_list = False)
-	
-		self.constant = constant
-		
+		self.conjugateVar = conjugateVar
+ 		
+					
 		# primal or dual constraint
 		assert primal_or_dual in ('primal', 'dual'), \
 			f"!!!!!!!!!!!!!!! Constraint {self.name} was not defined \n" + \
@@ -65,12 +49,6 @@ class Constraint:
 			constr_list = Constraint.primal_constraints
 		else:
 			constr_list = Constraint.dual_constraints
-		
-		assert constr_type in ('EQ', 'PSD','OBJ'), \
-			f"!!!!!!!!!!!!!!! Constraint {self.label} was not defined \n" + \
-			'!!!!!!!!!!!!!!! Specify: *EQ* for equality constraint, *PSD* for positivity, or *OBJ* for objective function'
-		
-		self.constr_type = constr_type
 		
 		if add_to_constr_list:
 			constr_list.append(self)
@@ -97,17 +75,18 @@ class Constraint:
 		if maps.Maps.verbose:
 			print(f"conj var: {self.conjugateVar.name}")
 		
-		for s,M,var in zip(self.signs, self.maps, self.var_list):
+		for s,M,f,var in zip(self.signs, self.maps, self.adj_flags, self.var_list):
 			if maps.Maps.verbose:
 				print(f"s = {s}")
 				print(f"M = {M.name}")
+				print(f"adj = {f}")
 				print(f"var = {var}")
 				print(f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
 				 
 			
 			 
 			# maps act in place as += 
-			M.__call__( var, v_in, sign = s, out = v_out[ self.conjugateVar.slice ]) 
+			M.__call__( var, v_in, sign = s, adj_flag = f,  out = v_out[ self.conjugateVar.slice ]) 
 			
 			
 			
@@ -131,16 +110,14 @@ def print_constraint(c):
 		"""
 		print the expression for the constraint
 		"""
-		print(f"{c.label:12} : {c.conjugateVar.name:12} : {c.constr_type:12} : ", end=' ')
+		print(f"{c.label:12} : {c.conjugateVar.name:12} : ", end=' ')
 		
-		for (sign, CGmap, optVar) in zip(c.signs, c.maps, c.var_list):
-			if optVar is None:
-				print(f"{signString(sign)} {CGmap.name}*1 ", end = '')
+		for (sign, CGmap, adj_flag, optVar) in zip(c.signs, c.maps, c.adj_flags, c.var_list):
+			if adj_flag:
+				print(f"{signString(sign)} {CGmap.adj_name}({optVar.name}) ", end = '')
 			else:
 				print(f"{signString(sign)} {CGmap.name}({optVar.name}) ", end = '')
 		
-		if c.constant:
-			print(c.constant, end = ' ')
 		
 		print('\n')
 

@@ -17,17 +17,18 @@ class Maps:
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.
 		dims, # input and output dimensions
-		adj = False, # adjoint flag: true to apply the adjoint
 		adj_name = None, # display name for adjoint operator
-		check_inputs = False # class variable to switch on checks and debug
+		check_inputs = False,  # class variable to switch on checks and debug
+		implementation = []
 		): 
 		self.name = name
 		self.dims = dims
-		self.adjoint_flag = adj
 		self.adj_name = adj_name
-		
+
 		if check_inputs:
 			Maps.check_inputs = check_inputs
+		
+		self.implementation = implementation
 		
 		self.time = 0.
 		self.time_adj = 0.
@@ -37,32 +38,32 @@ class Maps:
 		Maps.list_all_maps.append(self)
 	
 	
-	def mod_map(self, adjoint = False):
-		'''
-		returns a copy of the  map with the chosen attributes:
-			adjoint = true/false
-		'''
+	# def mod_map(self, adjoint = False):
+		# '''
+		# returns a copy of the  map with the chosen attributes:
+			# adjoint = true/false
+		# '''
 		 
-		s = copy.deepcopy(self)
-			# how to do it nicely with self.__class__( modified self.__dict__)???
+		# s = copy.deepcopy(self)
+			# # how to do it nicely with self.__class__( modified self.__dict__)???
 			
 		
-		if adjoint != self.adjoint_flag:
-			s.adjoint_flag = adjoint
-			s.dims['in'] = self.dims['out']
-			s.dims['out'] = self.dims['in']
-			if self.adj_name:
-				s.name = self.adj_name
-				s.adj_name = self.name
+		# if adjoint != self.adjoint_flag:
+			# s.adjoint_flag = adjoint
+			# s.dims['in'] = self.dims['out']
+			# s.dims['out'] = self.dims['in']
+			# if self.adj_name:
+				# s.name = self.adj_name
+				# s.adj_name = self.name
 		
-		Maps.list_all_maps.append(s)
+		# Maps.list_all_maps.append(s)
 				
-		return s
+		# return s
 		
  
-	def __call__(self, var, v_in, sign , out ):
+	def __call__(self, var, v_in, sign, adj_flag , out ):
 		""" 
-		apply map on v (or adjoint of map if adjoint_flag == True)
+		apply map on v (or adjoint of map if adj_flag == True)
 		ALWAYS ACT IN PLACE (+=)
 		"""
 		if Maps.log_calls:
@@ -80,19 +81,18 @@ class Maps:
 		else:
 			mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
 			
-				
 			
-		if self.adjoint_flag:
+		if  adj_flag:
 			out += sign * self.apply_adj( mat ).ravel()
 		else:
 			out += sign * self.apply( mat ).ravel()
 	
 		if Maps.log_calls:
 			t = time.perf_counter() - t
-			self.log_call(t)
+			self.log_call(t,adj_flag)
 			
-	def log_call(self, t):
-		match self.adjoint_flag:
+	def log_call(self, t,adj_flag):
+		match adj_flag:
 			case False:
 				self.time += t
 				self.calls += 1
@@ -104,7 +104,7 @@ class Maps:
 	
 	def print_maps_log(self):
 		for m in Maps.list_all_maps:
-			print(f"Map {m.name} applied {m.calls} times with t_tot = {m.time:.2g}", end = ' ')
+			print(f"Map {m.name} applied {m.calls} times in {m.implementation} implementation with t_tot = {m.time:.2g}", end = ' ')
 			if m.calls > 0:
 				print(f": t/iter = {m.time / m.calls:.2g}")
 			else:
@@ -116,7 +116,7 @@ class Maps:
 			else:
 				print('')
 	
-		
+# @profile
 class CGmap(Maps):
 	"""
 	coare-graining map in kraus representation
@@ -137,10 +137,10 @@ class CGmap(Maps):
 		):
 				
 		dims = {'in': np.prod(action['dims_in']), 'out': np.prod(action['dims_out'])} # total dimensions
-		super().__init__(name, dims, adj_name = name + '^*')
+		super().__init__(name, dims, adj_name = name + '^*', implementation = implementation)
 		self.kraus = kraus
 		self.action = action
-		self.implementation = implementation
+		# self.implementation = implementation
 		
 		if self.implementation == 'kron':
 			assert max(self.action['pattern']) == 1, f"action pattern for map '{self.name}' is incompatible with 'kron' implementation"
@@ -220,7 +220,7 @@ class Identity(Maps):
 	"""
 	def __init__(self,  dim):
 				
-		super().__init__('Id', dims = {'in': dim, 'out': dim})
+		super().__init__('Id', dims = {'in': dim, 'out': dim}, adj_name = 'Id')
 		
 	def apply(self, x ):
 		return	x	
@@ -267,10 +267,10 @@ class PartTrace(Maps):
 		remaining_subsystems = {i+1 for i in range(len(state_dims))}.difference(subsystems)
 		dims = {'in': np.prod(state_dims),
 				'out': np.prod( [state_dims[i-1] for i in remaining_subsystems] ) }
-		super().__init__(name, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]')
+		super().__init__(name, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]', implementation = implementation )
 		self.state_dims = state_dims
 		self.subsystems = subsystems
-		self.implementation = implementation 
+		# self.implementation = implementation 
 		
 		# pre compute inds for pTr op
 		self.pTr_inds_in, self.pTr_inds_out, self.pTr_dim_out = mf.partial_trace_inds(subsystems, state_dims)

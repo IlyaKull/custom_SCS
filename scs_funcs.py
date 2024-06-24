@@ -153,7 +153,7 @@ class LinOp_id_plus_AT_A(LinearOperator):
 		
 		if self.control_flag ==1:
 			# y_buffer <-- A @ x:
-			self.y_buffer[...] = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+			self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
 			self.x_buffer[...] = x
 			apply_dual_constr( x = x, out = self.y_buffer) 
 			
@@ -229,7 +229,7 @@ def solve_M_inv(w_x,w_y,lin_op):
 	'''
 	
 	apply_primal_constr(-w_y, out = w_x ) # w_x <-- w_x - A^T @ w_y
-	w_x[...], exit_code = cg(lin_op, w_x, atol= 1e-8, tol= 1e-8, maxiter = 1000) # w_x stores the solution z_x
+	w_x[...], exit_code = cg(lin_op, w_x, atol= 1e-8, tol= 1e-8, maxiter = 2000) # w_x stores the solution z_x
 	print(f'cg exit code: {exit_code}')
 	
 	apply_dual_constr(w_x, out = w_y) # w_y <-- w_y + A @ z_x : w_y stores the solution z_y

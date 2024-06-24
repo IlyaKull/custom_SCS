@@ -25,6 +25,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	 
 	
 	k0 = determine_k0(d,D)
+	print(f'k0={k0}')
 	
 	assert n >= k0+2 , f'n has to be at least {k0+2}: n = {n}'
 	 
@@ -94,61 +95,104 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
 	# primal constraints
 	 
+	Constraint(**{
+		'label': 'norm', 
+		'sign_list': [-1,],
+		'map_list': [tr,],
+		'adj_flag_list': [False,],
+		'var_list': [rho,],
+		'primal_or_dual': 'primal',
+		'conjugateVar': e,
+		})
 	
-	signs 		= [-1,]
-	operators 	= [tr,]
-	operands	= [rho,]
-	Constraint('norm', signs, operators, operands , 'primal', 'EQ', conjugateVar = e)
+	Constraint(**{
+		'label': 'LTI', 
+		'sign_list': [-1, +1],
+		'map_list': [tr_l_rho, tr_r_rho],
+		'adj_flag_list': [False, False],
+		'var_list': [rho, rho],
+		'primal_or_dual': 'primal',
+		'conjugateVar': a,
+		})
 	
-	signs 		= [-1, +1]
-	operators 	= [tr_l_rho, tr_r_rho]
-	operands	= [rho, rho]
-	Constraint('LTI', signs, operators, operands, 'primal', 'EQ', conjugateVar = a)
+	Constraint(**{
+		'label': f'left_{k0+1}', 
+		'sign_list': [-1, +1],
+		'map_list': [C_l0, tr_l_omega],
+		'adj_flag_list': [False, False],
+		'var_list': [rho, states[k0+2]],
+		'primal_or_dual': 'primal',
+		'conjugateVar': b_l,
+		})
 	
-	signs 		= [-1, +1]
-	operators 	= [C_l0, tr_l_omega]
-	operands	= [rho, states[k0+2]]
-	Constraint(f'left_{k0+1}', signs, operators, operands, 'primal', 'EQ', conjugateVar = b_l)
 	
-	signs 		= [-1, +1]
-	operators 	= [C_r0, tr_r_omega]
-	operands	= [rho,states[k0+2]]
-	Constraint(f'right_{k0+1}', signs, operators, operands, 'primal', 'EQ', conjugateVar = b_r)
+	Constraint(**{
+		'label': f'right_{k0+1}', 
+		'sign_list': [-1, +1],
+		'map_list': [C_r0, tr_r_omega],
+		'adj_flag_list': [False, False],
+		'var_list': [rho, states[k0+2]],
+		'primal_or_dual': 'primal',
+		'conjugateVar': b_r,
+		})
 	
 	for k in range(k0+2,n):
-		signs 		= [-1, +1]
-		operators 	= [C_l1, tr_l_omega]
-		operands	= [states[k], states[k+1]]
-		Constraint(f'left_{k}', signs, operators, operands, 'primal', 'EQ', conjugateVar = g_l[k])
 		
-		signs 		= [-1, +1]
-		operators 	= [C_r1, tr_r_omega]
-		operands	= [states[k], states[k+1]]
-		Constraint(f'right_{k}', signs, operators, operands, 'primal', 'EQ', conjugateVar = g_r[k])
-	
-	
+		Constraint(**{
+			'label': f'left_{k}', 
+			'sign_list': [-1, +1],
+			'map_list': [C_l1, tr_l_omega],
+			'adj_flag_list': [False, False],
+			'var_list': [states[k], states[k+1]],
+			'primal_or_dual': 'primal',
+			'conjugateVar': g_l[k],
+			})
+			
+		Constraint(**{
+			'label': f'right_{k}', 
+			'sign_list': [-1, +1],
+			'map_list': [C_r1, tr_r_omega],
+			'adj_flag_list': [False, False],
+			'var_list': [states[k], states[k+1]],
+			'primal_or_dual': 'primal',
+			'conjugateVar': g_r[k],
+			})
+		
+		
 	
 	# dual constraints
 	
-	signs 		= [ -1, -1, -1, +1, -1]
-	operators0 	= [m.mod_map(adjoint = True) for m in [C_l0, C_r0, tr_l_rho, tr_r_rho, id_rho ] ]
-	operands	= [ b_l, b_r, a, a, e]
-	Constraint(f"D_{k0+1}", signs, operators0, operands, 'dual', 'PSD', conjugateVar = rho)
-	
-	
-	operators1 	= [m.mod_map(adjoint = True) for m in [tr_l_omega, tr_r_omega , C_l1, C_r1 ]  ]
+	Constraint(**{
+			'label': f'D_{k0+1}', 
+			'sign_list':  [ -1, -1, -1, +1, -1],
+			'map_list': [C_l0, C_r0, tr_l_rho, tr_r_rho, id_rho ],
+			'adj_flag_list': [True, True, True, True, True ],
+			'var_list': [ b_l, b_r, a, a, e],
+			'primal_or_dual': 'dual',
+			'conjugateVar': rho,
+			}) 
 	for k in range(k0+2,n-1):
-		signs 		= [+1, +1, -1, -1]
-		
-		operands	= [g_l[k-1], g_r[k-1], g_l[k], g_r[k]]
-		Constraint(f"D_{k}", signs, operators1, operands  , 'dual', 'PSD', conjugateVar = states[k])
-	
-	
-	signs 		= [+1, +1]
-	operators2 	= operators1[:2]
-	operands	= [g_l[n-1], g_r[n-1]]
-	dual_constraint_n = Constraint(f"D_{n}", signs, operators2, operands  , 'dual', 'PSD', conjugateVar = states[n])
-	
+		Constraint(**{
+				'label': f"D_{k}", 
+				'sign_list':  [+1, +1, -1, -1],
+				'map_list': [tr_l_omega, tr_r_omega , C_l1, C_r1 ]  ,
+				'adj_flag_list': [True, True, True, True ],
+				'var_list': [g_l[k-1], g_r[k-1], g_l[k], g_r[k]],
+				'primal_or_dual': 'dual',
+				'conjugateVar': states[k],
+				}) 
+
+	dual_constraint_n = Constraint(**{
+			'label': f"D_{n}", 
+			'sign_list':  [+1, +1,],
+			'map_list': [tr_l_omega, tr_r_omega  ]  ,
+			'adj_flag_list': [True, True ],
+			'var_list': [g_l[n-1], g_r[n-1]],
+			'primal_or_dual': 'dual',
+			'conjugateVar': states[n],
+			}) 
+
+	 
 	dual_constraint_n.print_constr_list()
 	
 	e._close_var_lists()
