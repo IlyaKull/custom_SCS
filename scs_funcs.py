@@ -127,43 +127,36 @@ class LinOp_id_plus_AT_A(LinearOperator):
 	'''
 	linear operator with a buffer to store the intermediate y = Ax vector in the calculation of (1 + A^T @ A)x
 	'''
-	def __init__(self, y_buffer = None, control_flag = 1):
-		if not y_buffer:
-			assert OptVar.lists_closed, \
-				'''
-				!!!!! need length of y vector to set buffer for linear op.\n
-				variable lists in OptVar are not closed.\n
-				run OptVar._close_var_lists() to close the lists and to fix OptVar.len_primal_vec_y
-				'''
-			
-			self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
-		else: 
-			self.y_buffer = y_buffer
-				
+	def __init__(self):
+		
+		assert OptVar.lists_closed, \
+			'''
+			!!!!! need length of x and y vectors to set buffer for linear op.\n
+			variable lists in OptVar are not closed.\n
+			run OptVar._close_var_lists() to close the lists.
+			'''
+		self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
 		self.x_buffer = np.zeros(OptVar.len_dual_vec_x, dtype = OptVar.dtype)
 		
 		super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype    )
 		
-		self.control_flag = control_flag
-		
+				
 	def _matvec(self,x):
 		'''
 		implements x <-- x + A^T @ A @ x
 		'''
+		# y_buffer <-- A @ x:
+		self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		self.x_buffer[...] = x
+		apply_dual_constr( x = x, out = self.y_buffer) 
 		
-		if self.control_flag ==1:
-			# y_buffer <-- A @ x:
-			self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
-			self.x_buffer[...] = x
-			apply_dual_constr( x = x, out = self.y_buffer) 
-			
-			# x += A^T @ y
-			apply_primal_constr( y = self.y_buffer, out = self.x_buffer)
-			return self.x_buffer
-		
-		elif self.control_flag==2:
-			self.y_buffer = apply_dual_constr(x)
-			return 	x + apply_primal_constr(self.y_buffer)
+		# x += A^T @ y
+		apply_primal_constr( y = self.y_buffer, out = self.x_buffer)
+		return self.x_buffer
+	
+		# a bit slower:
+		# self.y_buffer = apply_dual_constr(x)
+		# return 	x + apply_primal_constr(self.y_buffer)
 
 
  
@@ -206,6 +199,8 @@ def _solve_M_inv_return(w_x,w_y,lin_op):
 
 def solve_M_inv(w_x,w_y,lin_op):
 	'''
+	ACT IN PLACE: the solution is written back into w_x,w_y
+	
 	previous matlab func:
 		function [z_x,z_y,stats] = solveMinv(w_x,w_y,PD,FH,tol,maxIter)
 		% see (28) in https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf
@@ -225,7 +220,7 @@ def solve_M_inv(w_x,w_y,lin_op):
 		Az_x    = FH.A_funcHandle(z_x);
 		z_y     = w_y + Az_x;
 	
-	here the solution is written back into w_x,w_y
+	
 	'''
 	
 	apply_primal_constr(-w_y, out = w_x ) # w_x <-- w_x - A^T @ w_y
@@ -252,10 +247,8 @@ def _apply_M(x,y):
 	Mxy(yindsInU) = xy(yindsInU) - FH.A_funcHandle(xy(xindsInU));
 	'''
 
-	x_out = x.copy()
-	y_out = y.copy()
-	x_out += apply_primal_constr(y)
-	y_out += - apply_dual_constr(x)	
+	x_out =  x +  apply_primal_constr(y)
+	y_out = y - apply_dual_constr(x)	
 	 
 	return x_out, y_out
 	
@@ -264,6 +257,9 @@ def _apply_M(x,y):
 
 def _one_plus_Q(u,c,b):
 	'''
+	returns the result
+	
+	
 	function [eyePlusQu] = eyePlusQ(u,PD,FH)
 	% apply eye+Q (see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 4.1)
 	% eye+Q = [M,h;-h^T,1] ie (eye+Q)[xy,tao] = [M*[xy]+h*tao ; -h^T*xy + tao]
@@ -301,12 +297,15 @@ def _one_plus_Q(u,c,b):
 
 
 
-def project_to_affine(w,out, lin_op,  c,  b, hMh, Minvh):
+def project_to_affine(w, lin_op,  c,  b, hMinvh_plus_one_inv, Minvh):
 	''' 
+	solves (I+Q)u=w
+	acts in place, i.e. w <-- solution u
+	
+	see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (4.1)
+	
 	previous matlab func:
 		function [u,stats] = projectToAffine(w,iter,PD,FH)
-		% solves (I+Q)u=w
-		% see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (4.1)
 		% PD is the problem data structure. this function adds the Minvh field and
 		% others
 		% if Minv*h is not cached compute it  
@@ -328,8 +327,8 @@ def project_to_affine(w,out, lin_op,  c,  b, hMh, Minvh):
 		end
 	
 	'''
-	if test_result:
-		w_in = w.copy()
+	# if test_result:
+		# w_in = w.copy()
 		
 	w_tao = w[OptVar.tao_slice]
 	w_x = w[OptVar.x_slice]
@@ -339,24 +338,89 @@ def project_to_affine(w,out, lin_op,  c,  b, hMh, Minvh):
 	w_x += -w_tao * c
 	w_y += -w_tao * b
 	
-	solve_M_inv(w_x,w_y)  # w_x,w_y <-- sol to M@[x,y] = [w_x,w_y]
+	solve_M_inv(w_x,w_y,lin_op)  # w_x,w_y <-- sol to M@[x,y] = [w_x,w_y]
 	
 	
 	Minvh_x = Minvh[OptVar.x_slice]
 	Minvh_y = Minvh[OptVar.y_slice]
 	# from above docstr
-	 # u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
-	dot_prod = np.vdot(c,w_x) + np.vdot(b,w_y)
-	w_x += -hMh * dot_prod * Minvh_x  
-	w_y += -hMh * dot_prod * Minvh_y
+	# u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
+	dot_prod_hw = np.vdot(c,w_x) + np.vdot(b,w_y)
+	
+	w_x += -hMinvh_plus_one_inv * dot_prod_hw * Minvh_x  
+	w_y += -hMinvh_plus_one_inv * dot_prod_hw * Minvh_y
 	
 	# from above docstr 
 	# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
 	w_tao += np.vdot(c,w_x) + np.vdot(b,w_y)
 	
-	if test_result:
-		print(f'In solveing (1+Q)u = w max abs difference between (1+Q)@sol and w_in = {max(abs(w_in - _one_plus_Q(w,c,b)))}')
+	# if test_result:
+		# print(f'In solveing (1+Q)u = w max abs difference between (1+Q)@sol and w_in = {max(abs(w_in - _one_plus_Q(w,c,b)))}')
 	return
+	
+
+
+
+
+
+
+def _project_to_affine_return(w, lin_op,  c,  b, hMinvh_plus_one_inv, Minvh):
+	''' 
+	solves (I+Q)u=w
+	returns the solution u
+	
+	see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (4.1)
+	
+	previous matlab func:
+		function [u,stats] = projectToAffine(w,iter,PD,FH)
+		% PD is the problem data structure. this function adds the Minvh field and
+		% others
+		% if Minv*h is not cached compute it  
+	 
+		[xindsInU,yindsInU,taoindInU]=Uinds(PD);
+
+		% h= [c;b];
+		w_tao=w(taoindInU);
+		w_xIN=w(xindsInU) -w_tao*(PD.c);
+		w_yIN=w(yindsInU) -w_tao*(PD.b);
+
+		[out_x,out_y,stats] = solveMinv(w_xIN ,w_yIN,PD,FH, PD.CGtolFunc(iter));
+		out=[out_x;out_y];
+		u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
+		% ad
+		u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
+
+		% stats.testSol=norm(w-eyePlusQ(u));
+		end
+	
+	'''
+	
+		
+	w_tao = w[OptVar.tao_slice]
+	w_x = w[OptVar.x_slice]
+	w_y = w[OptVar.y_slice]
+	
+	z_x, z_y = _solve_M_inv_return(w_x - w_tao * c , w_y - w_tao * b, lin_op)   
+	
+	
+	Minvh_x = Minvh[OptVar.x_slice]
+	Minvh_y = Minvh[OptVar.y_slice]
+	# from above docstr
+	# u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
+	dot_prod_hz = np.vdot(c,z_x) + np.vdot(b,z_y)
+	
+	u_x = z_x - hMinvh_plus_one_inv * dot_prod_hz * Minvh_x  
+	u_y = z_y - hMinvh_plus_one_inv * dot_prod_hz * Minvh_y
+	
+	# from above docstr 
+	# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
+	u_tao = w_tao +  np.vdot(c,u_x) + np.vdot(b,u_y)
+	
+	u = np.zeros(OptVar.tao_slice.stop)
+	u[OptVar.x_slice] = u_x
+	u[OptVar.y_slice] = u_y
+	u[OptVar.tao_slice] = u_tao
+	return u
 	
 
 

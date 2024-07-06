@@ -20,7 +20,7 @@ def determine_k0(d,D):
 
 def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 
-	rng = np.random.default_rng(seed=17)
+	rng = np.random.default_rng(seed=166)
 	
 	 
 	
