@@ -3,21 +3,28 @@ import numpy as np
 
 from variables import OptVar
 
-from scipy.sparse.linalg import LinearOperator, cg
+from scipy.sparse.linalg import LinearOperator
+from scipy.sparse.linalg import cg as scipy_cg
 
 from constraints import Constraint
 
 
 class SCS_Solver:
 	'''
-	solver object is initialized with the problem data and is called to execute the SCS iteration 
+	solver object is initialized with the problem data c,b.
+	When initialized it closes the variable lists in the OptVar calss and
+	it retrieves all the calss variables from OptVar and Constraint classes.
+	
 	'''
 	def __init__(self, c, b, settings = dict()):
 		
-		OptVar._close_var_lists()
-	
-		self.c = c
-		self.b = b
+		if not OptVar.lists_closed:
+			OptVar._close_var_lists()
+			
+		
+		self.settings = default_settings()
+		self.settings.update(settings)
+		
 		self.primal_constraints = Constraint.primal_constraints
 		self.dual_constraints = Constraint.dual_constraints
 		
@@ -41,13 +48,41 @@ class SCS_Solver:
 		self.v = self.initilize_vec()
 		self.u_tilde = self.initilize_vec()
 		
+		# the q parameter in the iteration
+		self.q = self.settings['q']
 		
-		self.settings = settings
+		# the linear operator 1+A^\dagger *A 
+		self.lin_op = LinOp_id_plus_AT_A(self.len_dual_vec_x, self.len_primal_vec_y, self.dtype, self.primal_constraints, self.dual_constraints)
+		
+		# the vector h is defined as h = [c,b]
+		self.h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
+		self.h[self.x_slice] = c
+		self.h[self.y_slice] = b
+		self.c = self.h[self.x_slice] # pointers for convenienc
+		self.b = self.h[self.y_slice]
+		
+		# print(self.h.base is None) 
+		# print(self.b.base is None)
+				
+		# M^(-1)h is needed in every iteration and is therefore computed
+		# at initialization 
+		Minv_h = np.zeros(self.y_slice.stop)
+		Minv_h[self.x_slice], Minv_h[self.y_slice] = self._solve_M_inv_return(self.c, self.b)
+		# the following is also needed in every iteration	
+		
+		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
+		self.Minv_h = Minv_h
+		
 		
 	
 	
 	def initilize_vec(self, f_init = None):
-		
+		'''
+		the vectors in the scs iteration are of the form u = [x, y, tao].
+		this method initiates such variables. if f_init is not specified 
+		x = zeros, y = identities / normalization and 
+		tao = 1
+		'''
 		vec = np.zeros(self.len_joint_vec_u)
 		
 		if f_init is None:
@@ -72,6 +107,76 @@ class SCS_Solver:
 			
 		return vec
 	
+	
+ 
+
+	def _solve_M_inv_return(self, w_x, w_y):
+		'''
+		this is for debugging. should give the same result as solve_M_inv(...)
+		
+		'''
+		
+		ATw_y = apply_primal_constr(self, w_y)
+		z_x, exit_code = self._conj_grad_impl( w_x - ATw_y )
+		Az_x = apply_dual_constr(self, z_x)
+		z_y = w_y + Az_x
+		print(f'cg exit code: {exit_code}')
+		return z_x, z_y
+		
+	
+
+	def solve_M_inv(self, w_x, w_y):
+		'''
+		ACT IN PLACE: the solution is written back into w_x,w_y
+		
+		previous matlab func:
+			function [z_x,z_y,stats] = solveMinv(w_x,w_y,PD,FH,tol,maxIter)
+			% see (28) in https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf
+
+			stats=struct('CGflag',[],'CGrelres',[],'CGiters',[],'T_CG',[]);
+			if nargin < 5
+				tol=PD.CGtol;
+			end
+			if nargin < 6
+			   maxIter=PD.CGmaxIter;
+			end
+				
+			ATw_y   = FH.ATransposed_funcHandle(full(w_y));
+			ticCG=tic;
+			[z_x,stats.CGflag,stats.CGrelres,stats.CGiters]     = pcg(FH.eyePlusATA_funcHandle,full(w_x - ATw_y),tol,maxIter);
+			stats.T_CG=toc(ticCG);
+			Az_x    = FH.A_funcHandle(z_x);
+			z_y     = w_y + Az_x;
+		
+		
+		'''
+		
+		apply_primal_constr(self, -w_y, out = w_x ) # w_x <-- w_x - A^T @ w_y
+		w_x[...], exit_code = self._conj_grad_impl(w_x) # w_x stores the solution z_x
+		print(f'cg exit code: {exit_code}')
+		
+		apply_dual_constr(self, w_x, out = w_y) # w_y <-- w_y + A @ z_x : w_y stores the solution z_y
+		
+		return 0
+		
+	
+	
+
+	def _conj_grad_impl(self, x):
+		'''
+		put your favourite implementation of conjugate gradient here
+		'''		
+		# return scipy_cg(A = self.lin_op, b = x,\
+			# atol= 1e-8,\
+			# tol= 1e-8,\
+			# maxiter = 1000 \
+		# )
+		return scipy_cg(A = self.lin_op, b = x,\
+			atol= self.settings['cg_atol'],\
+			tol= self.settings['cg_tol'],\
+			maxiter = self.settings['cg_maxiter'] \
+		)
+		
 	
 	def scs_iteration(self):
 		'''	 
@@ -118,88 +223,49 @@ class SCS_Solver:
 		return
 
 	
-	
-	
-	def apply_primal_constr(self, y, out = None ):
-		''' 
-		if out is specified then the function acts in place: v_out += primal_constraints(v_in)
-		otherwise (out=None) it returns v_out = primal_constraints(v_in)
+
+
+	def project_to_cone(self,u, out ):
 		'''
-		if not out is None:
-			for c in self.primal_constraints:
-				c.__call__(v_in = y, v_out = out )
-			
-			return 0
-		else:
-			out = np.zeros(self.len_dual_vec_x)
-			for c in self.primal_constraints:
-				c.__call__(v_in = y, v_out = out )
-			
-			return out 
-
-	def apply_dual_constr(self, x, out = None ):
+		project each PSD variable to PSD cone 
+		(diagonalize --> set negative eigs to 0 )
 		'''
-		if out is specified then the function acts in place: v_out += dual_constraints(v_in)
-		otherwise (out=None) it returns v_out = dual_constraints(v_in)
-		'''
-		if not out is None:
-			for c in self.dual_constraints:
-				c.__call__(v_in = x, v_out = out )
-			
-			return 0
-		else:
-			out = np.zeros(self.len_primal_vec_y)
-			for c in self.dual_constraints:
-				c.__call__(v_in = x ,v_out = out  )
-			
-			return out
+		out[...] = u
+		
+		for var_list,u_slice in zip((self.primal_vars, self.dual_vars), (self.y_slice, self.x_slice)) :
+			for var in var_list:
+				if var.cone == 'PSD':  
+					eigenvals, U =  la.eigh( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
+					eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
 
-
-
-def project_to_cone(u, out ):
-	'''
-	project each PSD variable to PSD cone 
-	(diagonalize --> set negative eigs to 0 )
-	'''
-	out[...] = u
-	
-	for var_list,u_slice in zip((OptVar.primal_vars, OptVar.dual_vars), (OptVar.y_slice, OptVar.x_slice)) :
-		for var in var_list:
-			if var.cone == 'PSD':  
-				eigenvals, U =  la.eigh( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
-				eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
-
-				out[u_slice][var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
-			
-	# project tao to R_+
-	if u[OptVar.tao_slice] < 0:
-		out[OptVar.tao_slice] = 0.
-	
-	return 0
-
-
-# # def _id_plus_AT_A(x, y_buffer):
-    # # # y_buffer <-- A*x
-    # # apply_dual_constr( x = x, out = y_buffer)
-    # # # x += A^T*y
-    # # apply_primal_constr( y = y_buffer, out = x, add_to_out = True)
-    # # return x
+					out[u_slice][var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
+				
+		# project tao to R_+
+		if u[self.tao_slice] < 0:
+			out[self.tao_slice] = 0.
+		
+		return 0
 
  
-def _id_plus_AT_A(x):
-	return x + apply_primal_constr(apply_dual_constr(x))	
 
  
 class LinOp_id_plus_AT_A(LinearOperator):
 	'''
 	linear operator with a buffer to store the intermediate y = Ax vector in the calculation of (1 + A^T @ A)x
 	'''
-	def __init__(self):
+	def __init__(self, len_x, len_y, dtype, primal_constraints, dual_constraints):
 		
-		self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
-		self.x_buffer = np.zeros(OptVar.len_dual_vec_x, dtype = OptVar.dtype)
+		self.len_dual_vec_x = len_x
+		self.len_primal_vec_y = len_y
+		self.primal_constraints = primal_constraints
+		self.dual_constraints = dual_constraints
+		self.dtype = dtype
 		
-		super().__init__(shape = (OptVar.len_dual_vec_x,)*2, dtype = OptVar.dtype    )
+		self.y_buffer = np.zeros(len_y, dtype = dtype)
+		self.x_buffer = np.zeros(len_x, dtype = dtype)
+		
+		
+		super().__init__(shape = (len_x, len_x), dtype = dtype    )
 		
 				
 	def _matvec(self,x):
@@ -207,12 +273,12 @@ class LinOp_id_plus_AT_A(LinearOperator):
 		implements x <-- x + A^T @ A @ x
 		'''
 		# y_buffer <-- A @ x:
-		self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
+		self.y_buffer = np.zeros(self.len_primal_vec_y, dtype = self.dtype)
 		self.x_buffer[...] = x
-		apply_dual_constr( x = x, out = self.y_buffer) 
+		apply_dual_constr(self, x = x, out = self.y_buffer) 
 		
 		# x += A^T @ y
-		apply_primal_constr( y = self.y_buffer, out = self.x_buffer)
+		apply_primal_constr(self, y = self.y_buffer, out = self.x_buffer)
 		return self.x_buffer
 	
 		# a bit slower:
@@ -220,80 +286,45 @@ class LinOp_id_plus_AT_A(LinearOperator):
 		# return 	x + apply_primal_constr(self.y_buffer)
 
 
+
+
+'''
+the following functions are used 	
+'''
+def apply_primal_constr(obj, y, out = None ):
+	''' 
+	if out is specified then the function acts in place: v_out += primal_constraints(v_in)
+	otherwise (out=None) it returns v_out = primal_constraints(v_in)
+	'''
+	return _impl_apply_constr(y, obj.primal_constraints, len_out = obj.len_dual_vec_x, out = out)
+
+def apply_dual_constr(obj, x, out = None ):
+	'''
+	if out is specified then the function acts in place: v_out += dual_constraints(v_in)
+	otherwise (out=None) it returns v_out = dual_constraints(v_in)
+	'''
+	return _impl_apply_constr(x, obj.dual_constraints, len_out = obj.len_primal_vec_y, out = out)
+
+
+
+def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
+	''' 
+	if out is specified then the function acts in place: v_out += constraints(v_in)
+	otherwise (out=None) it returns the result
+	'''
+	if not out is None:
+		for c in constr_list:
+			c.__call__(v_in, v_out = out )
+		
+		return None
+	else:
+		out = np.zeros(len_out)
+		for c in constr_list:
+			c.__call__(v_in, v_out = out )
+		return out 
+
  
 
- 
-
-def _solve_M_inv_return(w_x,w_y,lin_op):
-	'''
-	previous matlab func:
-		function [z_x,z_y,stats] = solveMinv(w_x,w_y,PD,FH,tol,maxIter)
-		% see (28) in https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf
-
-		stats=struct('CGflag',[],'CGrelres',[],'CGiters',[],'T_CG',[]);
-		if nargin < 5
-			tol=PD.CGtol;
-		end
-		if nargin < 6
-		   maxIter=PD.CGmaxIter;
-		end
-			
-		ATw_y   = FH.ATransposed_funcHandle(full(w_y));
-		ticCG=tic;
-		[z_x,stats.CGflag,stats.CGrelres,stats.CGiters]     = pcg(FH.eyePlusATA_funcHandle,full(w_x - ATw_y),tol,maxIter);
-		stats.T_CG=toc(ticCG);
-		Az_x    = FH.A_funcHandle(z_x);
-		z_y     = w_y + Az_x;
-	
-	'''
-	
-	ATw_y = apply_primal_constr(w_y)
-	z_x, exit_code = cg(lin_op, w_x - ATw_y, atol= 1e-8, tol= 1e-8, maxiter = 1000, 
-		# callback = lambda x: print(f"current iter: \n{x[:10]}")
-		)
-	Az_x = apply_dual_constr(z_x)
-	z_y = w_y + Az_x
-	print(f'cg exit code: {exit_code}')
-	return z_x, z_y
-
-
-
-def solve_M_inv(w_x,w_y,lin_op):
-	'''
-	ACT IN PLACE: the solution is written back into w_x,w_y
-	
-	previous matlab func:
-		function [z_x,z_y,stats] = solveMinv(w_x,w_y,PD,FH,tol,maxIter)
-		% see (28) in https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf
-
-		stats=struct('CGflag',[],'CGrelres',[],'CGiters',[],'T_CG',[]);
-		if nargin < 5
-			tol=PD.CGtol;
-		end
-		if nargin < 6
-		   maxIter=PD.CGmaxIter;
-		end
-			
-		ATw_y   = FH.ATransposed_funcHandle(full(w_y));
-		ticCG=tic;
-		[z_x,stats.CGflag,stats.CGrelres,stats.CGiters]     = pcg(FH.eyePlusATA_funcHandle,full(w_x - ATw_y),tol,maxIter);
-		stats.T_CG=toc(ticCG);
-		Az_x    = FH.A_funcHandle(z_x);
-		z_y     = w_y + Az_x;
-	
-	
-	'''
-	
-	apply_primal_constr(-w_y, out = w_x ) # w_x <-- w_x - A^T @ w_y
-	w_x[...], exit_code = cg(lin_op, w_x, atol= 1e-8, tol= 1e-8, maxiter = 2000) # w_x stores the solution z_x
-	print(f'cg exit code: {exit_code}')
-	
-	apply_dual_constr(w_x, out = w_y) # w_y <-- w_y + A @ z_x : w_y stores the solution z_y
-	
-	return 0
-	
-	
-	
 	
 def _apply_M(x,y):
 	'''
@@ -486,3 +517,12 @@ def _project_to_affine_return(w, lin_op,  c,  b, hMinvh_plus_one_inv, Minvh):
 
 
 
+def default_settings():
+	d = {'q' : 1.5,\
+		'cg_atol' : 1e-8,\
+		'cg_tol' : 1e-8,\
+		'cg_maxiter' : 2000,\
+		}
+	
+	return d
+	

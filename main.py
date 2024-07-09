@@ -1,7 +1,7 @@
 import line_profiler
 
 import numpy as np
-from scs_funcs import solve_M_inv, _apply_M, LinOp_id_plus_AT_A, _id_plus_AT_A, _one_plus_Q, project_to_affine, SCS_Solver
+from scs_funcs import SCS_Solver
 import scs_funcs
 from  variables import OptVar
 from scipy.sparse.linalg import LinearOperator
@@ -24,13 +24,17 @@ def main():
 	rng = np.random.default_rng(seed=17)
 	
 	relax_LTI_N_problem.set_problem(n=20, D=3, d=2, xOtimesI_impl = 'kron', cg_impl = 'kron')
-	
+
 	c = rng.random((OptVar.len_dual_vec_x,))
 	b = rng.random((OptVar.len_primal_vec_y,))
 	
 	scs_solver = SCS_Solver(c, b)
+
+	cc = c.copy()
+	bc = b.copy()
+	scs_solver.solve_M_inv(cc, bc)
 	
-	 
+	print(max(abs(cc-scs_solver.Minv_h[scs_solver.x_slice])), max(abs(bc-scs_solver.Minv_h[scs_solver.y_slice])) )
 	
 	  
 if __name__ == '__main__':
