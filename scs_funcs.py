@@ -72,6 +72,8 @@ class SCS_Solver:
 		
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
 		self.Minv_h = Minv_h
+	
+	
 		
 		
 	
@@ -108,7 +110,142 @@ class SCS_Solver:
 		return vec
 	
 	
+	
+	
+	def scs_iteration(self):
+		'''	 
+		 see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
+		 q is the over-relaxation parameter PD.q
+		
+		my properly working matlab function was:
+		
+			utilde= projectToAffine(u+v,iter,PD,FH);
+			qcomb   = (PD.q*utilde + (1-PD.q)*u );
+			u  = projectToCone(qcomb - v,PD);
+			v = v - qcomb + u; 
+		
+			rewrite as
+			
+			utilde = projectToAffine(u+v,iter,PD,FH);
+			qcomb_minus_v   = PD.q*utilde + (1-PD.q)*u -v ;
+			u = projectToCone(qcomb_minus_v,PD);
+			v = u - qcomb_minus_v; 
+			
+			change sign of qcomb_minus_v
+			
+			utilde = projectToAffine(u+v,iter,PD,FH);
+			v_minus_qcomb   = v - PD.q*utilde - (1-PD.q)*u  ;
+			u = projectToCone( -1.* v_minus_qcomb,PD);
+			v = u + v_minus_qcomb; 
+			
+		--> we can store the intermediate v_minus_qcomb in v:
+		
+		instead of 
+		project_to_affine(u+v, out = u_tilde)
+		q_comb = q * u_tilde + (1.-q) * u 
+		project_to_cone(q_comb - v, out = u);
+		v +=  u - qcomb; 
+		
+		we have:
+		'''
+		
+		self.project_to_affine(self.u + self.v, out = self.u_tilde)
+		self.v += -self.q * self.u_tilde + -(1.-self.q) * self.u # v = v- qcomb
+		self.project_to_cone( -self.v, out = self.u);
+		self.v +=  self.u ;
+
+		return
+
  
+
+	def project_to_cone(self,u, out ):
+		'''
+		project each PSD variable to PSD cone 
+		(diagonalize --> set negative eigs to 0 )
+		'''
+		out[...] = u
+		
+		for var_list,u_slice in zip((self.primal_vars, self.dual_vars), (self.y_slice, self.x_slice)) :
+			for var in var_list:
+				if var.cone == 'PSD':  
+					eigenvals, U =  la.eigh( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
+					eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
+
+					out[u_slice][var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
+				
+		# project tao to R_+
+		if u[self.tao_slice] < 0:
+			out[self.tao_slice] = 0.
+		
+		return 0
+
+		
+
+
+	def project_to_affine(self, w):
+		''' 
+		solves (I+Q)u=w
+		acts in place, i.e. w <-- solution u
+		
+		see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (4.1)
+		
+		previous matlab func:
+			function [u,stats] = projectToAffine(w,iter,PD,FH)
+			% PD is the problem data structure. this function adds the Minvh field and
+			% others
+			% if Minv*h is not cached compute it  
+		 
+			[xindsInU,yindsInU,taoindInU]=Uinds(PD);
+
+			% h= [c;b];
+			w_tao=w(taoindInU);
+			w_xIN=w(xindsInU) -w_tao*(PD.c);
+			w_yIN=w(yindsInU) -w_tao*(PD.b);
+
+			[out_x,out_y,stats] = solveMinv(w_xIN ,w_yIN,PD,FH, PD.CGtolFunc(iter));
+			out=[out_x;out_y];
+			u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
+			% ad
+			u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
+
+			% stats.testSol=norm(w-eyePlusQ(u));
+			end
+		
+		'''
+		# if test_result:
+			# w_in = w.copy()
+			
+		w_tao = w[OptVar.tao_slice]
+		w_x = w[OptVar.x_slice]
+		w_y = w[OptVar.y_slice]
+		
+		
+		w_x += -w_tao * self.c
+		w_y += -w_tao * self.b
+		
+		self.solve_M_inv(w_x, w_y)  # w_x,w_y <-- sol to M@[x,y] = [w_x,w_y]
+		
+		
+		Minvh_x = self.Minv_h[self.x_slice]
+		Minvh_y = self.Minv_h[self.y_slice]
+		# from above docstr
+		# u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
+		dot_prod_hw = np.vdot(self.c, w_x) + np.vdot(self.b, w_y)
+		
+		w_x += -self.hMinvh_plus_one_inv * dot_prod_hw * Minvh_x  
+		w_y += -self.hMinvh_plus_one_inv * dot_prod_hw * Minvh_y
+		
+		# from above docstr 
+		# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
+		w_tao += np.vdot(self.c, w_x) + np.vdot(self.b, w_y)
+		
+		# if test_result:
+			# print(f'In solveing (1+Q)u = w max abs difference between (1+Q)@sol and w_in = {max(abs(w_in - _one_plus_Q(w,c,b)))}')
+		return
+		
+
+
+
 
 	def _solve_M_inv_return(self, w_x, w_y):
 		'''
@@ -178,75 +315,7 @@ class SCS_Solver:
 		)
 		
 	
-	def scs_iteration(self):
-		'''	 
-		 see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
-		 q is the over-relaxation parameter PD.q
-		
-		my properly working matlab function was:
-		
-			utilde= projectToAffine(u+v,iter,PD,FH);
-			qcomb   = (PD.q*utilde + (1-PD.q)*u );
-			u  = projectToCone(qcomb - v,PD);
-			v = v - qcomb + u; 
-		
-			rewrite as
-			
-			utilde = projectToAffine(u+v,iter,PD,FH);
-			qcomb_minus_v   = PD.q*utilde + (1-PD.q)*u -v ;
-			u = projectToCone(qcomb_minus_v,PD);
-			v = u - qcomb_minus_v; 
-			
-			change sign of qcomb_minus_v
-			
-			utilde = projectToAffine(u+v,iter,PD,FH);
-			v_minus_qcomb   = v - PD.q*utilde - (1-PD.q)*u  ;
-			u = projectToCone( -1.* v_minus_qcomb,PD);
-			v = u + v_minus_qcomb; 
-			
-		--> we can store the intermediate v_minus_qcomb in v:
-		
-		instead of 
-		project_to_affine(u+v, out = u_tilde)
-		q_comb = q * u_tilde + (1.-q) * u 
-		project_to_cone(q_comb - v, out = u);
-		v +=  u - qcomb; 
-		
-		we have:
-		'''
-		
-		project_to_affine(self.u + self.v, out = self.u_tilde)
-		self.v += -self.q * self.u_tilde + -(1.-self.q) * self.u # v = v- qcomb
-		project_to_cone( -self.v, out = self.u);
-		self.v +=  self.u ;
 
-		return
-
-	
-
-
-	def project_to_cone(self,u, out ):
-		'''
-		project each PSD variable to PSD cone 
-		(diagonalize --> set negative eigs to 0 )
-		'''
-		out[...] = u
-		
-		for var_list,u_slice in zip((self.primal_vars, self.dual_vars), (self.y_slice, self.x_slice)) :
-			for var in var_list:
-				if var.cone == 'PSD':  
-					eigenvals, U =  la.eigh( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
-					eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
-
-					out[u_slice][var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
-				
-		# project tao to R_+
-		if u[self.tao_slice] < 0:
-			out[self.tao_slice] = 0.
-		
-		return 0
-
- 
 
  
 class LinOp_id_plus_AT_A(LinearOperator):
@@ -289,7 +358,9 @@ class LinOp_id_plus_AT_A(LinearOperator):
 
 
 '''
-the following functions are used 	
+the following functions are used by both the linear operator 1+A^\dagger*A and scs_solver.
+instead of making both instances of a parent calss which implements those functions as methods, 
+I chose to have them as separate functions which accept an object that has all the needed attributes.
 '''
 def apply_primal_constr(obj, y, out = None ):
 	''' 
@@ -324,7 +395,11 @@ def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
 		return out 
 
  
-
+'''
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+flollowing functions still need to be made compatible with the scs_solver class.
+after that project to affine can be tested.
+'''
 	
 def _apply_M(x,y):
 	'''
@@ -386,72 +461,6 @@ def _one_plus_Q(u,c,b):
 	
 	return u_out
 	
-
-
-
-def project_to_affine(w, lin_op,  c,  b, hMinvh_plus_one_inv, Minvh):
-	''' 
-	solves (I+Q)u=w
-	acts in place, i.e. w <-- solution u
-	
-	see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (4.1)
-	
-	previous matlab func:
-		function [u,stats] = projectToAffine(w,iter,PD,FH)
-		% PD is the problem data structure. this function adds the Minvh field and
-		% others
-		% if Minv*h is not cached compute it  
-	 
-		[xindsInU,yindsInU,taoindInU]=Uinds(PD);
-
-		% h= [c;b];
-		w_tao=w(taoindInU);
-		w_xIN=w(xindsInU) -w_tao*(PD.c);
-		w_yIN=w(yindsInU) -w_tao*(PD.b);
-
-		[out_x,out_y,stats] = solveMinv(w_xIN ,w_yIN,PD,FH, PD.CGtolFunc(iter));
-		out=[out_x;out_y];
-		u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
-		% ad
-		u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
-
-		% stats.testSol=norm(w-eyePlusQ(u));
-		end
-	
-	'''
-	# if test_result:
-		# w_in = w.copy()
-		
-	w_tao = w[OptVar.tao_slice]
-	w_x = w[OptVar.x_slice]
-	w_y = w[OptVar.y_slice]
-	
-	
-	w_x += -w_tao * c
-	w_y += -w_tao * b
-	
-	solve_M_inv(w_x,w_y,lin_op)  # w_x,w_y <-- sol to M@[x,y] = [w_x,w_y]
-	
-	
-	Minvh_x = Minvh[OptVar.x_slice]
-	Minvh_y = Minvh[OptVar.y_slice]
-	# from above docstr
-	# u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
-	dot_prod_hw = np.vdot(c,w_x) + np.vdot(b,w_y)
-	
-	w_x += -hMinvh_plus_one_inv * dot_prod_hw * Minvh_x  
-	w_y += -hMinvh_plus_one_inv * dot_prod_hw * Minvh_y
-	
-	# from above docstr 
-	# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
-	w_tao += np.vdot(c,w_x) + np.vdot(b,w_y)
-	
-	# if test_result:
-		# print(f'In solveing (1+Q)u = w max abs difference between (1+Q)@sol and w_in = {max(abs(w_in - _one_plus_Q(w,c,b)))}')
-	return
-	
-
-
 
 
 
