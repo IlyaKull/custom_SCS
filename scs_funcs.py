@@ -8,52 +8,153 @@ from scipy.sparse.linalg import LinearOperator, cg
 from constraints import Constraint
 
 
- 
-
-
-def scs_iteration(u,v,u_tilde):
-	'''	 
-	 see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
-	 q is the over-relaxation parameter PD.q
-	
-	my properly workin matlab function was:
-	
-		utilde= projectToAffine(u+v,iter,PD,FH);
-		qcomb   = (PD.q*utilde + (1-PD.q)*u );
-		u  = projectToCone(qcomb - v,PD);
-		v = v - qcomb + u; 
-	
-		rewrite as
-		
-		utilde = projectToAffine(u+v,iter,PD,FH);
-		qcomb_minus_v   = PD.q*utilde + (1-PD.q)*u -v ;
-		u = projectToCone(qcomb_minus_v,PD);
-		v = u - qcomb_minus_v; 
-		
-		change sign of qcomb_minus_v
-		
-		utilde = projectToAffine(u+v,iter,PD,FH);
-		v_minus_qcomb   = v - PD.q*utilde - (1-PD.q)*u  ;
-		u = projectToCone( -1.* v_minus_qcomb,PD);
-		v = u + v_minus_qcomb; 
-		
-	--> we can store the intermediate v_minus_qcomb in v:
-	
-	instead of 
-	project_to_affine(u+v, out = u_tilde)
-	q_comb = q * u_tilde + (1.-q) * u 
-	project_to_cone(q_comb - v, out = u);
-	v +=  u - qcomb; 
-	
-	we have:
+class SCS_Solver:
 	'''
+	solver object is initialized with the problem data and is called to execute the SCS iteration 
+	'''
+	def __init__(self, c, b, settings = dict()):
+		
+		OptVar._close_var_lists()
 	
-	project_to_affine(u+v, out = u_tilde)
-	v += -q * u_tilde + -(1.-q) * u # v = v- qcomb
-	project_to_cone( -v, out = u);
-	v +=  u ;
+		self.c = c
+		self.b = b
+		self.primal_constraints = Constraint.primal_constraints
+		self.dual_constraints = Constraint.dual_constraints
+		
+		self.len_primal_vec_y = OptVar.len_primal_vec_y
+		self.len_dual_vec_x = OptVar.len_dual_vec_x
+		
+		self.x_slice = OptVar.x_slice
+		self.y_slice = OptVar.y_slice
+		self.tao_slice = OptVar.tao_slice
+		
+		self.len_joint_vec_u = self.len_dual_vec_x + self.len_primal_vec_y + 1
+		
+		self.dtype = OptVar.dtype
+		
+		self.primal_vars = OptVar.primal_vars
+		self.dual_vars = OptVar.dual_vars
+		self.lists_closed = OptVar.lists_closed
+		
+		# initialize iteration vectors:
+		self.u = self.initilize_vec()
+		self.v = self.initilize_vec()
+		self.u_tilde = self.initilize_vec()
+		
+		
+		self.settings = settings
+		
+	
+	
+	def initilize_vec(self, f_init = None):
+		
+		vec = np.zeros(self.len_joint_vec_u)
+		
+		if f_init is None:
+			x = np.zeros(self.len_dual_vec_x)
+			
+			y = np.zeros(self.len_primal_vec_y)
+			for pv in self.primal_vars:
+				y[pv.slice] = (1 / pv.matdim)  * np.identity( pv.matdim ).ravel()
+			
+			tao = 1.0
+			
+		else:
+			x = f_init((self.len_dual_vec_x, ))
+					
+			y = f_init((self.len_primal_vec_y, ) )
+			
+			tao = f_init((1,))
+		
+		vec[self.x_slice] = x
+		vec[self.y_slice] = y
+		vec[self.tao_slice] = tao
+			
+		return vec
+	
+	
+	def scs_iteration(self):
+		'''	 
+		 see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
+		 q is the over-relaxation parameter PD.q
+		
+		my properly working matlab function was:
+		
+			utilde= projectToAffine(u+v,iter,PD,FH);
+			qcomb   = (PD.q*utilde + (1-PD.q)*u );
+			u  = projectToCone(qcomb - v,PD);
+			v = v - qcomb + u; 
+		
+			rewrite as
+			
+			utilde = projectToAffine(u+v,iter,PD,FH);
+			qcomb_minus_v   = PD.q*utilde + (1-PD.q)*u -v ;
+			u = projectToCone(qcomb_minus_v,PD);
+			v = u - qcomb_minus_v; 
+			
+			change sign of qcomb_minus_v
+			
+			utilde = projectToAffine(u+v,iter,PD,FH);
+			v_minus_qcomb   = v - PD.q*utilde - (1-PD.q)*u  ;
+			u = projectToCone( -1.* v_minus_qcomb,PD);
+			v = u + v_minus_qcomb; 
+			
+		--> we can store the intermediate v_minus_qcomb in v:
+		
+		instead of 
+		project_to_affine(u+v, out = u_tilde)
+		q_comb = q * u_tilde + (1.-q) * u 
+		project_to_cone(q_comb - v, out = u);
+		v +=  u - qcomb; 
+		
+		we have:
+		'''
+		
+		project_to_affine(self.u + self.v, out = self.u_tilde)
+		self.v += -self.q * self.u_tilde + -(1.-self.q) * self.u # v = v- qcomb
+		project_to_cone( -self.v, out = self.u);
+		self.v +=  self.u ;
 
-	return
+		return
+
+	
+	
+	
+	def apply_primal_constr(self, y, out = None ):
+		''' 
+		if out is specified then the function acts in place: v_out += primal_constraints(v_in)
+		otherwise (out=None) it returns v_out = primal_constraints(v_in)
+		'''
+		if not out is None:
+			for c in self.primal_constraints:
+				c.__call__(v_in = y, v_out = out )
+			
+			return 0
+		else:
+			out = np.zeros(self.len_dual_vec_x)
+			for c in self.primal_constraints:
+				c.__call__(v_in = y, v_out = out )
+			
+			return out 
+
+	def apply_dual_constr(self, x, out = None ):
+		'''
+		if out is specified then the function acts in place: v_out += dual_constraints(v_in)
+		otherwise (out=None) it returns v_out = dual_constraints(v_in)
+		'''
+		if not out is None:
+			for c in self.dual_constraints:
+				c.__call__(v_in = x, v_out = out )
+			
+			return 0
+		else:
+			out = np.zeros(self.len_primal_vec_y)
+			for c in self.dual_constraints:
+				c.__call__(v_in = x ,v_out = out  )
+			
+			return out
+
+
 
 def project_to_cone(u, out ):
 	'''
@@ -77,40 +178,6 @@ def project_to_cone(u, out ):
 	return 0
 
 
-def apply_primal_constr(y, out = None ):
-	''' 
-	if out is specified then the function acts in place: v_out += primal_constraints(v_in)
-	otherwise (out=None) it returns v_out = primal_constraints(v_in)
-	'''
-	if not out is None:
-		for c in Constraint.primal_constraints:
-			c.__call__(v_in = y, v_out = out )
-		
-		return 0
-	else:
-		out = np.zeros(OptVar.len_dual_vec_x)
-		for c in Constraint.primal_constraints:
-			c.__call__(v_in = y, v_out = out )
-		
-		return out 
-
-def apply_dual_constr(x, out = None ):
-	'''
-	if out is specified then the function acts in place: v_out += dual_constraints(v_in)
-	otherwise (out=None) it returns v_out = dual_constraints(v_in)
-	'''
-	if not out is None:
-		for c in Constraint.dual_constraints:
-			c.__call__(v_in = x, v_out = out )
-		
-		return 0
-	else:
-		out = np.zeros(OptVar.len_primal_vec_y)
-		for c in Constraint.dual_constraints:
-			c.__call__(v_in = x ,v_out = out  )
-		
-		return out
-
 # # def _id_plus_AT_A(x, y_buffer):
     # # # y_buffer <-- A*x
     # # apply_dual_constr( x = x, out = y_buffer)
@@ -129,12 +196,6 @@ class LinOp_id_plus_AT_A(LinearOperator):
 	'''
 	def __init__(self):
 		
-		assert OptVar.lists_closed, \
-			'''
-			!!!!! need length of x and y vectors to set buffer for linear op.\n
-			variable lists in OptVar are not closed.\n
-			run OptVar._close_var_lists() to close the lists.
-			'''
 		self.y_buffer = np.zeros(OptVar.len_primal_vec_y, dtype = OptVar.dtype)
 		self.x_buffer = np.zeros(OptVar.len_dual_vec_x, dtype = OptVar.dtype)
 		

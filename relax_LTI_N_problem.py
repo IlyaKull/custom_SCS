@@ -2,7 +2,7 @@
 import maps
 from variables import OptVar
 from variables import RestrictedKeysDict
-from constraints import Constraint, print_constraint
+from constraints import Constraint
 import matrix_aux_functions as mf
 import numpy as np
 
@@ -171,6 +171,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 			'primal_or_dual': 'dual',
 			'conjugateVar': rho,
 			}) 
+			
 	for k in range(k0+2,n-1):
 		Constraint(**{
 				'label': f"D_{k}", 
@@ -182,7 +183,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 				'conjugateVar': states[k],
 				}) 
 
-	dual_constraint_n = Constraint(**{
+	Constraint(**{
 			'label': f"D_{n}", 
 			'sign_list':  [+1, +1,],
 			'map_list': [tr_l_omega, tr_r_omega  ]  ,
@@ -193,8 +194,8 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 			}) 
 
 	 
-	dual_constraint_n.print_constr_list()
+	Constraint.print_constr_list()
 	
-	e._close_var_lists()
+	OptVar._close_var_lists()
 	
-	return rho, tr, dual_constraint_n
+	return 0

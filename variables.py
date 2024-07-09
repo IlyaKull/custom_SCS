@@ -58,54 +58,47 @@ class OptVar:
 			print(f"{dtype.__name__} variable {self.name} was added to the list of {primal_or_dual} variables")
 			
 	
-	def _close_var_lists(self):
+	@classmethod
+	def _close_var_lists(cls):
 		print('>>>>>>>>>>>>>>>>>>> closing variable list')
 		print('>>>>>>>>>>>>>>>>>>> adding variables is no longer possible (OptVar.lists_closed = True )')
-		OptVar.len_dual_vec_x = OptVar.dual_vars[-1].slice.stop
-		OptVar.len_primal_vec_y = OptVar.primal_vars[-1].slice.stop
-		OptVar.lists_closed = True
-		OptVar.primal_vars[-1].print_var_list()
+		cls.len_dual_vec_x = cls.dual_vars[-1].slice.stop
+		cls.len_primal_vec_y = cls.primal_vars[-1].slice.stop
+		cls.lists_closed = True
+		cls.primal_vars[-1].print_var_list()
+		
 		# slice of all dual vars x in u=[x,y,tao]
-		OptVar.x_slice = slice(OptVar.dual_vars[0].slice.start, OptVar.dual_vars[-1].slice.stop)
-		OptVar.y_slice = slice(OptVar.x_slice.stop, OptVar.x_slice.stop + OptVar.primal_vars[-1].slice.stop) 
-		OptVar.tao_slice = slice(OptVar.y_slice.stop, OptVar.y_slice.stop +1)
+		cls.x_slice = slice(cls.dual_vars[0].slice.start, cls.dual_vars[-1].slice.stop)
+		cls.y_slice = slice(cls.x_slice.stop, cls.x_slice.stop + cls.primal_vars[-1].slice.stop) 
+		cls.tao_slice = slice(cls.y_slice.stop, cls.y_slice.stop +1)
 		 
 		
 		# determine dtype of x and y
-		dtypes = [ v.dtype for v in OptVar.dual_vars + OptVar.primal_vars ]
+		dtypes = [ v.dtype for v in cls.dual_vars + cls.primal_vars ]
 		if complex in dtypes:
-			OptVar.dtype = complex
+			cls.dtype = complex
 		else:
-			OptVar.dtype = float
+			cls.dtype = float
 		
 		 
 		
-		print(f"length of primal vector (y): {OptVar.len_primal_vec_y}")
-		print(f"length of dual vector (x): {OptVar.len_dual_vec_x}")
-		print(f"dtype of x and y: {OptVar.dtype}")
-	
-	
-	def initilize_vecs(self, f_init = np.ones):
-		assert OptVar.lists_closed , 'close variable lists to initialize vectors ( OptVar._close_var_lists() )'
-		
-		x = f_init((OptVar.len_dual_vec_x, ))
-				
-		y = f_init((OptVar.len_primal_vec_y, ) )
-		
-		return x,y
-	
-				
-	def print_var_list(self):
+		print(f"length of primal vector (y): {cls.len_primal_vec_y}")
+		print(f"length of dual vector (x): {cls.len_dual_vec_x}")
+		print(f"dtype of x and y: {cls.dtype}")
+
+
+	@classmethod
+	def print_var_list(cls):
 		print('='*80)
 		print('~'*30 + ' VARIABLES: '.center(20) + '~'*30 )
 		print('='*80)
 		
-		for i, var_list in enumerate((OptVar.primal_vars, OptVar.dual_vars)):
+		for i, var_list in enumerate((cls.primal_vars, cls.dual_vars)):
 			print('~'*10 + " {} VARS:".format(('PRIMAL', 'DUAL')[i]))
 			for var in var_list:
 				print(f"{var.name:20} : slice: {var.slice}", end=' ')
 				print(f": dims: {var.dims}: {var.dtype} : cone = {var.cone}")
-	
+
 
 
 # define subclass of dict that allows only certain keys

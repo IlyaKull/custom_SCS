@@ -92,37 +92,39 @@ class Constraint:
 			
 		return 0
 	
-		
-	def print_constr_list(self):
-		for i, constr_list in enumerate((Constraint.primal_constraints, Constraint.dual_constraints)):
+	@classmethod
+	def print_constr_list(cls):
+		for i, constr_list in enumerate((cls.primal_constraints, cls.dual_constraints)):
 			print('='*80)
 			print('~'*25 + ' {} CONSTRAINTS: '.format( ('PRIMAL', 'DUAL')[i]).center(20) + '~'*25 )
 			print(f'Total of {len(constr_list)} constraints')
 			print('='*80)
 			print('name'.ljust(12) +' : ' + 'conj var'.ljust(12) + ' : ' + 'constr type'.ljust(12) + ' : expression') 
 			print('-'*80)
+			
 			for c in constr_list:
-				print_constraint(c)
+				cls.print_constraint(c)
 		
 	
+	@classmethod
+	def print_constraint(cls, c):
+			"""
+			print the expression for the constraint
+			"""
+			print(f"{c.label:12} : {c.conjugateVar.name:12} : ", end=' ')
+			
+			for (sign, CGmap, adj_flag, optVar) in zip(c.signs, c.maps, c.adj_flags, c.var_list):
+				if adj_flag:
+					print(f"{cls.signString(sign)} {CGmap.adj_name}({optVar.name}) ", end = '')
+				else:
+					print(f"{cls.signString(sign)} {CGmap.name}({optVar.name}) ", end = '')
+			
+			print('\n')
 
-def print_constraint(c):
-		"""
-		print the expression for the constraint
-		"""
-		print(f"{c.label:12} : {c.conjugateVar.name:12} : ", end=' ')
-		
-		for (sign, CGmap, adj_flag, optVar) in zip(c.signs, c.maps, c.adj_flags, c.var_list):
-			if adj_flag:
-				print(f"{signString(sign)} {CGmap.adj_name}({optVar.name}) ", end = '')
-			else:
-				print(f"{signString(sign)} {CGmap.name}({optVar.name}) ", end = '')
-		
-		
-		print('\n')
 
-def signString(x): 
-	s = f"{x:+}"
-	if abs(x) == 1:
-		s = s[0]
-	return s
+	@staticmethod
+	def signString(x): 
+		s = f"{x:+}"
+		if abs(x) == 1:
+			s = s[0]
+		return s
