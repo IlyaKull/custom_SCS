@@ -35,7 +35,10 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	dims_omega = (d,D,D,d)
 
 	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = float)
-
+	
+	H = rng.random((rho.matdim, rho.matdim))
+	H = H + H.T.conj()
+	
 	# states is a dict with >>key = the number of spins<<
 	states = RestrictedKeysDict(allowed_keys = list(range(k0+1,n+1)))
 	states[k0+1] = rho
@@ -103,6 +106,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 		'var_list': [rho,],
 		'primal_or_dual': 'primal',
 		'conjugateVar': e,
+		'const' : 1.0
 		})
 	
 	Constraint(**{
@@ -170,6 +174,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 			'var_list': [ b_l, b_r, a, a, e],
 			'primal_or_dual': 'dual',
 			'conjugateVar': rho,
+			'const': H.ravel()
 			}) 
 			
 	for k in range(k0+2,n-1):

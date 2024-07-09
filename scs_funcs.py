@@ -1,8 +1,5 @@
-import scipy.linalg as la
 import numpy as np
-
 from variables import OptVar
-
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.linalg import cg as scipy_cg
 
@@ -11,18 +8,30 @@ from constraints import Constraint
 
 class SCS_Solver:
 	'''
-	solver object is initialized with the problem data c,b.
-	When initialized it closes the variable lists in the OptVar calss and
-	it retrieves all the calss variables from OptVar and Constraint classes.
+	after defining all the optimization variables (OptVar class),
+	and all the constraints on them (expressions involving Maps acting on OptVars)
+	the problem has been specified.
+	
+	At this point the SCS_Solver class can be instantiated. 
+	It contains all the methods and objects needed to perform the scs algorithm.
+	https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 
+	
+	
+	When initialized this class first  closes the variable lists in the OptVar calss and
+	 retrieves all the calss variables from OptVar and Constraint classes, 
+	 such that all the data neede for the algorithm is encapsulated in this object. 
+	
+	variable names based on 
+	https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
 	
 	'''
 	def __init__(self, c, b, settings = dict()):
 		
-		if not OptVar.lists_closed:
+		if not OptVar.lists_closed:  # closing the lists fixes the sizes of the primal and dual vectors
 			OptVar._close_var_lists()
 			
 		
-		self.settings = default_settings()
+		self.settings = default_settings()  
 		self.settings.update(settings)
 		
 		self.primal_constraints = Constraint.primal_constraints
@@ -44,21 +53,26 @@ class SCS_Solver:
 		self.lists_closed = OptVar.lists_closed
 		
 		# initialize iteration vectors:
-		self.u = self.initilize_vec()
-		self.v = self.initilize_vec()
-		self.u_tilde = self.initilize_vec()
+		self.u = self._initilize_vec()
+		self.v = self._initilize_vec()
+		self.u_tilde = self._initilize_vec()
 		
 		# the q parameter in the iteration
 		self.q = self.settings['q']
 		
 		# the linear operator 1+A^\dagger *A 
-		self.lin_op = LinOp_id_plus_AT_A(self.len_dual_vec_x, self.len_primal_vec_y, self.dtype, self.primal_constraints, self.dual_constraints)
+		self.lin_op = LinOp_id_plus_AT_A(self.len_dual_vec_x,\
+			self.len_primal_vec_y,\
+			self.dtype,\
+			self.primal_constraints,\
+			self.dual_constraints\
+		)
 		
 		# the vector h is defined as h = [c,b]
 		self.h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
 		self.h[self.x_slice] = c
 		self.h[self.y_slice] = b
-		self.c = self.h[self.x_slice] # pointers for convenienc
+		self.c = self.h[self.x_slice] # slices for convenienc
 		self.b = self.h[self.y_slice]
 		
 		# print(self.h.base is None) 
@@ -66,19 +80,16 @@ class SCS_Solver:
 				
 		# M^(-1)h is needed in every iteration and is therefore computed
 		# at initialization 
-		Minv_h = np.zeros(self.y_slice.stop)
-		Minv_h[self.x_slice], Minv_h[self.y_slice] = self._solve_M_inv_return(self.c, self.b)
-		# the following is also needed in every iteration	
+		Minv_h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
+		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b)
 		
+		# the following is also needed in every iteration	
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
 		self.Minv_h = Minv_h
 	
 	
-		
-		
 	
-	
-	def initilize_vec(self, f_init = None):
+	def _initilize_vec(self, f_init = None):
 		'''
 		the vectors in the scs iteration are of the form u = [x, y, tao].
 		this method initiates such variables. if f_init is not specified 
@@ -111,8 +122,7 @@ class SCS_Solver:
 	
 	
 	
-	
-	def scs_iteration(self):
+	def _iterate_scs(self):
 		'''	 
 		 see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
 		 q is the over-relaxation parameter PD.q
@@ -149,16 +159,16 @@ class SCS_Solver:
 		we have:
 		'''
 		
-		self.project_to_affine(self.u + self.v, out = self.u_tilde)
+		self._project_to_affine(self.u + self.v, out = self.u_tilde)
 		self.v += -self.q * self.u_tilde + -(1.-self.q) * self.u # v = v- qcomb
-		self.project_to_cone( -self.v, out = self.u);
+		self._project_to_cone( -self.v, out = self.u);
 		self.v +=  self.u ;
 
 		return
 
  
 
-	def project_to_cone(self,u, out ):
+	def _project_to_cone(self,u, out ):
 		'''
 		project each PSD variable to PSD cone 
 		(diagonalize --> set negative eigs to 0 )
@@ -182,7 +192,7 @@ class SCS_Solver:
 		
 
 
-	def project_to_affine(self, w):
+	def _project_to_affine(self, w):
 		''' 
 		solves (I+Q)u=w
 		acts in place, i.e. w <-- solution u
@@ -223,7 +233,7 @@ class SCS_Solver:
 		w_x += -w_tao * self.c
 		w_y += -w_tao * self.b
 		
-		self.solve_M_inv(w_x, w_y)  # w_x,w_y <-- sol to M@[x,y] = [w_x,w_y]
+		self._solve_M_inv(w_x, w_y)  # w_x,w_y <-- sol to M@[x,y] = [w_x,w_y]
 		
 		
 		Minvh_x = self.Minv_h[self.x_slice]
@@ -247,7 +257,7 @@ class SCS_Solver:
 
 
 
-	def _solve_M_inv_return(self, w_x, w_y):
+	def __solve_M_inv_return(self, w_x, w_y):
 		'''
 		this is for debugging. should give the same result as solve_M_inv(...)
 		
@@ -262,7 +272,7 @@ class SCS_Solver:
 		
 	
 
-	def solve_M_inv(self, w_x, w_y):
+	def _solve_M_inv(self, w_x, w_y):
 		'''
 		ACT IN PLACE: the solution is written back into w_x,w_y
 		
@@ -315,6 +325,128 @@ class SCS_Solver:
 		)
 		
 	
+		
+	def __apply_M(self,x,y):
+		'''
+		function [Mxy] = applyM(xy,PD,FH)
+		% M= [I,A^T; -A,I]
+		% applyMsymm takes  [x;y] and produces [x +A^T*y; -Ax+y];
+		 
+		[xindsInU,yindsInU]=Uinds(PD);
+
+		Mxy=nan(size(xy)); %initialize
+		Mxy(xindsInU) = xy(xindsInU) + FH.ATransposed_funcHandle(xy(yindsInU));
+		Mxy(yindsInU) = xy(yindsInU) - FH.A_funcHandle(xy(xindsInU));
+		'''
+
+		x_out =  x +  apply_primal_constr(self,y)
+		y_out = y - apply_dual_constr(self,x)	
+		 
+		return x_out, y_out
+		
+		
+	def __one_plus_Q(self, u):
+		'''
+		returns the result
+		
+		
+		function [eyePlusQu] = eyePlusQ(u,PD,FH)
+		% apply eye+Q (see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 4.1)
+		% eye+Q = [M,h;-h^T,1] ie (eye+Q)[xy,tao] = [M*[xy]+h*tao ; -h^T*xy + tao]
+		 
+
+		[xindsInU,yindsInU,taoindInU]=Uinds(PD);
+		xyindsInU=[xindsInU,yindsInU];
+		 
+		h=[PD.c;PD.b];
+
+		eyePlusQu=nan(size(u)); %initialize
+		eyePlusQu(xyindsInU) =  applyM(u(xyindsInU),PD,FH) + h*u(taoindInU);
+		eyePlusQu(taoindInU) =  -h'*u(xyindsInU) + u(taoindInU);
+		'''
+		u_out = np.zeros(len(u))
+		
+		u_x = u[self.x_slice]
+		u_y = u[self.y_slice]
+		u_tao = u[self.tao_slice]
+		
+		# eyePlusQu(xyindsInU) =  applyM(u(xyindsInU),PD,FH) + h*u(taoindInU);
+		u_out_x, u_out_y = self.__apply_M(u_x,u_y) 
+		u_out_x += u_tao * self.c 
+		u_out_y += u_tao * self.b
+		
+		# eyePlusQu(taoindInU) =  -h'*u(xyindsInU) + u(taoindInU);
+		u_out_tao = np.vdot(-self.b, u_y) + np.vdot(-self.c, u_x) + u_tao
+		
+		u_out[self.x_slice] = u_out_x
+		u_out[self.y_slice] = u_out_y
+		u_out[self.tao_slice] = u_out_tao
+		
+		return u_out
+		
+
+
+
+
+	def __project_to_affine_return(self, w):
+		''' 
+		solves (I+Q)u=w
+		returns the solution u
+		
+		see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (4.1)
+		
+		previous matlab func:
+			function [u,stats] = projectToAffine(w,iter,PD,FH)
+			% PD is the problem data structure. this function adds the Minvh field and
+			% others
+			% if Minv*h is not cached compute it  
+		 
+			[xindsInU,yindsInU,taoindInU]=Uinds(PD);
+
+			% h= [c;b];
+			w_tao=w(taoindInU);
+			w_xIN=w(xindsInU) -w_tao*(PD.c);
+			w_yIN=w(yindsInU) -w_tao*(PD.b);
+
+			[out_x,out_y,stats] = solveMinv(w_xIN ,w_yIN,PD,FH, PD.CGtolFunc(iter));
+			out=[out_x;out_y];
+			u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
+			% ad
+			u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
+
+			% stats.testSol=norm(w-eyePlusQ(u));
+			end
+		
+		'''
+		
+			
+		w_tao = w[self.tao_slice]
+		w_x = w[self.x_slice]
+		w_y = w[self.y_slice]
+		
+		z_x, z_y = self.__solve_M_inv_return(w_x - w_tao * self.c , w_y - w_tao * self.b)   
+		
+		
+		Minvh_x = self.Minv_h[self.x_slice]
+		Minvh_y = self.Minv_h[self.y_slice]
+		# from above docstr
+		# u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
+		dot_prod_hz = np.vdot(self.c, z_x) + np.vdot(self.b, z_y)
+		
+		u_x = z_x - self.hMinvh_plus_one_inv * dot_prod_hz * Minvh_x  
+		u_y = z_y - self.hMinvh_plus_one_inv * dot_prod_hz * Minvh_y
+		
+		# from above docstr 
+		# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
+		u_tao = w_tao +  np.vdot(self.c,u_x) + np.vdot(self.b,u_y)
+		
+		u = np.zeros(self.tao_slice.stop)
+		u[self.x_slice] = u_x
+		u[self.y_slice] = u_y
+		u[self.tao_slice] = u_tao
+		return u
+		
+
 
 
  
@@ -357,11 +489,12 @@ class LinOp_id_plus_AT_A(LinearOperator):
 
 
 
-'''
-the following functions are used by both the linear operator 1+A^\dagger*A and scs_solver.
-instead of making both instances of a parent calss which implements those functions as methods, 
-I chose to have them as separate functions which accept an object that has all the needed attributes.
-'''
+# the following functions are used by both the linear operator 1+A^\dagger*A and scs_solver.
+# instead of making both instances of a parent calss which implements those functions as methods, 
+# I chose to have them as separate functions which accept an object that has all the needed attributes.
+
+
+
 def apply_primal_constr(obj, y, out = None ):
 	''' 
 	if out is specified then the function acts in place: v_out += primal_constraints(v_in)
@@ -395,135 +528,7 @@ def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
 		return out 
 
  
-'''
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-flollowing functions still need to be made compatible with the scs_solver class.
-after that project to affine can be tested.
-'''
-	
-def _apply_M(x,y):
-	'''
-	function [Mxy] = applyM(xy,PD,FH)
-	% M= [I,A^T; -A,I]
-	% applyMsymm takes  [x;y] and produces [x +A^T*y; -Ax+y];
-	 
-	[xindsInU,yindsInU]=Uinds(PD);
-
-	Mxy=nan(size(xy)); %initialize
-	Mxy(xindsInU) = xy(xindsInU) + FH.ATransposed_funcHandle(xy(yindsInU));
-	Mxy(yindsInU) = xy(yindsInU) - FH.A_funcHandle(xy(xindsInU));
-	'''
-
-	x_out =  x +  apply_primal_constr(y)
-	y_out = y - apply_dual_constr(x)	
-	 
-	return x_out, y_out
-	
-	
-
-
-def _one_plus_Q(u,c,b):
-	'''
-	returns the result
-	
-	
-	function [eyePlusQu] = eyePlusQ(u,PD,FH)
-	% apply eye+Q (see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 4.1)
-	% eye+Q = [M,h;-h^T,1] ie (eye+Q)[xy,tao] = [M*[xy]+h*tao ; -h^T*xy + tao]
-	 
-
-	[xindsInU,yindsInU,taoindInU]=Uinds(PD);
-	xyindsInU=[xindsInU,yindsInU];
-	 
-	h=[PD.c;PD.b];
-
-	eyePlusQu=nan(size(u)); %initialize
-	eyePlusQu(xyindsInU) =  applyM(u(xyindsInU),PD,FH) + h*u(taoindInU);
-	eyePlusQu(taoindInU) =  -h'*u(xyindsInU) + u(taoindInU);
-	'''
-	u_out = np.zeros(len(u))
-	
-	u_x = u[OptVar.x_slice]
-	u_y = u[OptVar.y_slice]
-	u_tao = u[OptVar.tao_slice]
-	
-	# eyePlusQu(xyindsInU) =  applyM(u(xyindsInU),PD,FH) + h*u(taoindInU);
-	u_out_x, u_out_y = _apply_M(u_x,u_y) 
-	u_out_x += u_tao * c 
-	u_out_y += u_tao * b
-	
-	# eyePlusQu(taoindInU) =  -h'*u(xyindsInU) + u(taoindInU);
-	u_out_tao = np.vdot(-b,u_y) + np.vdot(-c,u_x) + u_tao
-	
-	u_out[OptVar.x_slice] = u_out_x
-	u_out[OptVar.y_slice] = u_out_y
-	u_out[OptVar.tao_slice] = u_out_tao
-	
-	return u_out
-	
-
-
-
-
-def _project_to_affine_return(w, lin_op,  c,  b, hMinvh_plus_one_inv, Minvh):
-	''' 
-	solves (I+Q)u=w
-	returns the solution u
-	
-	see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (4.1)
-	
-	previous matlab func:
-		function [u,stats] = projectToAffine(w,iter,PD,FH)
-		% PD is the problem data structure. this function adds the Minvh field and
-		% others
-		% if Minv*h is not cached compute it  
-	 
-		[xindsInU,yindsInU,taoindInU]=Uinds(PD);
-
-		% h= [c;b];
-		w_tao=w(taoindInU);
-		w_xIN=w(xindsInU) -w_tao*(PD.c);
-		w_yIN=w(yindsInU) -w_tao*(PD.b);
-
-		[out_x,out_y,stats] = solveMinv(w_xIN ,w_yIN,PD,FH, PD.CGtolFunc(iter));
-		out=[out_x;out_y];
-		u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
-		% ad
-		u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
-
-		% stats.testSol=norm(w-eyePlusQ(u));
-		end
-	
-	'''
-	
-		
-	w_tao = w[OptVar.tao_slice]
-	w_x = w[OptVar.x_slice]
-	w_y = w[OptVar.y_slice]
-	
-	z_x, z_y = _solve_M_inv_return(w_x - w_tao * c , w_y - w_tao * b, lin_op)   
-	
-	
-	Minvh_x = Minvh[OptVar.x_slice]
-	Minvh_y = Minvh[OptVar.y_slice]
-	# from above docstr
-	# u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
-	dot_prod_hz = np.vdot(c,z_x) + np.vdot(b,z_y)
-	
-	u_x = z_x - hMinvh_plus_one_inv * dot_prod_hz * Minvh_x  
-	u_y = z_y - hMinvh_plus_one_inv * dot_prod_hz * Minvh_y
-	
-	# from above docstr 
-	# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
-	u_tao = w_tao +  np.vdot(c,u_x) + np.vdot(b,u_y)
-	
-	u = np.zeros(OptVar.tao_slice.stop)
-	u[OptVar.x_slice] = u_x
-	u[OptVar.y_slice] = u_y
-	u[OptVar.tao_slice] = u_tao
-	return u
-	
-
+ 
 
 
 def default_settings():

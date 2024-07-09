@@ -25,7 +25,8 @@ class Constraint:
 					var_list,
 					primal_or_dual,
 					conjugateVar = None, 
-					add_to_constr_list = True):
+					add_to_constr_list = True,
+					const = None):
 		
 		assert len(map_list) == len(var_list), f'Supplied Maps and variables do not match in length in constraint {label}'
 		assert len(sign_list) == len(var_list), f'Supplied sign_list and map_list do not match in length in constraint {label}'
@@ -36,7 +37,11 @@ class Constraint:
 		self.var_list = var_list
 		self.conjugateVar = conjugateVar
  		
-					
+		if not const is None:
+			self.const = const
+		else:
+			self.const = np.zeros(conjugateVar.matdim**2)
+				
 		# primal or dual constraint
 		assert primal_or_dual in ('primal', 'dual'), \
 			f"!!!!!!!!!!!!!!! Constraint {self.name} was not defined \n" + \
