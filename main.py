@@ -25,19 +25,10 @@ def main():
 	
 	relax_LTI_N_problem.set_problem(n=20, D=3, d=2, xOtimesI_impl = 'kron', cg_impl = 'kron')
 
-	c = rng.random((OptVar.len_dual_vec_x,))
-	b = rng.random((OptVar.len_primal_vec_y,))
-	
-	scs_solver = SCS_Solver(c, b)
+	scs_solver = SCS_Solver(settings = {})
 
-	cc = c.copy()
-	bc = b.copy()
-	scs_solver._solve_M_inv(cc, bc)
-	
-	print(max(abs(cc-scs_solver.Minv_h[scs_solver.x_slice])), max(abs(bc-scs_solver.Minv_h[scs_solver.y_slice])) )
 	
 	u = scs_solver.u
-	print(scs_solver.__dir__())
 	one_plus_Qu = scs_solver._SCS_Solver__one_plus_Q(u)
 	
 	sbu = scs_solver._SCS_Solver__project_to_affine_return(one_plus_Qu)

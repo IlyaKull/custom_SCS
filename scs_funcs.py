@@ -25,7 +25,7 @@ class SCS_Solver:
 	https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
 	
 	'''
-	def __init__(self, c, b, settings = dict()):
+	def __init__(self, settings = dict()):
 		
 		if not OptVar.lists_closed:  # closing the lists fixes the sizes of the primal and dual vectors
 			OptVar._close_var_lists()
@@ -69,11 +69,16 @@ class SCS_Solver:
 		)
 		
 		# the vector h is defined as h = [c,b]
+		# where b is the vector of constants in the constraint Ax+s=b, s>= 0
+		# and c is the objective function: min(c@x)
+		#### EXPLAIN THE SIGN CONVENTION HERE
 		self.h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
-		self.h[self.x_slice] = c
-		self.h[self.y_slice] = b
 		self.c = self.h[self.x_slice] # slices for convenienc
 		self.b = self.h[self.y_slice]
+		for cstr in self.primal_constraints:
+			self.c[cstr.conjugateVar.slice] = cstr.const
+		for cstr in self.dual_constraints:
+			self.b[cstr.conjugateVar.slice] = cstr.const
 		
 		# print(self.h.base is None) 
 		# print(self.b.base is None)

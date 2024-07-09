@@ -37,10 +37,11 @@ class Constraint:
 		self.var_list = var_list
 		self.conjugateVar = conjugateVar
  		
-		if not const is None:
-			self.const = const
-		else:
+		if const is None:
 			self.const = np.zeros(conjugateVar.matdim**2)
+		else:
+			self.const = const
+			
 				
 		# primal or dual constraint
 		assert primal_or_dual in ('primal', 'dual'), \
