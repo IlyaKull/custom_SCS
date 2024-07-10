@@ -1,0 +1,125 @@
+SCS algorithm solves the primal-dual pair of problems:
+
+primal:
+		min c.T*x
+		st A*x + s = b
+		s >= 0
+		x \in R^n
+		 
+dual:
+		max -b.T*y
+		st -A.T*y = c
+		y >= 0
+		
+In our setting the primal is of the form
+		min trace(rho*H)
+		st trace(rho) == 1
+		rho = tr_L(sigma)
+		rho = tr_R(sigma)
+		rho >= 0
+		sigma >= 0
+		
+the dual is then of the form
+	max e
+	st H + A + B -Ie >= 0
+	-IxL - RxI >= 0
+	
+This suggests that it would be convenient to read our primal as being in the scs dual form
+because the desicion variables are positive semidefinite in both (y = direct sum (rho,sigma) >= 0 ).
+Similarly, our dual has free variables (L,R,e) \in R^n x R^n x R, so we put them in the scs variable x.
+
+Therefore: in this implementation x is called the vector of dual variables (dual in our problem, primal in scs), 
+and y is called the vector of primal variables.
+
+Accordingly, we rewrite our problem following the scs sign convention as follows:
+
+
+the primal
+		-max trace(rho*(-H))
+		st trace(rho) == 1
+		rho - tr_L(sigma) = 0
+		rho - tr_R(sigma) = 0
+		rho >= 0
+		sigma >= 0
+	
+ 
+		I.E., THE CONVENTION IS:
+		
+		 	y = [rho,sigma] >= 0
+			b=[H,0], 
+			A.T([rho,sigma]) = [-tr(rho), -rho + tr_L(sigma), -rho + tr_R(sigma)] 
+			A.T = 	[-tr,0 ; 
+					 -1, tr_L;
+					 -1, tr_R]
+			c = [1,0,0]
+
+
+the dual 
+	-min -e
+	st H + L + R -Ie >= 0
+	-IxL - RxI >= 0
+
+	changing e to -e we get 
+	x = [e,L,R]
+	c = [1,0,0]
+	-L - R - Ie - H <= 0 
+	IxL + RxI <= 0
+	which is indeed equal to  A([e,L,R]) - b = -s , s >= 0
+	with A = [-tr^*, -1, -1;
+			   0, tr_L^*, tr_R^*]
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+THE OUTCOME WILL THEREFORE BE -1*OBJECTIVE
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&									
+# we should therefore encode the PRIMAL CONSTRAINTS with the calls
+Constraint(**{
+			'label': 'normalization', 
+			'sign_list':  [ -1,],
+			'map_list': [trace, ],
+			'adj_flag_list': [False, ],
+			'var_list': [ rho, ],
+			'primal_or_dual': 'primal',
+			'conjugateVar': e,
+			'const': 1.0
+			}) 
+
+Constraint(**{
+			'label': 'left', 
+			'sign_list':  [ -1, +1],
+			'map_list': [id, tr_l ],
+			'adj_flag_list': [False, False],
+			'var_list': [ rho, sigma ],
+			'primal_or_dual': 'primal',
+			'conjugateVar': L,
+			'const': None # same as zero vector of the size of the conjugate var
+			}) 
+# and similarly for the 'right' constraint
+ 
+# for the DUAL CONSTRAINTS: 
+
+Constraint(**{
+			'label': 'dual_to_rho', 
+			'sign_list':  [ -1, -1, -1],
+			'map_list': [tr, id, id ],
+			'adj_flag_list': [True, True, True],
+			'var_list': [ e, L, R ],
+			'primal_or_dual': 'dual',
+			'conjugateVar': rho,
+			'const': H.ravel()
+			}) 
+
+
+Constraint(**{
+			'label': 'dual_to_sigma', 
+			'sign_list':  [ +1, +1],
+			'map_list': [tr_L, tr_R ],
+			'adj_flag_list': [True, True],
+			'var_list': [L, R ],
+			'primal_or_dual': 'dual',
+			'conjugateVar': sigma,
+			'const': None # same as zero vector of the size of the conjugate var
+			}) 
+

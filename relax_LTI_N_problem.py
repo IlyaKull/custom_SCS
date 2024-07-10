@@ -97,18 +97,25 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
 	
 	# primal constraints
-	 
+	# for the sign conventions see sign_convention_doc.txt
+	# the LHS in the primal constraints is -A.T
+	# the RHS (constants) are without a minus sign,
+	# i.e., for a constraint tr(rho)==1 we need to put -tr(rho) in the primal constraints and const = 1
+	
 	Constraint(**{
 		'label': 'norm', 
-		'sign_list': [-1,],
+		'sign_list': [-1,],     # -tr(rho)
 		'map_list': [tr,],
 		'adj_flag_list': [False,],
 		'var_list': [rho,],
 		'primal_or_dual': 'primal',
 		'conjugateVar': e,
-		'const' : 1.0
+		'const' : 1.0       
 		})
 	
+	# when no constant is specified (or is None)
+	# the RHS is set as a vector of zeros of the correct size:
+	# np.zeros((conjugateVar.matdim, conjugateVar.matdim))
 	Constraint(**{
 		'label': 'LTI', 
 		'sign_list': [-1, +1],
@@ -141,7 +148,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 		})
 	
 	for k in range(k0+2,n):
-		
+	
 		Constraint(**{
 			'label': f'left_{k}', 
 			'sign_list': [-1, +1],
@@ -178,6 +185,9 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 			}) 
 			
 	for k in range(k0+2,n-1):
+		# RECALL:
+		# beta_l = g_l[k0+1] is dual to V*rho*V^+ == pTr_l omega_k0+2
+	
 		Constraint(**{
 				'label': f"D_{k}", 
 				'sign_list':  [+1, +1, -1, -1],
