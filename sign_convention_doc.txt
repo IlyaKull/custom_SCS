@@ -60,10 +60,12 @@ the dual
 	-IxL - RxI >= 0
 
 	changing e to -e we get 
-	x = [e,L,R]
+	with x = [e,L,R]
 	c = [1,0,0]
-	-L - R - Ie - H <= 0 
+	-min e
+	st 	-L - R - Ie - H <= 0 
 	IxL + RxI <= 0
+	
 	which is indeed equal to  A([e,L,R]) - b = -s , s >= 0
 	with A = [-tr^*, -1, -1;
 			   0, tr_L^*, tr_R^*]

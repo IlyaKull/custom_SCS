@@ -1,7 +1,6 @@
 import numpy as np
 import CGmaps
 
-
 from variables import OptVar 
 
 import maps
@@ -62,12 +61,13 @@ class Constraint:
 
 	# @profile
 	def __call__(self, v_in, v_out):
-		'''
+		"""
 		Each constraint is an expression of the form \sum_i M_i(v_i) for some maps M_i and variables v_i.
 		To each constraint ther is an associated conjugate variable. 
 		When a (primal or dual) constraint is called, the expression \sum_i M_i(v_i) is added to the the conjugate var
 		I.E. CONSTRAINTS ALWAYS ACT IN PLACE  as +=
-		'''
+		"""
+		
 		if maps.Maps.verbose:
 			print(f"calling constraint {self.label}")
 		

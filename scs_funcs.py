@@ -2,9 +2,8 @@ import numpy as np
 from variables import OptVar
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.linalg import cg as scipy_cg
-
 from constraints import Constraint
-
+import time
 
 class SCS_Solver:
 	'''
@@ -58,7 +57,7 @@ class SCS_Solver:
 		self.u_tilde = self._initilize_vec()
 		
 		# the q parameter in the iteration
-		self.q = self.settings['q']
+		self.q = self.settings['scs_q']
 		
 		# the linear operator 1+A^\dagger *A 
 		self.lin_op = LinOp_id_plus_AT_A(self.len_dual_vec_x,\
@@ -80,6 +79,9 @@ class SCS_Solver:
 		for cstr in self.dual_constraints:
 			self.b[cstr.conjugateVar.slice] = cstr.const
 		
+		# needed for termination criteria
+		self.b_norm = np.linalg.norm(self.b)
+		self.c_norm = np.linalg.norm(self.c)
 		# print(self.h.base is None) 
 		# print(self.b.base is None)
 				
@@ -91,9 +93,69 @@ class SCS_Solver:
 		# the following is also needed in every iteration	
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
 		self.Minv_h = Minv_h
+		
+		# progress log tracks the following 
+		self.resid_prim = None
+		self.resid_dual = None
+		self.resid_gap = None
+		self.primal_objective = None
+		self.dual_objective = None
+		
+		
 	
+	def run_scs(self, num_iters = None):
+		
+		if not num_iters is None:
+			self.settings['scs_maxiter'] = num_iters
+		
+		maxiter = self.settings['scs_maxiter']
+		self.iter = 0
+		termination_criteria_satisfied = False
+		self.t_start = time.perf_counter()
+		
+		self._print_log(print_head = True, print_line = False)
+		
+		while (self.iter < maxiter) and (not termination_criteria_satisfied):
+			self._iterate_scs()
+			self.iter += 1
+			
+			if self.iter % self.settings['scs_compute_resid_every_n_iters'] == 0:
+				termination_criteria_satisfied = self._check_termination_criteria()
+				self._print_log()
+ 	
 	
-	
+	def _print_log(self, print_head = False, print_line = True):
+				
+		col_width = self.settings['log_col_width']
+		 
+		res_format_str = '0.8g'
+		obj_format_str = '0.8g'
+		
+		log_columns = {"Iter" : 	{'val' : self.iter, 			'formt_str' : 'g'},
+			"Prim res" : 			{'val' : self.resid_prim, 		'formt_str' : res_format_str},
+			"Dual res" : 			{'val' : self.resid_dual, 		'formt_str' : res_format_str},
+			"Gap res" : 			{'val' : self.resid_gap, 		'formt_str' : res_format_str},
+			"Prim obj" :			{'val' : self.primal_objective, 'formt_str' : obj_format_str},
+			"Dual obj" : 			{'val' : self.dual_objective, 	'formt_str' : obj_format_str},
+			"Time": 				{'val' : time.perf_counter() - self.t_start, 'formt_str' : '0.3g'}
+		}
+		
+		if print_head:
+			print("="*72)
+			print("STARTING SCS")
+			print("="*72)
+
+			for k in log_columns:
+				print(k.ljust(col_width), end = " | " )
+			print('')
+			
+		if print_line:
+			for dikt in log_columns.values():
+				print(format(dikt['val'], dikt['format_str']).ljust(col_width), end = " | " )
+			print('')
+			
+		
+		
 	def _initilize_vec(self, f_init = None):
 		'''
 		the vectors in the scs iteration are of the form u = [x, y, tao].
@@ -125,7 +187,36 @@ class SCS_Solver:
 			
 		return vec
 	
-	
+	def _check_termination_criteria(self):
+		''' 
+		compute residuals as defined in 
+		https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (sec 3.5)
+		and retrun True if all stopping criteria are satisfied
+		'''
+		tao =self.u[self.tao_slice]
+		x_k = self.u[self.x_slice] / tao
+		s_k = self.v[self.y_slice] / tao
+		y_k = self.u[self.y_slice] / tao
+		
+		# primal residuals =  2-norm(Ax+s-b)
+		self.resid_prim = np.linalg.norm( apply_dual_constr(self, x_k) + s_k - self.b )
+		
+		# dual residuals = 2-norm(A.Ty + c)
+		self.resid_dual = np.linalg.norm( apply_primal_constr(self, y_k) + self.c )
+		
+		# gap residuals = abs(c.T*x + b.T*y)
+		cx = np.vdot(self.c, x_k)
+		by = np.vdot(self.b, y_k)
+		self.resid_gap = abs(cx + by)
+		
+		# current primal objective (note the minus sign , see sign_convention_doc.txt)
+		self.primal_objective = by
+		# current dual objective
+		self.dual_objective = -cx
+		
+		return all( [self.resid_prim < self.settings['scs_prim_resid_tol'] * (1.0 + slef.b_norm), \
+			self.resid_dual < self.settings['scs_dual_resid_tol'] * (1.0 + self.c_norm ). \
+			self.resid_gap < self.settings['scs_gap_resid_tol'] < (1.0 + abs(cx) + abs(by)) ] )
 	
 	def _iterate_scs(self):
 		'''	 
@@ -537,10 +628,21 @@ def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
 
 
 def default_settings():
-	d = {'q' : 1.5,\
-		'cg_atol' : 1e-8,\
-		'cg_tol' : 1e-8,\
-		'cg_maxiter' : 2000,\
+	d = {
+		'cg_atol' : 1e-8,
+		'cg_tol' : 1e-8,
+		'cg_maxiter' : 2000,
+		'scs_maxiter': 2000,
+		'scs_q' : 1.5,
+		'scs_sigma' : 1, # not implemented yet
+		'scs_rho' : 1,   # not implemented yet
+		'scs_scaling_D': None, # not implemented yet
+		'scs_scaling_E': None, # not implemented yet
+		'scs_prim_resid_tol' : 1e-6,
+		'scs_dual_resid_tol' : 1e-6,
+		'scs_gap_resid_tol' : 1e-6,
+		'scs_compute_resid_every_n_iters' : 100,
+		'log_col_width' : 12, 
 		}
 	
 	return d
