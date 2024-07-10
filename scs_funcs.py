@@ -32,6 +32,7 @@ class SCS_Solver:
 		
 		self.settings = default_settings()  
 		self.settings.update(settings)
+		# print(self.settings)
 		
 		self.primal_constraints = Constraint.primal_constraints
 		self.dual_constraints = Constraint.dual_constraints
@@ -288,7 +289,7 @@ class SCS_Solver:
 		
 
 
-	def _project_to_affine(self, w):
+	def _project_to_affine(self, w, out):
 		''' 
 		solves (I+Q)u=w
 		acts in place, i.e. w <-- solution u
@@ -318,35 +319,32 @@ class SCS_Solver:
 			end
 		
 		'''
-		# if test_result:
-			# w_in = w.copy()
-			
-		w_tao = w[OptVar.tao_slice]
-		w_x = w[OptVar.x_slice]
-		w_y = w[OptVar.y_slice]
+		
+		out[...] = w	
+		out_tao = out[self.tao_slice]
+		out_x = out[self.x_slice]
+		out_y = out[self.y_slice]
 		
 		
-		w_x += -w_tao * self.c
-		w_y += -w_tao * self.b
+		out_x += -w[self.tao_slice] * self.c
+		out_y += -w[self.tao_slice] * self.b
 		
-		self._solve_M_inv(w_x, w_y)  # w_x,w_y <-- sol to M@[x,y] = [w_x,w_y]
+		self._solve_M_inv(out_x, out_y)  # out_x,out_y <-- sol to M@[x,y] = [out_x,out_y]
 		
 		
 		Minvh_x = self.Minv_h[self.x_slice]
 		Minvh_y = self.Minv_h[self.y_slice]
 		# from above docstr
 		# u_xy = out - PD.const_hMh * PD.Minvh * ([PD.c;PD.b]' * out);
-		dot_prod_hw = np.vdot(self.c, w_x) + np.vdot(self.b, w_y)
+		dot_prod_hw = np.vdot(self.c, out_x) + np.vdot(self.b, out_y)
 		
-		w_x += -self.hMinvh_plus_one_inv * dot_prod_hw * Minvh_x  
-		w_y += -self.hMinvh_plus_one_inv * dot_prod_hw * Minvh_y
+		out_x += -self.hMinvh_plus_one_inv * dot_prod_hw * Minvh_x  
+		out_y += -self.hMinvh_plus_one_inv * dot_prod_hw * Minvh_y
 		
 		# from above docstr 
 		# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
-		w_tao += np.vdot(self.c, w_x) + np.vdot(self.b, w_y)
+		out_tao += np.vdot(self.c, out_x) + np.vdot(self.b, out_y)
 		
-		# if test_result:
-			# print(f'In solveing (1+Q)u = w max abs difference between (1+Q)@sol and w_in = {max(abs(w_in - _one_plus_Q(w,c,b)))}')
 		return
 		
 
@@ -536,7 +534,7 @@ class SCS_Solver:
 		# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
 		u_tao = w_tao +  np.vdot(self.c,u_x) + np.vdot(self.b,u_y)
 		
-		u = np.zeros(self.tao_slice.stop)
+		u = np.zeros(self.len_joint_vec_u)
 		u[self.x_slice] = u_x
 		u[self.y_slice] = u_y
 		u[self.tao_slice] = u_tao
@@ -612,16 +610,16 @@ def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
 	if out is specified then the function acts in place: v_out += constraints(v_in)
 	otherwise (out=None) it returns the result
 	'''
-	if not out is None:
-		for c in constr_list:
-			c.__call__(v_in, v_out = out )
-		
-		return None
-	else:
+	if out is None:
 		out = np.zeros(len_out)
 		for c in constr_list:
 			c.__call__(v_in, v_out = out )
 		return out 
+	else:
+		for c in constr_list:
+			c.__call__(v_in, v_out = out )
+		
+		return None
 
  
  

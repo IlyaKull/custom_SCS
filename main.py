@@ -25,20 +25,37 @@ def main():
 	
 	relax_LTI_N_problem.set_problem(n=8, D=3, d=2, xOtimesI_impl = 'kron', cg_impl = 'kron')
 
-	scs_solver = SCS_Solver(settings = {})
+	scs_solver = SCS_Solver(settings = {'cg_maxiter':10000})
 	
-	scs_solver.run_scs(num_iters=300)
+	# scs_solver.run_scs(num_iters=300)
 	
-	# u = scs_solver.u
-	# one_plus_Qu = scs_solver._SCS_Solver__one_plus_Q(u)
+	x,y = rng.random((scs_solver.len_dual_vec_x,)) ,rng.random((scs_solver.len_primal_vec_y,))
+	Mxy_x, Mxy_y = scs_solver._SCS_Solver__apply_M(x,y)
+	sbx, sby = scs_solver._SCS_Solver__solve_M_inv_return(Mxy_x,Mxy_y)
 	
-	# sbu = scs_solver._SCS_Solver__project_to_affine_return(one_plus_Qu)
+	print(f" invert M with _return func: resid = {(max(abs(x-sbx)), max(abs(y-sby)) )}"  ) 
 	
-	# print(max(abs(u-sbu)))
+	scs_solver._solve_M_inv( Mxy_x, Mxy_y)
 	
-	# scs_solver._project_to_affine(one_plus_Qu)
+	print(f" invert M with im-place func: resid = {(max(abs(x-Mxy_x)), max(abs(y-Mxy_y)) )}"  ) 
 	
-	# print(max(abs(u-one_plus_Qu)))
+	
+	
+	
+	u1 = scs_solver.u
+	u2 = rng.random((scs_solver.len_joint_vec_u,))
+	
+	u = u1 + 0.1 * u2
+	one_plus_Qu = scs_solver._SCS_Solver__one_plus_Q(u)
+	
+	sbu = scs_solver._SCS_Solver__project_to_affine_return(one_plus_Qu)
+	
+	print(f" invert 1+Q with _return func: resid = {max(abs(u-sbu))}"  ) 
+	
+	sbu2 = np.zeros(scs_solver.len_joint_vec_u)
+	scs_solver._project_to_affine(one_plus_Qu, out = sbu2 )
+	
+	print(f" invert 1+Q with in-place func: resid = {max(abs(u-sbu2))}"  ) 
 	
 	  
 if __name__ == '__main__':
