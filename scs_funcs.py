@@ -611,11 +611,14 @@ def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
 	otherwise (out=None) it returns the result
 	'''
 	if out is None:
+		# print(f"applying constraints {constr_list[0].primal_or_dual}, OUT IS NONE")
 		out = np.zeros(len_out)
 		for c in constr_list:
 			c.__call__(v_in, v_out = out )
 		return out 
+		
 	else:
+		# print(f"applying constraints {constr_list[0].primal_or_dual}, OUT IS SPECIFIED")
 		for c in constr_list:
 			c.__call__(v_in, v_out = out )
 		
