@@ -20,7 +20,7 @@ def determine_k0(d,D):
 
 def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 
-	rng = np.random.default_rng(seed=166)
+	
 	
 	 
 	
@@ -36,6 +36,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 
 	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = float)
 	
+	rng = np.random.default_rng(seed=166)
 	H = rng.random((rho.matdim, rho.matdim))
 	H = H + H.T.conj()
 	
@@ -45,7 +46,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	for k in range(k0+2,n+1):
 		states[k] = OptVar(f"omega_{k}",'primal', dims = dims_omega, cone = 'PSD', dtype = float)
 
-		
+	rng = np.random.default_rng(seed=166)	
 	# cg maps acting on rho
 	action_l0 = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}
 	action_r0 = {'dims_in': dims_rho, 'pattern':(0,) + (1,)*k0, 'pattern_adj':(0,1,1), 'dims_out':(d,D,D)}
