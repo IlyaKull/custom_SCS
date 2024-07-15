@@ -83,8 +83,9 @@ class SCS_Solver:
 		# needed for termination criteria
 		self.b_norm = np.linalg.norm(self.b)
 		self.c_norm = np.linalg.norm(self.c)
-		# print(self.h.base is None) 
-		# print(self.b.base is None)
+		
+		print(self.c) 
+		print(self.b)
 				
 		# M^(-1)h is needed in every iteration and is therefore computed
 		# at initialization 
@@ -96,11 +97,41 @@ class SCS_Solver:
 		sb_h = np.concatenate([sb_hx, sb_hy])
 		print(f"M*Minv_h - h resid = {max(abs(sb_h - self.h))}")
 		
-		x,y = np.random.rand(self.len_dual_vec_x) ,np.random.rand(self.len_primal_vec_y)
+		# try to reproduce
+		
+		x,y = np.zeros((self.len_dual_vec_x,)) ,np.zeros((self.len_primal_vec_y,))
+		x[-1] = 1.0
+		y[self.dual_constraints[0].conjugateVar.slice] = self.dual_constraints[0].const
+		print(x)
+		print(y)
+		
+		Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
+		MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
+		print(f"M*Minv*rand - rand resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
+		
+		
+		# try with random xy
+		rng = np.random.default_rng(seed=17)
+		x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,))
+		
 		Mxy_x, Mxy_y = self.__apply_M(x,y)
 		sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
-	
 		print(f"Minv*M*rand - rand resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
+		
+		Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
+		MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
+		print(f"M*Minv*rand - rand resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
+		
+		# try with ones
+		x,y = np.ones((self.len_dual_vec_x,)) ,np.ones((self.len_primal_vec_y,))
+		
+		Mxy_x, Mxy_y = self.__apply_M(x,y)
+		sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
+		print(f"Minv*M*ones - ones resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
+		
+		Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
+		MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
+		print(f"M*Minv*ones - ones resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
 		
 		
 		# the following is also needed in every iteration	
@@ -579,18 +610,18 @@ class LinOp_id_plus_AT_A(LinearOperator):
 		'''
 		implements x <-- x + A^T @ A @ x
 		'''
-		# y_buffer <-- A @ x:
-		self.y_buffer = np.zeros(self.len_primal_vec_y, dtype = self.dtype)
-		self.x_buffer[...] = x
-		apply_dual_constr(self, x = x, out = self.y_buffer) 
+		# # y_buffer <-- A @ x:
+		# self.y_buffer = np.zeros(self.len_primal_vec_y, dtype = self.dtype)
+		# self.x_buffer[...] = x
+		# apply_dual_constr(self, x = x, out = self.y_buffer) 
 		
-		# x += A^T @ y
-		apply_primal_constr(self, y = self.y_buffer, out = self.x_buffer)
-		return self.x_buffer
+		# # x += A^T @ y
+		# apply_primal_constr(self, y = self.y_buffer, out = self.x_buffer)
+		# return self.x_buffer
 	
 		# a bit slower:
-		# self.y_buffer = apply_dual_constr(x)
-		# return 	x + apply_primal_constr(self.y_buffer)
+		self.y_buffer = apply_dual_constr(self, x)
+		return 	x + apply_primal_constr(self, self.y_buffer)
 
 
 
