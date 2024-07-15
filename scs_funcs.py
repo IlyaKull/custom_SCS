@@ -90,6 +90,18 @@ class SCS_Solver:
 		# at initialization 
 		Minv_h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
 		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b)
+				
+		# test Minv_h
+		sb_hx, sb_hy = self.__apply_M(Minv_h[self.x_slice], Minv_h[self.y_slice])
+		sb_h = np.concatenate([sb_hx, sb_hy])
+		print(f"M*Minv_h - h resid = {max(abs(sb_h - self.h))}")
+		
+		x,y = np.random.rand(self.len_dual_vec_x) ,np.random.rand(self.len_primal_vec_y)
+		Mxy_x, Mxy_y = self.__apply_M(x,y)
+		sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
+	
+		print(f"Minv*M*rand - rand resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
+		
 		
 		# the following is also needed in every iteration	
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))

@@ -27,14 +27,16 @@ def main():
 
 	scs_solver = SCS_Solver(settings = {'cg_maxiter':10000})
 	
+	
 	# scs_solver.run_scs(num_iters=300)
 	
 	x,y = rng.random((scs_solver.len_dual_vec_x,)) ,rng.random((scs_solver.len_primal_vec_y,))
 	Mxy_x, Mxy_y = scs_solver._SCS_Solver__apply_M(x,y)
-	# sbx, sby = scs_solver._SCS_Solver__solve_M_inv_return(Mxy_x,Mxy_y)
+	sbx, sby = scs_solver._SCS_Solver__solve_M_inv_return(Mxy_x,Mxy_y)
 	
-	# print(f" invert M with _return func: resid = {(max(abs(x-sbx)), max(abs(y-sby)) )}"  ) 
+	print(f" invert M with _return func: resid = {max(abs(np.concatenate([x,y]) - np.concatenate([sbx,sby]) ) )}"  ) 
 	
+	ZB
 	# scs_solver._solve_M_inv( Mxy_x, Mxy_y)
 	
 	# print(f" invert M with im-place func: resid = {(max(abs(x-Mxy_x)), max(abs(y-Mxy_y)) )}"  ) 
@@ -56,7 +58,7 @@ def main():
 	
 	print(f" invert 1+Q with _return func: resid = {max(abs(u-sbu))}"  ) 
 	
-	ZB
+	
 	
 	sbu2 = np.zeros(scs_solver.len_joint_vec_u)
 	scs_solver._project_to_affine(one_plus_Qu, out = sbu2 )
