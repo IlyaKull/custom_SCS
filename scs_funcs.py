@@ -1,7 +1,9 @@
 import numpy as np
 from variables import OptVar
+from maps import Maps
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.linalg import cg as scipy_cg
+from scipy.sparse.linalg import eigsh
 from constraints import Constraint
 import time
 
@@ -68,6 +70,8 @@ class SCS_Solver:
 			self.dual_constraints\
 		)
 		
+		self._test_validity()
+		
 		# the vector h is defined as h = [c,b]
 		# where b is the vector of constants in the constraint Ax+s=b, s>= 0
 		# and c is the objective function: min(c@x)
@@ -84,54 +88,53 @@ class SCS_Solver:
 		self.b_norm = np.linalg.norm(self.b)
 		self.c_norm = np.linalg.norm(self.c)
 		
-		print(self.c) 
-		print(self.b)
 				
 		# M^(-1)h is needed in every iteration and is therefore computed
 		# at initialization 
 		Minv_h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
 		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b)
+		
+		
 				
 		# test Minv_h
 		sb_hx, sb_hy = self.__apply_M(Minv_h[self.x_slice], Minv_h[self.y_slice])
 		sb_h = np.concatenate([sb_hx, sb_hy])
 		print(f"M*Minv_h - h resid = {max(abs(sb_h - self.h))}")
 		
-		# try to reproduce
+		# # try to reproduce
+		# x,y = np.zeros((self.len_dual_vec_x,)) ,np.zeros((self.len_primal_vec_y,))
+		# x[-1] = 1.0
+		# y[self.dual_constraints[0].conjugateVar.slice] = self.dual_constraints[0].const
+		# print(x)
+		# print(y)
 		
-		x,y = np.zeros((self.len_dual_vec_x,)) ,np.zeros((self.len_primal_vec_y,))
-		x[-1] = 1.0
-		y[self.dual_constraints[0].conjugateVar.slice] = self.dual_constraints[0].const
-		print(x)
-		print(y)
-		
-		Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
-		MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
-		print(f"M*Minv*rand - rand resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
+		# Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
+		# MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
+		# print(f"M*Minv*rand - rand resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
 		
 		
-		# try with random xy
-		rng = np.random.default_rng(seed=17)
-		x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,))
+		# # try with random xy
+		# rng = self.settings['util_rng']
+		# x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,))
 		
-		Mxy_x, Mxy_y = self.__apply_M(x,y)
-		sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
-		print(f"Minv*M*rand - rand resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
+		# Mxy_x, Mxy_y = self.__apply_M(x,y)
+		# sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
+		# print(f"Minv*M*rand - rand resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
 		
-		Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
-		MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
-		print(f"M*Minv*rand - rand resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
+		# Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
+		# MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
+		# print(f"M*Minv*rand - rand resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
 		
-		# try with ones
-		x,y = np.ones((self.len_dual_vec_x,)) ,np.ones((self.len_primal_vec_y,))
+		# # try with ones
+		# x,y = np.ones((self.len_dual_vec_x,)) ,np.ones((self.len_primal_vec_y,))
 		
-		Mxy_x, Mxy_y = self.__apply_M(x,y)
-		sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
-		print(f"Minv*M*ones - ones resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
+		# Mxy_x, Mxy_y = self.__apply_M(x,y)
+		# sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
+		# print(f"Minv*M*ones - ones resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
 		
-		Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
-		MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
-		print(f"M*Minv*ones - ones resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
+		# Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
+		# MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
+		# print(f"M*Minv*ones - ones resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
 		
 		
 		# the following is also needed in every iteration	
@@ -145,7 +148,53 @@ class SCS_Solver:
 		self.primal_objective = None
 		self.dual_objective = None
 		
+	def _test_validity(self):
+		'''
+		When the constraints are correctly defined (dual is indeed the dual of primal) then 
+		1. A^T.conj() shold be the adjoint of A.
+		2. linear operator 1+A^T*A should always be positive.
+		'''
 		
+		# test 0. 
+		# check that all expressions in primal constraints also appear in dual constraints
+		try:
+			assert all( [v['ticked_by_dual'] for v in Constraint.maps_table.values()]), 'dual constraints missing!'
+		except AssertionError:
+			print('pairs of variables which appear in primal but not in dual have value False:')
+			print( {(k[0].name, k[1].name): v['ticked_by_dual'] for k,v in Constraint.maps_table.items()} )
+			raise
+			
+		rng = self.settings['util_rng']
+		#test 1.
+		sa_tests = np.zeros(self.settings['test_SA_num_rand_vecs'])
+		for j in range(self.settings['test_SA_num_rand_vecs']):
+			x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,))
+			Ax = apply_dual_constr(self, x)
+			ATy = apply_primal_constr(self, y)
+			sa_tests[j] = np.vdot(y, Ax) - np.vdot(ATy, x)
+		
+		max_violation_SA = max(abs(sa_tests))
+		try:
+			assert max_violation_SA < self.settings['test_SA_tol'],\
+				f"primal and dual constraints are not adjoints of each other.\n Max violation of vdot(y, Ax) - vdot(ATy, x) is {max_violation_SA : 0.3g}, tolerance {self.settings['test_SA_tol'] :0.3g}"
+		except AssertionError as SAerr:
+			violations = Maps._test_self_adjoint(rng = self.settings['util_rng'], n_samples = 20, tol = self.settings['test_maps_SA_tol'])
+			print(violations)
+			raise SAerr
+		else:
+			print(f"OKOKOKOK Self adjoint test passed. max violation is {max_violation_SA : 0.3g}, tolerance {self.settings['test_SA_tol'] :0.3g}")
+		
+		# test 2.
+		e = eigsh(self.lin_op, k = 1, which = 'SA')[0]
+		try:
+			assert min(e) > 1-self.settings['test_pos_tol'] , f"Linear Operator 1+A^T*A has is smaller than 1-tol. Min eig = {min(e) :0.3g}, tol={self.settings['test_pos_tol'] :0.3g}"
+		except AssertionError:
+			raise 
+		else:
+			print(f"OKOKOKOK positivit test passed. min eig of 1+A^T*A {min(e) :0.3g}, tol={self.settings['test_pos_tol'] :0.3g}")
+		
+		
+	
 	
 	def run_scs(self, num_iters = None):
 		
@@ -623,8 +672,12 @@ class LinOp_id_plus_AT_A(LinearOperator):
 		self.y_buffer = apply_dual_constr(self, x)
 		return 	x + apply_primal_constr(self, self.y_buffer)
 
-
-
+	
+		
+		
+		
+		
+		
 
 # the following functions are used by both the linear operator 1+A^\dagger*A and scs_solver.
 # instead of making both instances of a parent calss which implements those functions as methods, 
@@ -644,6 +697,8 @@ def apply_dual_constr(obj, x, out = None ):
 	if out is specified then the function acts in place: v_out += dual_constraints(v_in)
 	otherwise (out=None) it returns v_out = dual_constraints(v_in)
 	'''
+	# print('applying dual constraints', 'constraints list:', [c.label for c in obj.dual_constraints])
+	# print('out var = ', out)
 	return _impl_apply_constr(x, obj.dual_constraints, len_out = obj.len_primal_vec_y, out = out)
 
 
@@ -676,6 +731,9 @@ def default_settings():
 		'cg_atol' : 1e-8,
 		'cg_tol' : 1e-8,
 		'cg_maxiter' : 2000,
+		#
+		'log_col_width' : 12, 
+		#
 		'scs_maxiter': 2000,
 		'scs_q' : 1.5,
 		'scs_sigma' : 1, # not implemented yet
@@ -686,7 +744,13 @@ def default_settings():
 		'scs_dual_resid_tol' : 1e-6,
 		'scs_gap_resid_tol' : 1e-6,
 		'scs_compute_resid_every_n_iters' : 100,
-		'log_col_width' : 12, 
+		#
+		'test_pos_tol' : 1e-10,
+		'test_SA_num_rand_vecs' : 100,
+		'test_SA_tol' : 1e-10,
+		'test_maps_SA_tol' : 1e-10,
+		#
+		'util_rng' : np.random.default_rng(seed=17),
 		}
 	
 	return d

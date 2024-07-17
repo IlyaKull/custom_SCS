@@ -65,15 +65,17 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
 	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho, implementation = xOtimesI_impl )
 	tr_r_rho = maps.PartTrace(subsystems = [k0+1], state_dims = dims_rho, implementation = xOtimesI_impl )
+	
+	tr_l_rho_MINUS_tr_r_rho = maps.AddMaps([tr_l_rho, tr_r_rho], [-1, +1])
 			
 	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega, implementation = xOtimesI_impl )
 	tr_r_omega = maps.PartTrace(subsystems = [4], state_dims = dims_omega, implementation = xOtimesI_impl )
 
 	tr = maps.Trace(dim = rho.matdim )
 
-	id_rho = maps.Identity( dim = rho.matdim)
-	id_omega = maps.Identity( dim = states[k0+2].matdim)
-	id_1 = maps.Identity( dim = 1)
+	# id_rho = maps.Identity( dim = rho.matdim)
+	# id_omega = maps.Identity( dim = states[k0+2].matdim)
+	# id_1 = maps.Identity( dim = 1)
 
 	H_map = maps.TraceWith( 'H', operator = np.identity(rho.matdim, dtype=float) ,dim = rho.matdim )
 
@@ -117,16 +119,19 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	# when no constant is specified (or is None)
 	# the RHS is set as a vector of zeros of the correct size:
 	# np.zeros((conjugateVar.matdim, conjugateVar.matdim))
+	
+	
+	
 	Constraint(**{
 		'label': 'LTI', 
-		'sign_list': [-1, +1],
-		'map_list': [tr_l_rho, tr_r_rho],
-		'adj_flag_list': [False, False],
-		'var_list': [rho, rho],
+		'sign_list': [ +1,],
+		'map_list': [tr_l_rho_MINUS_tr_r_rho],
+		'adj_flag_list': [False, ],
+		'var_list': [rho,],
 		'primal_or_dual': 'primal',
 		'conjugateVar': a,
 		})
-	
+		
 	Constraint(**{
 		'label': f'left_{k0+1}', 
 		'sign_list': [-1, +1],
@@ -176,16 +181,16 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
 	Constraint(**{
 			'label': f'D_{k0+1}', 
-			'sign_list':  [ -1, -1, -1, +1, -1],
-			'map_list': [C_l0, C_r0, tr_l_rho, tr_r_rho, id_rho ],
-			'adj_flag_list': [True, True, True, True, True ],
-			'var_list': [ b_l, b_r, a, a, e],
+			'sign_list':  [ -1, -1, +1, -1],
+			'map_list': [C_l0, C_r0, tr_l_rho_MINUS_tr_r_rho, tr ],
+			'adj_flag_list': [True, True, True,  True ],
+			'var_list': [ b_l, b_r, a, e],
 			'primal_or_dual': 'dual',
 			'conjugateVar': rho,
 			'const': H.ravel()
 			}) 
 			
-	for k in range(k0+2,n-1):
+	for k in range(k0+2,n):
 		# RECALL:
 		# beta_l = g_l[k0+1] is dual to V*rho*V^+ == pTr_l omega_k0+2
 	

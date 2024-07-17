@@ -10,7 +10,7 @@ import constraints
 import matrix_aux_functions
 
 import relax_LTI_N_problem
-
+# import LTI_N_problem
 
 def main():
 	
@@ -24,10 +24,12 @@ def main():
 	rng = np.random.default_rng(seed=17)
 	
 	relax_LTI_N_problem.set_problem(n=8, D=3, d=2, xOtimesI_impl = 'kron', cg_impl = 'kron')
-
-	scs_solver = SCS_Solver(settings = {'cg_maxiter':10000})
+	# LTI_N_problem.set_problem(n=6, d=2, xOtimesI_impl = 'kron')
 	
+ 	
+	scs_solver = SCS_Solver(settings = {'cg_maxiter':1000})
 	
+	zb
 	# scs_solver.run_scs(num_iters=300)
 	
 	x,y = rng.random((scs_solver.len_dual_vec_x,)) ,rng.random((scs_solver.len_primal_vec_y,))
@@ -36,7 +38,7 @@ def main():
 	
 	print(f" invert M with _return func: resid = {max(abs(np.concatenate([x,y]) - np.concatenate([sbx,sby]) ) )}"  ) 
 	
-	ZB
+	
 	# scs_solver._solve_M_inv( Mxy_x, Mxy_y)
 	
 	# print(f" invert M with im-place func: resid = {(max(abs(x-Mxy_x)), max(abs(y-Mxy_y)) )}"  ) 

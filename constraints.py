@@ -4,6 +4,7 @@ import CGmaps
 from variables import OptVar 
 
 import maps
+from util import sign_str
 
 import matrix_aux_functions as mf
 
@@ -16,6 +17,7 @@ class Constraint:
 	
 	primal_constraints = []
 	dual_constraints = []
+	maps_table = dict()
 	
 	def __init__(self, label,
 					sign_list,
@@ -57,7 +59,51 @@ class Constraint:
 		
 		if add_to_constr_list:
 			constr_list.append(self)
+			
 		
+		self._add_maps_to_table()
+	
+	
+	
+	def _add_maps_to_table(self):
+		'''
+		each added constraint adds its maps to a 'maps table' which is labeled by 
+		(dual var, pimal var). 
+		The dual constraints should be the adoint of the primal ones, 
+		i.e. should result in the transposed of the 'maps table' of the primal constraints.
+		This condition is checked when each constraint is added:
+		primal constraints are added to the table, dual constraints are checked against the primal ones.		
+		'''
+		if self.primal_or_dual == 'primal':
+			print(f'adding primal constr {self.label}')
+			for s,m,f,v in zip(self.signs, self.maps, self.adj_flags, self.var_list):
+				
+				if (self.conjugateVar, v) in Constraint.maps_table:
+					raise Exception(f"when addig primal constraint {self.label} maps table entry {(self.conjugateVar.name, v.name)} already occupied")
+				else:
+					Constraint.maps_table[(self.conjugateVar, v)] = {'sign' : s,\
+																	'map' : m,\
+																	'adj_flag' : f,\
+																	'ticked_by_dual' : False\
+																	}
+		if self.primal_or_dual == 'dual':
+			print(f'adding dual constr {self.label}, checking existing entries')
+			 
+			for s,m,f,v in zip(self.signs, self.maps, self.adj_flags, self.var_list):
+					print(f"pair {v.name, self.conjugateVar.name}")
+					if (v, self.conjugateVar) in Constraint.maps_table:
+						print('found in table')
+						ts = Constraint.maps_table[(v, self.conjugateVar)]['sign']
+						tm = Constraint.maps_table[(v, self.conjugateVar)]['map']
+						tf = Constraint.maps_table[(v, self.conjugateVar)]['adj_flag']
+						tt = Constraint.maps_table[(v, self.conjugateVar)]['ticked_by_dual']
+						assert ts == s and tm == m and tf != f and tt == False,\
+							(f"when adding dual constraint {self.label} maps table entry {(v.name, self.conjugateVar.name)} doesn't match currnt input\n",\
+							f"table entry: {ts, tm.name, tf}; current input: {s, m.name, f} (falgs match if opposite)")
+						Constraint.maps_table[(v, self.conjugateVar)]['ticked_by_dual'] = True
+					else:
+						raise Exception(f"when adding dual constraint {self.label} maps table entry  {(v.name, self.conjugateVar.name)} was not found.\n ADD ALL PRIMAL CONSTRAINTS FIRST")
+					
 
 	# @profile
 	def __call__(self, v_in, v_out):
@@ -110,10 +156,11 @@ class Constraint:
 			
 			for c in constr_list:
 				cls.print_constraint(c)
+	
 		
 	
-	@classmethod
-	def print_constraint(cls, c):
+	@staticmethod
+	def print_constraint(c):
 			"""
 			print the expression for the constraint
 			"""
@@ -121,16 +168,18 @@ class Constraint:
 			
 			for (sign, CGmap, adj_flag, optVar) in zip(c.signs, c.maps, c.adj_flags, c.var_list):
 				if adj_flag:
-					print(f"{cls.signString(sign)} {CGmap.adj_name}({optVar.name}) ", end = '')
+					print(f"{sign_str(sign)} {CGmap.adj_name}({optVar.name}) ", end = '')
 				else:
-					print(f"{cls.signString(sign)} {CGmap.name}({optVar.name}) ", end = '')
+					print(f"{sign_str(sign)} {CGmap.name}({optVar.name}) ", end = '')
 			
 			print('\n')
 
-
-	@staticmethod
-	def signString(x): 
-		s = f"{x:+}"
-		if abs(x) == 1:
-			s = s[0]
-		return s
+	 
+		
+		
+		
+		
+		
+		
+		
+		

@@ -3,7 +3,7 @@ import numpy as np
 import copy
 import time
 import matrix_aux_functions as mf
-   
+from util import sign_str
  
 class Maps:
 	"""
@@ -70,16 +70,10 @@ class Maps:
 			t = time.perf_counter()
 		
 		if Maps.verbose:
-			if var is None:
-				print(f'----------> calling map {self.name} on 1')
-			else:
-				print(f'----------> calling map {self.name} on variable {var.name}')
-				print(f'----------> var dims = {var.dims}')
+			print(f'----------> calling map {self.name} on variable {var.name}')
+			print(f'----------> var dims = {var.dims}')
 			
-		if var is None:
-			mat = np.array(1.0) # this takes care of the H*1 map
-		else:
-			mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
+		mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
 			
 			
 		if  adj_flag:
@@ -115,7 +109,34 @@ class Maps:
 				print(f": t/iter = {m.time_adj / m.calls_adj:.2g}")
 			else:
 				print('')
+				
 	
+	@classmethod
+	def _test_self_adjoint(cls, rng, n_samples = 100, tol = 1e-10):
+		"""
+		test each of the defined maps for self adjointness
+		"""
+		maps_max_violation = dict()
+		for m in cls.list_all_maps:
+			print(f"testing self-adjiontness of map {m.name}")
+			map_tests=[]
+			
+			for n in range(n_samples):
+				x = rng.random((m.dims['in'],)*(2 if m.dims['in']>1 else 1))
+				y = rng.random((m.dims['out'],)*(2 if m.dims['out']>1 else 1))
+				Mx = m.apply(x)
+				M_dag_y = m.apply_adj(y)
+				map_tests.append(abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x)) )
+				
+			maps_max_violation[m.name] = max(map_tests)
+						
+			if maps_max_violation[m.name] < tol:
+				print(f"Map {m.name} passed self-adjoint test")		
+			else:
+				Print(f"map {m.name} didn't pass SA test: |vdot(y, Mx) - vdot(M_dag_y, x)| = {abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x))}")
+		return maps_max_violation
+					
+					
 # @profile
 class CGmap(Maps):
 	"""
@@ -147,6 +168,7 @@ class CGmap(Maps):
 			# TODO: calc tensor product of multiple kraus ops: I x K_i x K_j x I			
 			first_pos = next(i for i in range(len(self.action['pattern'])) if self.action['pattern'][i] == 1)
 			
+
 			self.IKI = []
 			self.IKI_dag = []
 			for Kop in kraus:
@@ -154,10 +176,10 @@ class CGmap(Maps):
 				for i,a in enumerate(self.action['pattern']):
 					if a == 0:
 						terms_to_tensor.append(np.identity(self.action['dims_in'][i]))
-					
+						
 					if a==1 and i==first_pos:
 						terms_to_tensor.append(Kop)
-					
+						
 				
 				self.IKI.append( mf.tensorProd(terms_to_tensor)	)
 				self.IKI_dag.append(self.IKI[-1].conj().T)	
@@ -252,6 +274,33 @@ class Trace(Maps):
 
 
 
+class AddMaps(Maps):
+	"""
+	when several maps need to be applied to the same variable they should be wrapped with this
+	"""
+
+	def __init__(self, map_list, sign_list):
+		assert  all([map_list[0].dims == m.dims for m in map_list]), f"dimension mismatch when adding maps {[m.name for m in map_list]}"
+		name = '{' + ''.join([sign_str(s) + m.name for m,s in zip(map_list, sign_list)]) + '}'
+		adj_name = '{' + ''.join([sign_str(s) + m.adj_name for m,s in zip(map_list, sign_list)])  + '}'
+		super().__init__(name, map_list[0].dims, adj_name = adj_name, implementation = map_list[0].implementation )
+		self.map_list = map_list
+		self.sign_list = sign_list
+		
+	def apply(self, x):
+		out = np.zeros( (self.dims['out'],)*2 )
+		for m,s in zip(self.map_list, self.sign_list):
+			out += s * m.apply(x)
+		return out
+		
+	def apply_adj(self, x):
+		out = np.zeros( (self.dims['in'],)*2 )
+		for m,s in zip(self.map_list, self.sign_list):
+			out += s * m.apply_adj(x)
+		return out 
+		
+		
+	
 class PartTrace(Maps):
 	"""
 	maps x -> trace_{subsystems}(x) ;  y -> id_{subsystems} \otimes y
@@ -302,7 +351,7 @@ class PartTrace(Maps):
 					assert compl_subsys_contig
 				except AssertionError:
 					print("to use the kron()-based implementation, subsystems must consist of leftmost and/or rightmost contiguous blocks")
-					
+					raise
 				else:
 					tot_dim_subsys = np.prod([state_dims[i-1] for i in subsystems])
 					if subsys_contig:
@@ -335,3 +384,8 @@ class PartTrace(Maps):
 	
 	def _impl_adj_kron(self,x):
 		return mf.tensorProd(self.id_left, x, self.id_right )
+
+	
+	
+	
+
