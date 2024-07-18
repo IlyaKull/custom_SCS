@@ -157,7 +157,27 @@ class Constraint:
 			for c in constr_list:
 				cls.print_constraint(c)
 	
+	
+	@classmethod
+	def _check_maps_table(cls):
+		'''
+		all expressions that appear in the primal also appear in the dual. This is checked by the Constraint.maps_table variable. 
+		As primal constraints are added they insert maps into the entries of the maps_table which is labeled by (dual vars, primal vars). 
+		Since the dual constraints have the adjoint constraint matrix, when a dual constr is added
+		it is checked that it hits an existing entry in the table. This is done by the Constraint._add_maps_to_table() method and ensures that 
+		(dual const mat) \subset (primal constr mat)^T.
+		Here we check that every primal constraint was then visited by a dual constraint (the 'ticked_by_dual' field). which completes the check
+		A^T.conj() shold be the adjoint of A.
+		'''
 		
+		try:
+			assert all( [v['ticked_by_dual'] for v in cls.maps_table.values()]), 'dual constraints missing!'
+		except AssertionError:
+			print('pairs of variables which appear in primal but not in dual have value False:')
+			print( {(k[0].name, k[1].name): v['ticked_by_dual'] for k,v in cls.maps_table.items()} )
+			raise
+		else:
+			print('Maps table checked')
 	
 	@staticmethod
 	def print_constraint(c):

@@ -76,9 +76,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	# id_rho = maps.Identity( dim = rho.matdim)
 	# id_omega = maps.Identity( dim = states[k0+2].matdim)
 	# id_1 = maps.Identity( dim = 1)
-
-	H_map = maps.TraceWith( 'H', operator = np.identity(rho.matdim, dtype=float) ,dim = rho.matdim )
-
+	
 	# dual varsiables
 	a = OptVar('alpha', 'dual', dims = (d,)*k0 , dtype = float )
 	b_l = OptVar('beta_l', 'dual', dims = (D,D,d), dtype = float)

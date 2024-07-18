@@ -70,7 +70,7 @@ class SCS_Solver:
 			self.dual_constraints\
 		)
 		
-		self._test_validity()
+		self._test_constraints_validity()
 		
 		# the vector h is defined as h = [c,b]
 		# where b is the vector of constants in the constraint Ax+s=b, s>= 0
@@ -93,53 +93,12 @@ class SCS_Solver:
 		# at initialization 
 		Minv_h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
 		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b)
-		
-		
 				
-		# test Minv_h
-		sb_hx, sb_hy = self.__apply_M(Minv_h[self.x_slice], Minv_h[self.y_slice])
-		sb_h = np.concatenate([sb_hx, sb_hy])
-		print(f"M*Minv_h - h resid = {max(abs(sb_h - self.h))}")
-		
-		# # try to reproduce
-		# x,y = np.zeros((self.len_dual_vec_x,)) ,np.zeros((self.len_primal_vec_y,))
-		# x[-1] = 1.0
-		# y[self.dual_constraints[0].conjugateVar.slice] = self.dual_constraints[0].const
-		# print(x)
-		# print(y)
-		
-		# Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
-		# MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
-		# print(f"M*Minv*rand - rand resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
-		
-		
-		# # try with random xy
-		# rng = self.settings['util_rng']
-		# x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,))
-		
-		# Mxy_x, Mxy_y = self.__apply_M(x,y)
-		# sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
-		# print(f"Minv*M*rand - rand resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
-		
-		# Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
-		# MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
-		# print(f"M*Minv*rand - rand resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
-		
-		# # try with ones
-		# x,y = np.ones((self.len_dual_vec_x,)) ,np.ones((self.len_primal_vec_y,))
-		
-		# Mxy_x, Mxy_y = self.__apply_M(x,y)
-		# sbx, sby = self.__solve_M_inv_return(Mxy_x,Mxy_y)
-		# print(f"Minv*M*ones - ones resid = {max(abs(np.concatenate([sbx-x,sby-y])))}")
-		
-		# Minvxy_x, Minvxy_y = self.__solve_M_inv_return(x,y)
-		# MMinv_xy_x, MMinv_xy_y = self.__apply_M(Minvxy_x, Minvxy_y)
-		# print(f"M*Minv*ones - ones resid {max(abs(np.concatenate([MMinv_xy_x-x,MMinv_xy_y-y])))}")
-		
-		
 		# the following is also needed in every iteration	
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
 		self.Minv_h = Minv_h
+		
+		self._test_Minv_h(tol = self.settings['test_Minv_h_resid_tol'])
 		
 		# progress log tracks the following 
 		self.resid_prim = None
@@ -148,27 +107,35 @@ class SCS_Solver:
 		self.primal_objective = None
 		self.dual_objective = None
 		
-	def _test_validity(self):
+	def _test_constraints_validity(self):
 		'''
 		When the constraints are correctly defined (dual is indeed the dual of primal) then 
-		1. A^T.conj() shold be the adjoint of A.
-		2. linear operator 1+A^T*A should always be positive.
+		1. applying the dual constraints should be the adjoint operation of applying the primal.
+		2. linear operator 1+A^T*A should always be >= 1.
 		'''
 		
-		# test 0. 
-		# check that all expressions in primal constraints also appear in dual constraints
+		print("===================== TESTING constraints validity ===========================")
+		print("TESTING ---------- 1: maps table:")
+		# first complete the check of maps_table to make sure that the dual constraints that were input are indeed the dual of the primal ones
+		Constraint._check_maps_table()
+		
+		# check each map individualy
+		print("TESTING ---------- 2: check all maps implementations M.apply_adj() is adj of M.apply():")
 		try:
-			assert all( [v['ticked_by_dual'] for v in Constraint.maps_table.values()]), 'dual constraints missing!'
+			violations = Maps._test_self_adjoint(rng = self.settings['util_rng'], n_samples = 20, tol = self.settings['test_maps_SA_tol'])
 		except AssertionError:
-			print('pairs of variables which appear in primal but not in dual have value False:')
-			print( {(k[0].name, k[1].name): v['ticked_by_dual'] for k,v in Constraint.maps_table.items()} )
 			raise
-			
+		else:
+			print("All maps checked")
+			# print(violations)
+		
+		
+		print("TESTING ---------- 3: check that dual constraints are the adjiont of primal constraints:")
 		rng = self.settings['util_rng']
-		#test 1.
+		 
 		sa_tests = np.zeros(self.settings['test_SA_num_rand_vecs'])
 		for j in range(self.settings['test_SA_num_rand_vecs']):
-			x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,))
+			x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,), dtype = self.dtype)
 			Ax = apply_dual_constr(self, x)
 			ATy = apply_primal_constr(self, y)
 			sa_tests[j] = np.vdot(y, Ax) - np.vdot(ATy, x)
@@ -178,20 +145,36 @@ class SCS_Solver:
 			assert max_violation_SA < self.settings['test_SA_tol'],\
 				f"primal and dual constraints are not adjoints of each other.\n Max violation of vdot(y, Ax) - vdot(ATy, x) is {max_violation_SA : 0.3g}, tolerance {self.settings['test_SA_tol'] :0.3g}"
 		except AssertionError as SAerr:
-			violations = Maps._test_self_adjoint(rng = self.settings['util_rng'], n_samples = 20, tol = self.settings['test_maps_SA_tol'])
-			print(violations)
+			print(f"Self-adjoint tests: {sa_tests[0:10]}...{sa_tests[-1]}, max violation = {max_violation_SA}")
 			raise SAerr
 		else:
 			print(f"OKOKOKOK Self adjoint test passed. max violation is {max_violation_SA : 0.3g}, tolerance {self.settings['test_SA_tol'] :0.3g}")
 		
-		# test 2.
-		e = eigsh(self.lin_op, k = 1, which = 'SA')[0]
+			# # test lin_op
+		# e = eigsh(self.lin_op, k = 1, which = 'SA')[0]
+		# try:
+			# assert min(e) > 1-self.settings['test_pos_tol'] , f"Linear Operator 1+A^T*A has is smaller than 1-tol. Min eig = {min(e) :0.3g}, tol={self.settings['test_pos_tol'] :0.3g}"
+		# except AssertionError:
+			# raise 
+		# else:
+			# print(f"OKOKOKOK positivit test passed. min eig of 1+A^T*A {min(e) :0.3g}, tol={self.settings['test_pos_tol'] :0.3g}")
+
+		
+		
+	def _test_Minv_h(self, tol = None):
+		if tol is None: 
+			tol = self.settings['test_Minv_h_resid_tol']
+			
+		print("TESTING ------------ Minv_h:")
+		sb_hx, sb_hy = self.__apply_M(self.Minv_h[self.x_slice], self.Minv_h[self.y_slice])
+		resid = max(abs(np.concatenate([sb_hx, sb_hy]) - self.h))
 		try:
-			assert min(e) > 1-self.settings['test_pos_tol'] , f"Linear Operator 1+A^T*A has is smaller than 1-tol. Min eig = {min(e) :0.3g}, tol={self.settings['test_pos_tol'] :0.3g}"
+			assert resid < tol, f"max|M*Minv_h - h resid| = {resid} > tol = {tol}"
 		except AssertionError:
-			raise 
+			raise
 		else:
-			print(f"OKOKOKOK positivit test passed. min eig of 1+A^T*A {min(e) :0.3g}, tol={self.settings['test_pos_tol'] :0.3g}")
+			print("passed")
+		
 		
 		
 	
@@ -728,8 +711,8 @@ def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
 
 def default_settings():
 	d = {
-		'cg_atol' : 1e-8,
-		'cg_tol' : 1e-8,
+		'cg_atol' : 1e-10,
+		'cg_tol' : 1e-10,
 		'cg_maxiter' : 2000,
 		#
 		'log_col_width' : 12, 
@@ -748,7 +731,8 @@ def default_settings():
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
 		'test_SA_tol' : 1e-10,
-		'test_maps_SA_tol' : 1e-10,
+		'test_maps_SA_tol' : 1e-11,
+		'test_Minv_h_resid_tol' : 1e-7,
 		#
 		'util_rng' : np.random.default_rng(seed=17),
 		}

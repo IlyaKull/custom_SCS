@@ -130,10 +130,14 @@ class Maps:
 				
 			maps_max_violation[m.name] = max(map_tests)
 						
-			if maps_max_violation[m.name] < tol:
-				print(f"Map {m.name} passed self-adjoint test")		
+			try:
+				assert maps_max_violation[m.name] < tol ,\
+					f"map {m.name} didn't pass SA test: |vdot(y, Mx) - vdot(M_dag_y, x)| = {abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x))}, tol = {tol}"			
+			except AssertionError:
+				raise
 			else:
-				Print(f"map {m.name} didn't pass SA test: |vdot(y, Mx) - vdot(M_dag_y, x)| = {abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x))}")
+				print(f"Map {m.name} passed self-adjoint test")
+		
 		return maps_max_violation
 					
 					
