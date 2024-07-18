@@ -9,8 +9,8 @@ import maps
 import constraints
 import matrix_aux_functions
 
-import relax_LTI_N_problem
-# import LTI_N_problem
+# import relax_LTI_N_problem
+import LTI_N_problem
 
 def main():
 	
@@ -23,12 +23,12 @@ def main():
 
 	rng = np.random.default_rng(seed=17)
 	
-	relax_LTI_N_problem.set_problem(n=8, D=3, d=2, xOtimesI_impl = 'kron', cg_impl = 'kron')
-	# LTI_N_problem.set_problem(n=6, d=2, xOtimesI_impl = 'kron')
+	# relax_LTI_N_problem.set_problem(n=8, D=3, d=2, xOtimesI_impl = 'kron', cg_impl = 'kron')
+	LTI_N_problem.set_problem(n=6, d=2, xOtimesI_impl = 'kron')
 	
  	
 	scs_solver = SCS_Solver(settings = {'cg_maxiter':1000})
-	
+	scs_solver.run_scs(maxiter = 1000, printout_every = 20)
 	
 	  
 if __name__ == '__main__':

@@ -11,7 +11,7 @@ import numpy as np
 def set_problem(n,d, xOtimesI_impl = 'kron'):
 
 	
-	 
+	assert n>2, 'n must be > 2' 
 	
 	dims_rho = (d,)*(n-1)
 	dims_omega = (d,)*(n)
@@ -20,8 +20,15 @@ def set_problem(n,d, xOtimesI_impl = 'kron'):
 	omega = OptVar('omega','primal', dims = dims_omega, cone = 'PSD', dtype = float)
 	
 	rng = np.random.default_rng(seed=166)
-	H = rng.random((rho.matdim, rho.matdim))
-	H = H + H.T.conj()
+	
+	# heisenberg model with sub-lattice rotation -H_xxz(1,1,-1)
+	h_term = np.array(  [[0.25, 0, 0, 0],
+					[0, -0.25, -0.5, 0],
+					[0, -0.5, -0.25, 0],
+					[0, 0, 0, 0.25]]
+				)
+	
+	H = np.kron(h_term, np.identity(d**(n-1-2))) # extend to size of rho
 	
 	
 	

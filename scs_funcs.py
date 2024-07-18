@@ -3,7 +3,7 @@ from variables import OptVar
 from maps import Maps
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.linalg import cg as scipy_cg
-from scipy.sparse.linalg import eigsh
+from scipy.sparse.linalg import eigsh as scipy_eigsh
 from constraints import Constraint
 import time
 
@@ -232,12 +232,14 @@ class SCS_Solver:
 		
 	
 	
-	def run_scs(self, num_iters = None):
+	def run_scs(self, maxiter = None, printout_every = None):
 		
-		if not num_iters is None:
-			self.settings['scs_maxiter'] = num_iters
+		if maxiter is None:
+			maxiter = self.settings['scs_maxiter'] 
 		
-		maxiter = self.settings['scs_maxiter']
+		if printout_every is None:
+			printout_every = self.settings['scs_compute_resid_every_n_iters'] 
+		
 		self.iter = 0
 		termination_criteria_satisfied = False
 		self.t_start = time.perf_counter()
@@ -248,7 +250,7 @@ class SCS_Solver:
 			self._iterate_scs()
 			self.iter += 1
 			
-			if self.iter % self.settings['scs_compute_resid_every_n_iters'] == 0:
+			if self.iter % printout_every == 0:
 				termination_criteria_satisfied = self._check_termination_criteria()
 				self._print_log()
  	
@@ -260,13 +262,13 @@ class SCS_Solver:
 		res_format_str = '0.8g'
 		obj_format_str = '0.8g'
 		
-		log_columns = {"Iter" : 	{'val' : self.iter, 			'formt_str' : 'g'},
-			"Prim res" : 			{'val' : self.resid_prim, 		'formt_str' : res_format_str},
-			"Dual res" : 			{'val' : self.resid_dual, 		'formt_str' : res_format_str},
-			"Gap res" : 			{'val' : self.resid_gap, 		'formt_str' : res_format_str},
-			"Prim obj" :			{'val' : self.primal_objective, 'formt_str' : obj_format_str},
-			"Dual obj" : 			{'val' : self.dual_objective, 	'formt_str' : obj_format_str},
-			"Time": 				{'val' : time.perf_counter() - self.t_start, 'formt_str' : '0.3g'}
+		log_columns = {"Iter" : 	{'val' : self.iter, 			'format_str' : 'g'},
+			"Prim res" : 			{'val' : self.resid_prim, 		'format_str' : res_format_str},
+			"Dual res" : 			{'val' : self.resid_dual, 		'format_str' : res_format_str},
+			"Gap res" : 			{'val' : self.resid_gap, 		'format_str' : res_format_str},
+			"Prim obj" :			{'val' : self.primal_objective, 'format_str' : obj_format_str},
+			"Dual obj" : 			{'val' : self.dual_objective, 	'format_str' : obj_format_str},
+			"Time": 				{'val' : time.perf_counter() - self.t_start, 'format_str' : '0.3g'}
 		}
 		
 		if print_head:
@@ -343,8 +345,8 @@ class SCS_Solver:
 		# current dual objective
 		self.dual_objective = -cx
 		
-		return all( [self.resid_prim < self.settings['scs_prim_resid_tol'] * (1.0 + slef.b_norm), \
-			self.resid_dual < self.settings['scs_dual_resid_tol'] * (1.0 + self.c_norm ). \
+		return all( [self.resid_prim < self.settings['scs_prim_resid_tol'] * (1.0 + self.b_norm), \
+			self.resid_dual < self.settings['scs_dual_resid_tol'] * (1.0 + self.c_norm ), \
 			self.resid_gap < self.settings['scs_gap_resid_tol'] < (1.0 + abs(cx) + abs(by)) ] )
 	
 	def _iterate_scs(self):
@@ -403,9 +405,11 @@ class SCS_Solver:
 		for var_list,u_slice in zip((self.primal_vars, self.dual_vars), (self.y_slice, self.x_slice)) :
 			for var in var_list:
 				if var.cone == 'PSD':  
-					eigenvals, U =  la.eigh( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
+					eigenvals, U =  self._eig_impl( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
+					print(var.name, eigenvals)
 					eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
-
+					print(var.name, eigenvals)
+					
 					out[u_slice][var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
 				
 		# project tao to R_+
@@ -414,6 +418,8 @@ class SCS_Solver:
 		
 		return 0
 
+	def _eig_impl(self, M):
+		return scipy_eigsh(M)
 		
 
 
@@ -489,7 +495,7 @@ class SCS_Solver:
 		z_x, exit_code = self._conj_grad_impl( w_x - ATw_y )
 		Az_x = apply_dual_constr(self, z_x)
 		z_y = w_y + Az_x
-		print(f'cg exit code: {exit_code}')
+		# print(f'cg exit code: {exit_code}')
 		return z_x, z_y
 		
 	
@@ -522,7 +528,7 @@ class SCS_Solver:
 		
 		apply_primal_constr(self, -w_y, out = w_x ) # w_x <-- w_x - A^T @ w_y
 		w_x[...], exit_code = self._conj_grad_impl(w_x) # w_x stores the solution z_x
-		print(f'cg exit code: {exit_code}')
+		# print(f'cg exit code: {exit_code}')
 		
 		apply_dual_constr(self, w_x, out = w_y) # w_y <-- w_y + A @ z_x : w_y stores the solution z_y
 		
@@ -779,7 +785,7 @@ def default_settings():
 		'scs_prim_resid_tol' : 1e-6,
 		'scs_dual_resid_tol' : 1e-6,
 		'scs_gap_resid_tol' : 1e-6,
-		'scs_compute_resid_every_n_iters' : 100,
+		'scs_compute_resid_every_n_iters' : 10,
 		#
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
