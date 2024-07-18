@@ -98,7 +98,9 @@ class SCS_Solver:
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
 		self.Minv_h = Minv_h
 		
-		self._test_Minv_h(tol = self.settings['test_Minv_h_resid_tol'])
+		self._test_Minv_h(tol = self.settings['test_Minv_h_tol'])
+		
+		self._test_projToAffine()
 		
 		# progress log tracks the following 
 		self.resid_prim = None
@@ -163,7 +165,7 @@ class SCS_Solver:
 		
 	def _test_Minv_h(self, tol = None):
 		if tol is None: 
-			tol = self.settings['test_Minv_h_resid_tol']
+			tol = self.settings['test_Minv_h_tol']
 			
 		print("TESTING ------------ Minv_h:")
 		sb_hx, sb_hy = self.__apply_M(self.Minv_h[self.x_slice], self.Minv_h[self.y_slice])
@@ -176,6 +178,57 @@ class SCS_Solver:
 			print("passed")
 		
 		
+	def _test_projToAffine(self, tol = None):
+		if tol is None: 
+			tol = self.settings['test_projToAffine_tol']
+		rng = self.settings['util_rng']
+			
+		
+		# first check  1+Q(x,y,tao) computes what it should by comparing with direct computation
+		print("TESTING ------------ 1+Q implementation:")
+		tao = rng.random((1,))
+		x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,), dtype = self.dtype)
+		
+		Mxy_x, Mxy_y = self.__apply_M(x, y)
+		
+		one_plusQ_check = np.zeros(self.len_joint_vec_u)
+		one_plusQ_check[self.x_slice] = Mxy_x +  tao * self.c
+		one_plusQ_check[self.y_slice] = Mxy_y +  tao * self.b
+		one_plusQ_check[self.tao_slice] = tao -np.vdot(y,self.b) -np.vdot(x,self.c)
+		
+		u = np.concatenate([x,y,tao])
+		one_plus_Qu = self.__one_plus_Q(u)
+		resid = max(abs(one_plus_Qu - one_plusQ_check))
+		try:
+			assert resid < tol, f"max|(1+Q)u - (1+Q)_direct u| = {resid} > tol = {tol}"
+		except AssertionError:
+			raise
+		else:
+			print("passed")
+		
+		# test that project to affine method inverts 1+Q as it should
+		print("TESTING ------------ project_to_affine() = (1+Q)^-1 :")
+		print("test _return method")
+		sbu1 = self.__project_to_affine_return(one_plus_Qu)
+		resid1 = max(abs(u-sbu1))
+		try:
+			assert resid < tol, f"while testing invert 1+Q with _return func: resid = {resid1} > tol = {tol}"
+		except AssertionError:
+			raise
+		else:
+			print("passed")
+			
+		
+		print("test in-place method")	
+		sbu2 = np.zeros(self.len_joint_vec_u)
+		self._project_to_affine(one_plus_Qu, out = sbu2 )
+		resid2 = max(abs(u-sbu2))
+		try:
+			assert resid < tol, f"while testing invert 1+Q with in-place func: resid = {resid2} > tol = {tol}"
+		except AssertionError:
+			raise
+		else:
+			print("passed")
 		
 	
 	
@@ -732,7 +785,8 @@ def default_settings():
 		'test_SA_num_rand_vecs' : 100,
 		'test_SA_tol' : 1e-10,
 		'test_maps_SA_tol' : 1e-11,
-		'test_Minv_h_resid_tol' : 1e-7,
+		'test_Minv_h_tol' : 1e-7,
+		'test_projToAffine_tol' : 1e-7,
 		#
 		'util_rng' : np.random.default_rng(seed=17),
 		}
