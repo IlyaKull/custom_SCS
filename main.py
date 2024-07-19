@@ -28,7 +28,7 @@ def main():
 	
  	
 	scs_solver = SCS_Solver(settings = {'cg_maxiter':1000})
-	scs_solver.run_scs(maxiter = 1000, printout_every = 20)
+	scs_solver.run_scs(maxiter = 20000, printout_every = 200)
 	
 	  
 if __name__ == '__main__':

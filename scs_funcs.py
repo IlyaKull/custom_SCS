@@ -72,22 +72,9 @@ class SCS_Solver:
 		
 		self._test_constraints_validity()
 		
+		self._read_b_and_c()
 		# the vector h is defined as h = [c,b]
-		# where b is the vector of constants in the constraint Ax+s=b, s>= 0
-		# and c is the objective function: min(c@x)
-		#### EXPLAIN THE SIGN CONVENTION HERE
-		self.h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
-		self.c = self.h[self.x_slice] # slices for convenienc
-		self.b = self.h[self.y_slice]
-		for cstr in self.primal_constraints:
-			self.c[cstr.conjugateVar.slice] = cstr.const
-		for cstr in self.dual_constraints:
-			self.b[cstr.conjugateVar.slice] = cstr.const
-		
-		# needed for termination criteria
-		self.b_norm = np.linalg.norm(self.b)
-		self.c_norm = np.linalg.norm(self.c)
-		
+	
 				
 		# M^(-1)h is needed in every iteration and is therefore computed
 		# at initialization 
@@ -230,6 +217,33 @@ class SCS_Solver:
 		else:
 			print("passed")
 		
+	def _read_b_and_c(self):	
+		'''
+		the vector h is defined as h = [c,b]
+		where b is the vector of constants in the constraint Ax+s=b, s>= 0
+		and c is the objective function: min(c@x)
+		see sign_conventions.txt
+		'''
+		
+		self.h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
+		self.c = self.h[self.x_slice] # slices for convenienc
+		self.b = self.h[self.y_slice]
+		for cstr in self.primal_constraints:
+			self.c[cstr.conjugateVar.slice] = cstr.const
+		for cstr in self.dual_constraints:
+			self.b[cstr.conjugateVar.slice] = cstr.const
+		
+		# needed for termination criteria (before rescaling)
+		self.b_unscld_norm = np.linalg.norm(self.b)
+		self.c_unscld_norm = np.linalg.norm(self.c)
+		
+		# RESCALE
+		self.b *= self.settings['scs_scaling_sigma']
+		self.c *= self.settings['scs_scaling_rho']
+		
+		
+		
+		
 	
 	
 	def run_scs(self, maxiter = None, printout_every = None):
@@ -247,7 +261,8 @@ class SCS_Solver:
 		self._print_log(print_head = True, print_line = False)
 		
 		while (self.iter < maxiter) and (not termination_criteria_satisfied):
-			self._iterate_scs()
+			# self._iterate_scs()
+			self.__iterate_scs_1()
 			self.iter += 1
 			
 			if self.iter % printout_every == 0:
@@ -324,20 +339,25 @@ class SCS_Solver:
 		https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (sec 3.5)
 		and retrun True if all stopping criteria are satisfied
 		'''
+		sigma = self.settings['scs_scaling_sigma']
+		rho = self.settings['scs_scaling_rho']
+		
+		# vars of RESCALED problem
 		tao =self.u[self.tao_slice]
 		x_k = self.u[self.x_slice] / tao
 		s_k = self.v[self.y_slice] / tao
 		y_k = self.u[self.y_slice] / tao
 		
-		# primal residuals =  2-norm(Ax+s-b)
-		self.resid_prim = np.linalg.norm( apply_dual_constr(self, x_k) + s_k - self.b )
+		# primal residuals =  2-norm(1/sigma*(Ax+s-b))
+		self.resid_prim =  np.linalg.norm((1/sigma) * (apply_dual_constr(self, x_k) + s_k - self.b ) )
 		
-		# dual residuals = 2-norm(A.Ty + c)
-		self.resid_dual = np.linalg.norm( apply_primal_constr(self, y_k) + self.c )
+		# dual residuals =  2-norm(1/rho*(A.Ty + c))
+		self.resid_dual = np.linalg.norm((1/rho) * (apply_primal_constr(self, y_k) + self.c ))
 		
-		# gap residuals = abs(c.T*x + b.T*y)
-		cx = np.vdot(self.c, x_k)
-		by = np.vdot(self.b, y_k)
+		# both objectives rescaled to original 
+		cx = (1/(sigma*rho)) * np.vdot(self.c, x_k)
+		by = (1/(sigma*rho)) * np.vdot(self.b, y_k)
+		# gap residuals = abs(c.T*x + b.T*y) (already scaled back)
 		self.resid_gap = abs(cx + by)
 		
 		# current primal objective (note the minus sign , see sign_convention_doc.txt)
@@ -345,9 +365,33 @@ class SCS_Solver:
 		# current dual objective
 		self.dual_objective = -cx
 		
-		return all( [self.resid_prim < self.settings['scs_prim_resid_tol'] * (1.0 + self.b_norm), \
-			self.resid_dual < self.settings['scs_dual_resid_tol'] * (1.0 + self.c_norm ), \
-			self.resid_gap < self.settings['scs_gap_resid_tol'] < (1.0 + abs(cx) + abs(by)) ] )
+		return all( [self.resid_prim < self.settings['scs_prim_resid_tol'] * (1.0 + self.b_unscld_norm), \
+			self.resid_dual < self.settings['scs_dual_resid_tol'] * (1.0 + self.c_unscld_norm ), \
+			self.resid_gap < self.settings['scs_gap_resid_tol'] * (1.0 + abs(cx) + abs(by)) ] )
+	
+	
+	def __iterate_scs_1(self):
+		'''	 
+		 see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
+		 q is the over-relaxation parameter PD.q
+		
+		my properly working matlab function was:
+		
+			utilde= projectToAffine(u+v,iter,PD,FH);
+			qcomb   = (PD.q*utilde + (1-PD.q)*u );
+			u  = projectToCone(qcomb - v,PD);
+			v = v - qcomb + u; 
+		
+		'''
+		
+		self._project_to_affine(self.u + self.v, out = self.u_tilde)
+		qcomb = self.q * self.u_tilde + (1.-self.q) * self.u
+		self._project_to_cone( qcomb - self.v, out = self.u);
+		self.v += -qcomb + self.u ;
+
+		return
+	
+	
 	
 	def _iterate_scs(self):
 		'''	 
@@ -392,7 +436,8 @@ class SCS_Solver:
 		self.v +=  self.u ;
 
 		return
-
+	
+	
  
 
 	def _project_to_cone(self,u, out ):
@@ -406,9 +451,9 @@ class SCS_Solver:
 			for var in var_list:
 				if var.cone == 'PSD':  
 					eigenvals, U =  self._eig_impl( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
-					print(var.name, eigenvals)
+					# print(var.name, eigenvals)
 					eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
-					print(var.name, eigenvals)
+					# print(var.name, eigenvals)
 					
 					out[u_slice][var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
 				
@@ -778,8 +823,8 @@ def default_settings():
 		#
 		'scs_maxiter': 2000,
 		'scs_q' : 1.5,
-		'scs_sigma' : 1, # not implemented yet
-		'scs_rho' : 1,   # not implemented yet
+		'scs_scaling_sigma' : 0.001,  
+		'scs_scaling_rho' : 0.1,    
 		'scs_scaling_D': None, # not implemented yet
 		'scs_scaling_E': None, # not implemented yet
 		'scs_prim_resid_tol' : 1e-6,
