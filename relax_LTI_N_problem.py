@@ -40,6 +40,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	H = rng.random((rho.matdim, rho.matdim))
 	H = H + H.T.conj()
 	
+	
 	# states is a dict with >>key = the number of spins<<
 	states = RestrictedKeysDict(allowed_keys = list(range(k0+1,n+1)))
 	states[k0+1] = rho
@@ -217,4 +218,4 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
 	OptVar._close_var_lists()
 	
-	return 0
+	return  

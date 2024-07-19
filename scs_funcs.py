@@ -26,7 +26,7 @@ class SCS_Solver:
 	https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
 	
 	'''
-	def __init__(self, settings = dict()):
+	def __init__(self, settings = dict(), exact_sol = None):
 		
 		if not OptVar.lists_closed:  # closing the lists fixes the sizes of the primal and dual vectors
 			OptVar._close_var_lists()
@@ -36,6 +36,8 @@ class SCS_Solver:
 		self.settings.update(settings)
 		# print(self.settings)
 		
+		self.exact_sol = exact_sol
+
 		self.primal_constraints = Constraint.primal_constraints
 		self.dual_constraints = Constraint.dual_constraints
 		
@@ -261,16 +263,20 @@ class SCS_Solver:
 		self._print_log(print_head = True, print_line = False)
 		
 		while (self.iter < maxiter) and (not termination_criteria_satisfied):
-			# self._iterate_scs()
-			self.__iterate_scs_1()
+			self._iterate_scs()
+			# self.__iterate_scs_1()
 			self.iter += 1
 			
 			if self.iter % printout_every == 0:
 				termination_criteria_satisfied = self._check_termination_criteria()
-				self._print_log()
- 	
+				self._print_log(converged = termination_criteria_satisfied)
+		
+		if not termination_criteria_satisfied:
+			self._print_log(maxed_out_iters = True)
+		
+		
 	
-	def _print_log(self, print_head = False, print_line = True):
+	def _print_log(self, print_head = False, print_line = True, converged = False, maxed_out_iters = False):
 				
 		col_width = self.settings['log_col_width']
 		 
@@ -299,7 +305,16 @@ class SCS_Solver:
 			for dikt in log_columns.values():
 				print(format(dikt['val'], dikt['format_str']).ljust(col_width), end = " | " )
 			print('')
+		
+		if converged or maxed_out_iters:
+			if converged:
+				print(f'==================> converged')
+					
+			if maxed_out_iters:
+				print(f'==================> not converged, reached maxiter ({self.settings['scs_maxiter'] })')
 			
+			if not self.exact_sol is None:
+				print(f"E_exact - d_obj = {self.exact_sol - self.dual_objective}")
 		
 		
 	def _initilize_vec(self, f_init = None):

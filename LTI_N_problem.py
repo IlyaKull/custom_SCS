@@ -6,8 +6,8 @@ from constraints import Constraint
 import matrix_aux_functions as mf
 import numpy as np
 
+exact_sol = 0.25 -np.log(2) # exact sol heisenberg
  
-
 def set_problem(n,d, xOtimesI_impl = 'kron'):
 
 	

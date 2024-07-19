@@ -10,7 +10,7 @@ import constraints
 import matrix_aux_functions
 
 # import relax_LTI_N_problem
-import LTI_N_problem
+from LTI_N_problem import set_problem
 
 def main():
 	
@@ -24,11 +24,20 @@ def main():
 	rng = np.random.default_rng(seed=17)
 	
 	# relax_LTI_N_problem.set_problem(n=8, D=3, d=2, xOtimesI_impl = 'kron', cg_impl = 'kron')
-	LTI_N_problem.set_problem(n=6, d=2, xOtimesI_impl = 'kron')
+	set_problem(n=6, d=2, xOtimesI_impl = 'kron')
 	
- 	
-	scs_solver = SCS_Solver(settings = {'cg_maxiter':1000})
-	scs_solver.run_scs(maxiter = 20000, printout_every = 200)
+	settings = {'cg_maxiter':1000,
+		'scs_scaling_sigma' : 0.001,
+		'scs_scaling_rho' : 0.01,
+	}
+	
+	try:
+		from LTI_N_problem import exact_sol
+	except ImportError:
+		exact_sol = None
+
+	scs_solver = SCS_Solver(settings , exact_sol = exact_sol)
+	scs_solver.run_scs(maxiter = 5000, printout_every = 200)
 	
 	  
 if __name__ == '__main__':
