@@ -9,7 +9,6 @@ class Maps:
 	"""
 	
 	"""
-	check_inputs = False
 	verbose= False
 	list_all_maps = []
 	log_calls = True
@@ -18,16 +17,13 @@ class Maps:
 		name, # the name of the map in your paper notes. Used to for display.
 		dims, # input and output dimensions
 		adj_name = None, # display name for adjoint operator
-		check_inputs = False,  # class variable to switch on checks and debug
 		implementation = []
 		): 
 		self.name = name
 		self.dims = dims
 		self.adj_name = adj_name
 
-		if check_inputs:
-			Maps.check_inputs = check_inputs
-		
+				
 		self.implementation = implementation
 		
 		self.time = 0.
@@ -95,9 +91,10 @@ class Maps:
 				self.calls_adj += 1
 		
 		
-	
-	def print_maps_log(self):
-		for m in Maps.list_all_maps:
+	@classmethod
+	def print_maps_log(cls):
+		print('++++++++++++++++++++++ MAP-CALLS LOG +++++++++++++++++++++++')
+		for m in cls.list_all_maps:
 			print(f"Map {m.name} applied {m.calls} times in {m.implementation} implementation with t_tot = {m.time:.2g}", end = ' ')
 			if m.calls > 0:
 				print(f": t/iter = {m.time / m.calls:.2g}")
@@ -223,17 +220,15 @@ class TraceWith(Maps):
 	
 	def apply(self, x):
 		
-		if Maps.check_inputs:
-			assert tuple(reversed(self.operator.shape)) == x.shape, f"dimensions of operator {self.op_name} don't match input matrix"
-			assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
-		
+		# assert tuple(reversed(self.operator.shape)) == x.shape, f"dimensions of operator {self.op_name} don't match input matrix"
+		# assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
+	
 		return np.trace(self.operator.T.conj() @ x)
 	
 	def apply_adj(self, x):
 		
-		if Maps.check_inputs:
-			assert x.size == 1, f"to apply the adjoint of trace[{self.op_name} * ] the input should be a scalar, x has size {x.size}"
-			assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
+		# assert x.size == 1, f"to apply the adjoint of trace[{self.op_name} * ] the input should be a scalar, x has size {x.size}"
+		# assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
 			
 		return x * self.operator
 		
@@ -271,9 +266,7 @@ class Trace(Maps):
 	
 	def apply_adj(self, x):
 		
-		if Maps.check_inputs:
-			assert x.size == 1, f"to apply the adjoint of trace[*] the input should be a scalar, x has size {x.size}"
-			
+		# assert x.size == 1, f"to apply the adjoint of trace[*] the input should be a scalar, x has size {x.size}"
 		return x * np.identity(self.dims['in'], dtype = float)
 
 

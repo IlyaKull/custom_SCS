@@ -3,7 +3,7 @@ from variables import OptVar
 from maps import Maps
 from scipy.sparse.linalg import LinearOperator
 from scipy.sparse.linalg import cg as scipy_cg
-from scipy.sparse.linalg import eigsh as scipy_eigsh
+# from scipy.sparse.linalg import eigsh as scipy_eigsh
 from constraints import Constraint
 import time
 
@@ -264,7 +264,7 @@ class SCS_Solver:
 		
 		while (self.iter < maxiter) and (not termination_criteria_satisfied):
 			self._iterate_scs()
-			# self.__iterate_scs_1()
+			# self.__iterate_scs_test()
 			self.iter += 1
 			
 			if self.iter % printout_every == 0:
@@ -385,7 +385,7 @@ class SCS_Solver:
 			self.resid_gap < self.settings['scs_gap_resid_tol'] * (1.0 + abs(cx) + abs(by)) ] )
 	
 	
-	def __iterate_scs_1(self):
+	def __iterate_scs_test(self):
 		'''	 
 		 see https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
 		 q is the over-relaxation parameter PD.q
@@ -479,8 +479,8 @@ class SCS_Solver:
 		return 0
 
 	def _eig_impl(self, M):
-		return scipy_eigsh(M)
-		
+		# return scipy_eigsh(M)
+		return np.linalg.eigh(M)
 
 
 	def _project_to_affine(self, w, out):
@@ -834,7 +834,7 @@ def default_settings():
 		'cg_tol' : 1e-10,
 		'cg_maxiter' : 2000,
 		#
-		'log_col_width' : 12, 
+		'log_col_width' : 15, 
 		#
 		'scs_maxiter': 2000,
 		'scs_q' : 1.5,

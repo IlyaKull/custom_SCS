@@ -3,11 +3,11 @@ import line_profiler
 import numpy as np
 from scs_funcs import SCS_Solver
 import scs_funcs
-from  variables import OptVar
+# from  variables import OptVar
 from scipy.sparse.linalg import LinearOperator
-import maps
-import constraints
-import matrix_aux_functions
+from maps import Maps
+# import constraints
+# import matrix_aux_functions
 
 # import relax_LTI_N_problem
 from LTI_N_problem import set_problem
@@ -39,6 +39,8 @@ def main():
 	scs_solver = SCS_Solver(settings , exact_sol = exact_sol)
 	scs_solver.run_scs(maxiter = 5000, printout_every = 200)
 	
+	
+	Maps.print_maps_log()
 	  
 if __name__ == '__main__':
 	main()
