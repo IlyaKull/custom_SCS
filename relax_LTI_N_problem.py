@@ -10,7 +10,7 @@ import util
 
 def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 
-	
+	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  RELAX LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
 	
 	 
 	

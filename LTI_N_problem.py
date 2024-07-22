@@ -9,7 +9,7 @@ import numpy as np
 exact_sol = 0.25 -np.log(2) # exact sol heisenberg
  
 def set_problem(n,d, xOtimesI_impl = 'kron'):
-
+	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
 	
 	assert n>2, 'n must be > 2' 
 	

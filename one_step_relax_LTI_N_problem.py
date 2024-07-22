@@ -13,6 +13,8 @@ exact_sol = 0.25 -np.log(2) # exact sol heisenberg
 
 def set_problem(chi , d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
+	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  ONE STEP RELAX LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
+	
 	k0 = util.determine_k0(d,chi)
 	print(f'>>>>>>>>>>>>>>>>>>>>>>>>>>>> k0 = {k0}')
 	n = k0+2 
