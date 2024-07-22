@@ -52,8 +52,8 @@ def set_problem(chi , d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
 	
 	# cg maps acting on rho
-	action_l = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,1,0), 'dims_out':(chi ,d)}
-	action_r = {'dims_in': dims_rho, 'pattern':(0,) + (1,)*k0, 'pattern_adj':(0,1,1), 'dims_out':(d, chi)}
+	action_l = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,0), 'dims_out':(chi ,d)}
+	action_r = {'dims_in': dims_rho, 'pattern':(0,) + (1,)*k0, 'pattern_adj':(0,1), 'dims_out':(d, chi)}
 	
 	rand_map = rng.random((chi ,d**k0))
 	isometry = np.linalg.qr(rand_map.T)[0]

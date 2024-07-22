@@ -200,18 +200,23 @@ class CGmap(Maps):
 				
 				self.IKI.append( mf.tensorProd(terms_to_tensor)	)
 				self.IKI_dag.append(self.IKI[-1].conj().T)	
-				
-		 	
+			
+			if len(self.IKI) > 1:
+				self._apply_kron_impl = mf.apply_multiple_kraus_kron
+			else:	
+				self._apply_kron_impl = mf.apply_single_kraus_kron
+		
+		
 		
 	def apply(self, x, checks = False):
 		if self.implementation == 'kron':
-			return mf.apply_kraus_kron(x, self.IKI)
+			return self._apply_kron_impl(x, self.IKI)
 		elif self.implementation == 'contract':
 			return mf.apply_cg_maps(x, self.action['dims_in'], self.kraus, self.action['pattern'])
 	
 	def apply_adj(self, x, checks = False):
 		if self.implementation == 'kron':
-			return mf.apply_kraus_kron(x, self.IKI_dag)
+			return self._apply_kron_impl(x, self.IKI_dag)
 		elif self.implementation == 'contract':
 			return mf.apply_cg_maps(x, self.action['dims_out'], [k.conj().T for k in self.kraus] , self.action['pattern_adj'])
 		
@@ -369,17 +374,17 @@ class PartTrace(Maps):
 					tot_dim_subsys = np.prod([state_dims[i-1] for i in subsystems])
 					if subsys_contig:
 						if is_left:
-							self.id_left = np.identity(tot_dim_subsys)
-							self.id_right = 1.0
+							self.id_left = [np.identity(tot_dim_subsys),]
+							self.id_right = []
 							
 						if is_right:
-							self.id_left = 1.0
-							self.id_right = np.identity(tot_dim_subsys)
+							self.id_left = []
+							self.id_right = [np.identity(tot_dim_subsys),]
 					else:
 						left_dim = np.prod([state_dims[i-1] for i in range(1,min(compl_subsystems))])
 						right_dim = np.prod([state_dims[i-1] for i in range(max(compl_subsystems)+1, len(state_dims) +1 )])
-						self.id_left = np.identity(left_dim)
-						self.id_right = np.identity(right_dim)
+						self.id_left = [np.identity(left_dim),]
+						self.id_right = [np.identity(right_dim),]
 					
 					self._adj_impl = self._impl_adj_kron	
 
@@ -396,7 +401,7 @@ class PartTrace(Maps):
 		return mf.xOtimesI_no_Inds(x, self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose, self.totaldim)
 	
 	def _impl_adj_kron(self,x):
-		return mf.tensorProd(self.id_left, x, self.id_right )
+		return mf.tensorProd(self.id_left +  [x,] + self.id_right )
 
 	
 	

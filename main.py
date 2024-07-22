@@ -1,5 +1,5 @@
-import line_profiler
-
+# import line_profiler
+import sys
 import numpy as np
 from scs_funcs import SCS_Solver
 import scs_funcs
@@ -24,15 +24,20 @@ def main():
 	# profile.add_function(scs_funcs.apply_dual_constr)
 	# profile.add_function(scs_funcs.apply_primal_constr)
 	# profile.enable_by_count()
-
+	
+	# print(sys.argv[0])
+	chi = int(sys.argv[1])
+	q = float(sys.argv[2])
+	
 	rng = np.random.default_rng(seed=17)
 	
-	problem_module.set_problem(chi  = 3 , d =2, xOtimesI_impl = 'kron', cg_impl = 'kron')
+	problem_module.set_problem(chi  = chi , d =2, xOtimesI_impl = 'kron', cg_impl = 'kron')
 	# problem_module.set_problem(n=6, d=2, xOtimesI_impl = 'kron') # pure LTI
 	
-	settings = {'cg_maxiter':1000,
-		'scs_scaling_sigma' : 0.001,
-		'scs_scaling_rho' : 0.01,
+	settings = {'cg_maxiter':	1000,
+		'scs_scaling_sigma' : 	0.001,
+		'scs_scaling_rho' : 	0.01,
+		'scs_q' : 				q,
 	}
 	
 	try:
@@ -41,7 +46,7 @@ def main():
 		exact_sol = None
 
 	scs_solver = SCS_Solver(settings , exact_sol = exact_sol)
-	scs_solver.run_scs(maxiter = 5000, printout_every = 200)
+	scs_solver.run_scs(maxiter = 5000, printout_every = 20)
 	
 	
 	Maps.print_maps_log()

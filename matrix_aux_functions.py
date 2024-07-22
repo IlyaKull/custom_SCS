@@ -268,7 +268,7 @@ def xOtimesI(x, subsystems, fulldims, checks = False):
 
 
 # @profile	
-def  apply_kraus_kron(x, IKI):
+def apply_multiple_kraus_kron(x, IKI):
 	dim_out = IKI[0].shape[0]
 		
 	out = np.zeros((dim_out,dim_out), dtype = x.dtype)
@@ -276,6 +276,9 @@ def  apply_kraus_kron(x, IKI):
 		out += iki @ x @ iki.conj().T
 		
 	return out
+	
+def apply_single_kraus_kron(x, IKI):
+	return IKI[0] @ x @ IKI[0].conj().T
 		
 		
 # @profile
