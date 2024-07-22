@@ -11,8 +11,8 @@ from maps import Maps
 import LTI_N_problem, relax_LTI_N_problem, one_step_relax_LTI_N_problem
 
 # problem_module = relax_LTI_N_problem 
-# problem_module = one_step_relax_LTI_N_problem
-problem_module = LTI_N_problem
+problem_module = one_step_relax_LTI_N_problem
+# problem_module = LTI_N_problem
 
 
 
@@ -27,8 +27,8 @@ def main():
 
 	rng = np.random.default_rng(seed=17)
 	
-	# problem_module.set_problem(chi  = 9 , d =2, xOtimesI_impl = 'kron', cg_impl = 'kron')
-	problem_module.set_problem(n=6, d=2, xOtimesI_impl = 'kron') # pure LTI
+	problem_module.set_problem(chi  = 3 , d =2, xOtimesI_impl = 'kron', cg_impl = 'kron')
+	# problem_module.set_problem(n=6, d=2, xOtimesI_impl = 'kron') # pure LTI
 	
 	settings = {'cg_maxiter':1000,
 		'scs_scaling_sigma' : 0.001,

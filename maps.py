@@ -17,7 +17,7 @@ class Maps:
 		name, # the name of the map in your paper notes. Used to for display.
 		dims, # input and output dimensions
 		adj_name = None, # display name for adjoint operator
-		implementation = []
+		implementation = 'std'
 		): 
 		self.name = name
 		self.dims = dims
@@ -93,19 +93,35 @@ class Maps:
 		
 	@classmethod
 	def print_maps_log(cls):
+		 
+		
 		print('++++++++++++++++++++++ MAP-CALLS LOG +++++++++++++++++++++++')
+		log_columns = lambda m:\
+			{"Name" : 	{'val' : m.name, 															'format_str' : '<', 	'group' : '---', 'col_width':30},
+				"Name adj":				{'val' : m.adj_name, 										'format_str' : '<', 	'group' : 'adj', 'col_width':30},
+				"Impl." : 				{'val' : m.implementation, 									'format_str' : '<', 	'group' : 'all', 'col_width':15},
+				"Calls" : 				{'val' : m.calls, 											'format_str' : 'g', 	'group' : '---', 'col_width':15},
+				"Calls adj" : 			{'val' : m.calls_adj, 										'format_str' : 'g', 	'group' : 'adj', 'col_width':15},
+				"t_total" : 			{'val' : m.time, 											'format_str' : '0.2g', 	'group' : '---', 'col_width':15},
+				"t_iter" :				{'val' : m.time / m.calls if m.calls > 0 else 0 ,	 		 'format_str' : '0.2g', 'group' : '---', 'col_width':15},
+				"t_total_adj" : 		{'val' : m.time_adj, 										'format_str' : '0.2g', 	'group' : 'adj', 'col_width':15},
+				"t_iter_adj" :			{'val' : m.time_adj / m.calls_adj if m.calls_adj > 0 else 0 , 'format_str' : '0.2g', 'group' : 'adj', 'col_width':15},
+			}
+		
+		
+			
+		for k,v in log_columns(cls.list_all_maps[0]).items():
+			if v['group'] in ['all', '---']:
+				print(k.ljust(v['col_width']), end = " | " )
+		print('')
+				
 		for m in cls.list_all_maps:
-			print(f"Map {m.name} applied {m.calls} times in {m.implementation} implementation with t_tot = {m.time:.2g}", end = ' ')
-			if m.calls > 0:
-				print(f": t/iter = {m.time / m.calls:.2g}")
-			else:
+			for group_str in ['---', 'adj']:
+				for v in log_columns(m).values():
+					if v['group'] in ['all', group_str]:
+						print(format(v['val'], v['format_str']).ljust(v['col_width']), end = " | " )
 				print('')
 			
-			print(f"...and in adjoint mode: {m.calls_adj} times with t_tot = {m.time_adj:.2g}", end = ' ')
-			if m.calls_adj > 0:
-				print(f": t/iter = {m.time_adj / m.calls_adj:.2g}")
-			else:
-				print('')
 				
 	
 	@classmethod
