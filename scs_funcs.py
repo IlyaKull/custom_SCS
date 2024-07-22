@@ -6,6 +6,7 @@ from scipy.sparse.linalg import cg as scipy_cg
 # from scipy.sparse.linalg import eigsh as scipy_eigsh
 from constraints import Constraint
 import time
+import util
 
 class SCS_Solver:
 	'''
@@ -89,7 +90,13 @@ class SCS_Solver:
 		
 		self._test_Minv_h(tol = self.settings['test_Minv_h_tol'])
 		
+		
+		self.t_cone = 0.0
+		self.t_affine = 0.0
+		
 		self._test_projToAffine()
+		#reset timer
+		self.t_affine = 0.0
 		
 		# progress log tracks the following 
 		self.resid_prim = None
@@ -97,6 +104,10 @@ class SCS_Solver:
 		self.resid_gap = None
 		self.primal_objective = None
 		self.dual_objective = None
+		
+		
+		
+			
 		
 	def _test_constraints_validity(self):
 		'''
@@ -205,7 +216,7 @@ class SCS_Solver:
 		except AssertionError:
 			raise
 		else:
-			print("passed")
+			print(f"passed")
 			
 		
 		print("test in-place method")	
@@ -217,7 +228,7 @@ class SCS_Solver:
 		except AssertionError:
 			raise
 		else:
-			print("passed")
+			print(f"passed: duration {self.t_affine} sec")
 		
 	def _read_b_and_c(self):	
 		'''
@@ -280,8 +291,8 @@ class SCS_Solver:
 				
 		col_width = self.settings['log_col_width']
 		 
-		res_format_str = '0.8g'
-		obj_format_str = '0.8g'
+		res_format_str = '0.6g'
+		obj_format_str = '0.6g'
 		
 		log_columns = {"Iter" : 	{'val' : self.iter, 			'format_str' : 'g'},
 			"Prim res" : 			{'val' : self.resid_prim, 		'format_str' : res_format_str},
@@ -289,7 +300,9 @@ class SCS_Solver:
 			"Gap res" : 			{'val' : self.resid_gap, 		'format_str' : res_format_str},
 			"Prim obj" :			{'val' : self.primal_objective, 'format_str' : obj_format_str},
 			"Dual obj" : 			{'val' : self.dual_objective, 	'format_str' : obj_format_str},
-			"Time": 				{'val' : time.perf_counter() - self.t_start, 'format_str' : '0.3g'}
+			"Tot time":				{'val' : time.perf_counter() - self.t_start, 'format_str' : '0.3g'},
+			"Aff time":				{'val' : self.t_affine, 'format_str' : '0.3g'},
+			"Cone time":			{'val' : self.t_cone, 'format_str' : '0.3g'},
 		}
 		
 		if print_head:
@@ -311,7 +324,7 @@ class SCS_Solver:
 				print(f'==================> converged')
 					
 			if maxed_out_iters:
-				print(f'==================> not converged, reached maxiter ({self.settings['scs_maxiter'] })')
+				print(f"==================> not converged, reached maxiter ({self.settings['scs_maxiter'] })")
 			
 			if not self.exact_sol is None:
 				print(f"E_exact - d_obj = {self.exact_sol - self.dual_objective}")
@@ -460,6 +473,8 @@ class SCS_Solver:
 		project each PSD variable to PSD cone 
 		(diagonalize --> set negative eigs to 0 )
 		'''
+		t = time.perf_counter()
+		
 		out[...] = u
 		
 		for var_list,u_slice in zip((self.primal_vars, self.dual_vars), (self.y_slice, self.x_slice)) :
@@ -476,7 +491,8 @@ class SCS_Solver:
 		if u[self.tao_slice] < 0:
 			out[self.tao_slice] = 0.
 		
-		return 0
+		t = time.perf_counter() - t
+		self.t_cone += t
 
 	def _eig_impl(self, M):
 		# return scipy_eigsh(M)
@@ -513,6 +529,7 @@ class SCS_Solver:
 			end
 		
 		'''
+		t = time.perf_counter()
 		
 		out[...] = w	
 		out_tao = out[self.tao_slice]
@@ -539,6 +556,8 @@ class SCS_Solver:
 		# u = [u_xy; w_tao + (PD.c)'*u_xy(xindsInU) + (PD.b)'*u_xy(yindsInU)];
 		out_tao += np.vdot(self.c, out_x) + np.vdot(self.b, out_y)
 		
+		t = time.perf_counter() - t
+		self.t_affine += t
 		return
 		
 
@@ -834,7 +853,8 @@ def default_settings():
 		'cg_tol' : 1e-10,
 		'cg_maxiter' : 2000,
 		#
-		'log_col_width' : 15, 
+		'log_col_width' : 12, 
+		'log_time_func_calls' : True,
 		#
 		'scs_maxiter': 2000,
 		'scs_q' : 1.5,
@@ -849,8 +869,8 @@ def default_settings():
 		#
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
-		'test_SA_tol' : 1e-10,
-		'test_maps_SA_tol' : 1e-11,
+		'test_SA_tol' : 1e-9,
+		'test_maps_SA_tol' : 1e-10,
 		'test_Minv_h_tol' : 1e-7,
 		'test_projToAffine_tol' : 1e-7,
 		#

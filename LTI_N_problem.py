@@ -32,10 +32,10 @@ def set_problem(n,d, xOtimesI_impl = 'kron'):
 	
 	
 	
-	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho, implementation = xOtimesI_impl )
-	tr_r_rho = maps.PartTrace(subsystems = [n-1], state_dims = dims_rho, implementation = xOtimesI_impl )
+	# tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho, implementation = xOtimesI_impl )
+	# tr_r_rho = maps.PartTrace(subsystems = [n-1], state_dims = dims_rho, implementation = xOtimesI_impl )
 	
-	tr_l_rho_MINUS_tr_r_rho = maps.AddMaps([tr_l_rho, tr_r_rho], [-1, +1])
+	# tr_l_rho_MINUS_tr_r_rho = maps.AddMaps([tr_l_rho, tr_r_rho], [-1, +1])
 			
 	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega, implementation = xOtimesI_impl )
 	tr_r_omega = maps.PartTrace(subsystems = [n], state_dims = dims_omega, implementation = xOtimesI_impl )
@@ -49,7 +49,7 @@ def set_problem(n,d, xOtimesI_impl = 'kron'):
 
 
 	# dual varsiables
-	a = OptVar('alpha', 'dual', dims = (d,)*(n-2) , dtype = float )
+	# a = OptVar('alpha', 'dual', dims = (d,)*(n-2) , dtype = float )
 	b_l = OptVar('beta_l', 'dual', dims = dims_rho, dtype = float)
 	b_r = OptVar('beta_r', 'dual', dims = dims_rho, dtype = float)
 	 
@@ -80,15 +80,15 @@ def set_problem(n,d, xOtimesI_impl = 'kron'):
 	
 	
 	
-	Constraint(**{
-		'label': 'LTI', 
-		'sign_list': [ +1,],
-		'map_list': [tr_l_rho_MINUS_tr_r_rho],
-		'adj_flag_list': [False, ],
-		'var_list': [rho,],
-		'primal_or_dual': 'primal',
-		'conjugateVar': a,
-		})
+	# Constraint(**{
+		# 'label': 'LTI', 
+		# 'sign_list': [ +1,],
+		# 'map_list': [tr_l_rho_MINUS_tr_r_rho],
+		# 'adj_flag_list': [False, ],
+		# 'var_list': [rho,],
+		# 'primal_or_dual': 'primal',
+		# 'conjugateVar': a,
+		# })
 		
 	Constraint(**{
 		'label': 'left', 
@@ -113,17 +113,26 @@ def set_problem(n,d, xOtimesI_impl = 'kron'):
 	
 	# dual constraints
 	
+	# Constraint(**{
+			# 'label': 'D_rho', 
+			# 'sign_list':  [ -1, -1, +1, -1],
+			# 'map_list': [id_rho, id_rho, tr_l_rho_MINUS_tr_r_rho, tr ],
+			# 'adj_flag_list': [True, True, True,  True ],
+			# 'var_list': [ b_l, b_r, a, e],
+			# 'primal_or_dual': 'dual',
+			# 'conjugateVar': rho,
+			# 'const': H.ravel()
+			# }) 
 	Constraint(**{
-			'label': 'D_rho', 
-			'sign_list':  [ -1, -1, +1, -1],
-			'map_list': [id_rho, id_rho, tr_l_rho_MINUS_tr_r_rho, tr ],
-			'adj_flag_list': [True, True, True,  True ],
-			'var_list': [ b_l, b_r, a, e],
-			'primal_or_dual': 'dual',
-			'conjugateVar': rho,
-			'const': H.ravel()
-			}) 
-			
+		'label': 'D_rho', 
+		'sign_list':  [ -1, -1, -1],
+		'map_list': [id_rho, id_rho,  tr ],
+		'adj_flag_list': [True, True,  True ],
+		'var_list': [ b_l, b_r, e],
+		'primal_or_dual': 'dual',
+		'conjugateVar': rho,
+		'const': H.ravel()
+	}) 
 	  
 	Constraint(**{
 			'label': "D_omega", 

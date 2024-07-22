@@ -5,18 +5,8 @@ from variables import RestrictedKeysDict
 from constraints import Constraint
 import matrix_aux_functions as mf
 import numpy as np
+import util
 
-
-def determine_k0(d,D):
-	
-	try:
-		k0 = next( k for k in range(100) if D**2 < d**k)	
-	except StopIteration:
-		print('Could not determine k0 value < 100' )
-		raise
-	
-	return k0
-		
 
 def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 
@@ -24,7 +14,7 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
 	 
 	
-	k0 = determine_k0(d,D)
+	k0 = util.determine_k0(d, chi = D**2)
 	print(f'k0={k0}')
 	
 	assert n >= k0+2 , f'n has to be at least {k0+2}: n = {n}'

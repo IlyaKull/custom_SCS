@@ -8,9 +8,13 @@ from scipy.sparse.linalg import LinearOperator
 from maps import Maps
 # import constraints
 # import matrix_aux_functions
+import LTI_N_problem, relax_LTI_N_problem, one_step_relax_LTI_N_problem
 
-# import relax_LTI_N_problem
-from LTI_N_problem import set_problem
+# problem_module = relax_LTI_N_problem 
+# problem_module = one_step_relax_LTI_N_problem
+problem_module = LTI_N_problem
+
+
 
 def main():
 	
@@ -23,8 +27,8 @@ def main():
 
 	rng = np.random.default_rng(seed=17)
 	
-	# relax_LTI_N_problem.set_problem(n=8, D=3, d=2, xOtimesI_impl = 'kron', cg_impl = 'kron')
-	set_problem(n=6, d=2, xOtimesI_impl = 'kron')
+	# problem_module.set_problem(chi  = 9 , d =2, xOtimesI_impl = 'kron', cg_impl = 'kron')
+	problem_module.set_problem(n=6, d=2, xOtimesI_impl = 'kron') # pure LTI
 	
 	settings = {'cg_maxiter':1000,
 		'scs_scaling_sigma' : 0.001,
@@ -32,8 +36,8 @@ def main():
 	}
 	
 	try:
-		from LTI_N_problem import exact_sol
-	except ImportError:
+		exact_sol = problem_module.exact_sol
+	except AttributeError:
 		exact_sol = None
 
 	scs_solver = SCS_Solver(settings , exact_sol = exact_sol)
