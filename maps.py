@@ -145,7 +145,7 @@ class Maps:
 						
 			try:
 				assert maps_max_violation[m.name] < tol ,\
-					f"map {m.name} didn't pass SA test: |vdot(y, Mx) - vdot(M_dag_y, x)| = {abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x))}, tol = {tol}"			
+					f"map {m.name} didn't pass SA test: |vdot(y, Mx) - vdot(M_dag_y, x)| = {abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x)) :0.3g}, tol = {tol}"			
 			except AssertionError:
 				raise
 			else:
@@ -189,8 +189,8 @@ class CGmap(Maps):
 			first_pos = next(i for i in range(len(self.action['pattern'])) if self.action['pattern'][i] == 1)
 			
 
-			IxKxI = []
-			IxKxI_dag = []
+			self.IxKxI = []
+			self.IxKxI_dag = []
 			for Kop in kraus:
 				terms_to_tensor = []
 				for i,a in enumerate(self.action['pattern']):
@@ -201,29 +201,43 @@ class CGmap(Maps):
 						terms_to_tensor.append(Kop)
 						
 				
-				IxKxI.append( mf.tensorProd(terms_to_tensor)	)
-				IxKxI_dag.append(IxKxI[-1].conj().T)	
+				self.IxKxI.append( mf.tensorProd(terms_to_tensor)	)
+				self.IxKxI_dag.append(self.IxKxI[-1].conj().T)	
 			
-			if len(IxKxI) > 1:
-				self._apply_impl = mf.apply_multiple_kraus_kron
+			if len(self.IxKxI) > 1:
+				self._apply_impl = self._apply_impl_kraus_multiple
+				self._apply_adj_impl = self._apply_adj_impl_kraus_multiple
+				
 			else:	
-				self._apply_impl = mf.apply_single_kraus_kron
-			self.aux_apply_args =  (IxKxI,)
-			self.aux_apply_adj_args =  (IxKxI_dag,)
-			
-			
+				self._apply_impl = self._apply_impl_kraus_single
+				self._apply_adj_impl = self._apply_adj_impl_kraus_single
+							
 		elif self.implementation == 'contract':
-			self._apply_impl =  mf.apply_cg_maps
-			self.aux_apply_args = 		(self.action['dims_in'], 	self.kraus, 						self.action['pattern'])
-			self.aux_apply_adj_args = 	(self.action['dims_out'], 	[k.conj().T for k in self.kraus] , 	self.action['pattern_adj'])
+			self._apply_impl =  self._apply_impl_contract
+			self._apply_adj_impl =  self._apply_adj_impl_contract
+			self.kraus_dag = [k.conj().T for k in self.kraus]
 			
-	def apply(self, x, checks = False):
-		return self._apply_impl(x, *self.aux_apply_args)
+	def apply(self, x):
+		return self._apply_impl(x)
 	
-	def apply_adj(self, x, checks = False):
-		return self._apply_impl(x, *self.aux_apply_adj_args)
+	def apply_adj(self, x):
+		return self._apply_adj_impl(x)
 	
-		
+	def _apply_impl_kraus_single(self,x):
+		return mf.apply_single_kraus_kron(x, self.IxKxI)
+	def _apply_impl_kraus_multiple(self,x):
+		return mf.apply_multiple_kraus_kron(x, self.IxKxI)
+	def _apply_adj_impl_kraus_single(self,x):
+		return mf.apply_single_kraus_kron(x, self.IxKxI_dag)
+	def _apply_adj_impl_kraus_multiple(self,x):
+		return mf.apply_adj_multiple_kraus_kron(x, self.IxKxI_dag)
+	
+	def _apply_impl_contract(self,x):
+		return mf.apply_cg_maps(x, self.action['dims_in'], 	self.kraus,  self.action['pattern'])
+	def _apply_adj_impl_contract(self,x):
+		return mf.apply_cg_maps(x, self.action['dims_out'], 	self.kraus_dag , 	self.action['pattern_adj'])
+	
+			
 	 
 	
 	

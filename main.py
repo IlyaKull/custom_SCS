@@ -27,7 +27,8 @@ def main():
 	
 	# print(sys.argv[0])
 	chi = int(sys.argv[1])
-
+	maxiter =  int(sys.argv[2])
+	
 	q = 1.6
 	xOtimesI_impl = '4D'
 	cg_impl = 'kron'
@@ -49,7 +50,7 @@ def main():
 		exact_sol = None
 
 	scs_solver = SCS_Solver(settings , exact_sol = exact_sol)
-	scs_solver.run_scs(maxiter = 20, printout_every = 5)
+	scs_solver.run_scs(maxiter = maxiter, printout_every = 50)
 	
 	
 	Maps.print_maps_log()

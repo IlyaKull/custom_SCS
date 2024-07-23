@@ -81,9 +81,14 @@ class SCS_Solver:
 				
 		# M^(-1)h is needed in every iteration and is therefore computed
 		# at initialization 
+		self.cg_iter_counter = 0
+		
+		self.settings['cg_tol'] = self.settings['cg_tol_Minvh_init']
 		Minv_h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
 		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b)
 				
+		
+ 
 		# the following is also needed in every iteration	
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
 		self.Minv_h = Minv_h
@@ -91,12 +96,17 @@ class SCS_Solver:
 		self._test_Minv_h(tol = self.settings['test_Minv_h_tol'])
 		
 		
-		self.t_cone = 0.0
-		self.t_affine = 0.0
 		
-		self._test_projToAffine()
-		#reset timer
 		self.t_affine = 0.0
+		self._test_projToAffine()
+		
+		#reset timers and counters
+		self.t_affine = 0.0
+		self.t_cone = 0.0
+		self.iter_counter_for_cg_avg = 0
+		self.cg_iter_counter = 0
+		self.cg_avrg_iter_count = 0
+		
 		
 		# progress log tracks the following 
 		self.resid_prim = None
@@ -270,8 +280,8 @@ class SCS_Solver:
 			printout_every = self.settings['scs_compute_resid_every_n_iters'] 
 		else:
 			self.settings['scs_compute_resid_every_n_iters'] = printout_every
-			
-			
+		
+		self.settings['cg_tol'] = self.settings['cg_tol_min']
 		self.iter = 0
 		termination_criteria_satisfied = False
 		self.t_start = time.perf_counter()
@@ -283,14 +293,22 @@ class SCS_Solver:
 			# self.__iterate_scs_test()
 			self.iter += 1
 			
-			if self.iter % printout_every == 0:
+			if self.iter % printout_every == 0 or self.iter == maxiter:
 				termination_criteria_satisfied = self._check_termination_criteria()
 				self._print_log(converged = termination_criteria_satisfied)
+				self._adapt_cg_tol()
 		
 		if not termination_criteria_satisfied:
 			self._print_log(maxed_out_iters = True)
 		
+	def _adapt_cg_tol(self):
+		if self.settings['adaptive_cg_iters']:
+			self.settings['cg_tol_min'] = self.settings['cg_tol']
+			self.settings['cg_tol'] = min([self.resid_prim/10, self.resid_dual/10, self.resid_gap/10, self.settings['cg_tol_min'] ])	
+		else:
+			self.settings['cg_tol'] = 1e-12
 		
+			
 	
 	def _print_log(self, print_head = False, print_line = True, converged = False, maxed_out_iters = False):
 				
@@ -308,6 +326,7 @@ class SCS_Solver:
 			"Tot time":				{'val' : time.perf_counter() - self.t_start, 'format_str' : '0.3g'},
 			"Aff time":				{'val' : self.t_affine, 'format_str' : '0.3g'},
 			"Cone time":			{'val' : self.t_cone, 'format_str' : '0.3g'},
+			"avg cg iters":			{'val' : self.cg_avrg_iter_count, 'format_str' : 'g'},
 		}
 		
 		if print_head:
@@ -398,10 +417,17 @@ class SCS_Solver:
 		# current dual objective
 		self.dual_objective = -cx
 		
+		
+		self.cg_avrg_iter_count = self.cg_iter_counter / self.iter_counter_for_cg_avg
+		self.cg_iter_counter = 0 
+		self.iter_counter_for_cg_avg = 0
+		
+		
 		return all( [self.resid_prim < self.settings['scs_prim_resid_tol'] * (1.0 + self.b_unscld_norm), \
 			self.resid_dual < self.settings['scs_dual_resid_tol'] * (1.0 + self.c_unscld_norm ), \
 			self.resid_gap < self.settings['scs_gap_resid_tol'] * (1.0 + abs(cx) + abs(by)) ] )
-	
+		
+		
 	
 	def __iterate_scs_test(self):
 		'''	 
@@ -421,7 +447,8 @@ class SCS_Solver:
 		qcomb = self.q * self.u_tilde + (1.-self.q) * self.u
 		self._project_to_cone( qcomb - self.v, out = self.u);
 		self.v += -qcomb + self.u ;
-
+		
+		
 		return
 	
 	
@@ -467,7 +494,8 @@ class SCS_Solver:
 		self.v += -self.q * self.u_tilde + -(1.-self.q) * self.u # v = v- qcomb
 		self._project_to_cone( -self.v, out = self.u);
 		self.v +=  self.u ;
-
+		
+		self.iter_counter_for_cg_avg += 1
 		return
 	
 	
@@ -572,11 +600,12 @@ class SCS_Solver:
 	def __solve_M_inv_return(self, w_x, w_y):
 		'''
 		this is for debugging. should give the same result as solve_M_inv(...)
+		also used for first computation of M_inv(h)
 		
 		'''
-		
+			
 		ATw_y = apply_primal_constr(self, w_y)
-		z_x, exit_code = self._conj_grad_impl( w_x - ATw_y )
+		z_x, exit_code = self._conj_grad_impl( w_x - ATw_y)
 		Az_x = apply_dual_constr(self, z_x)
 		z_y = w_y + Az_x
 		# print(f'cg exit code: {exit_code}')
@@ -618,25 +647,25 @@ class SCS_Solver:
 		
 		return 0
 		
-	
-	
+			
 
 	def _conj_grad_impl(self, x):
 		'''
-		put your favourite implementation of conjugate gradient here
+		put your favourite iterative solver here
 		'''		
-		# return scipy_cg(A = self.lin_op, b = x,\
-			# atol= 1e-8,\
-			# tol= 1e-8,\
-			# maxiter = 1000 \
-		# )
+		
+		#  norm(b - A @ x) <= max(rtol*norm(b), atol)
+		
 		return scipy_cg(A = self.lin_op, b = x,\
 			atol= self.settings['cg_atol'],\
-			tol= self.settings['cg_tol'],\
-			maxiter = self.settings['cg_maxiter'] \
+			tol = self.settings['cg_tol'],\
+			maxiter = self.settings['cg_maxiter'],\
+			callback = self._cg_count_iter
 		)
 		
-	
+		
+	def _cg_count_iter(self, x_k):
+		self.cg_iter_counter += 1
 		
 	def __apply_M(self,x,y):
 		'''
@@ -854,9 +883,12 @@ def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
 
 def default_settings():
 	d = {
-		'cg_atol' : 1e-10,
-		'cg_tol' : 1e-10,
+		'cg_atol' : 0,
+		'cg_tol' : None,
+		'cg_tol_min' : 1e-3, # cg solves to at least this precision when adaptive tolerance is used
+		'cg_tol_Minvh_init' : 1e-14, 
 		'cg_maxiter' : 2000,
+		'adaptive_cg_iters' : True,
 		#
 		'log_col_width' : 12, 
 		'log_time_func_calls' : True,
@@ -874,10 +906,10 @@ def default_settings():
 		#
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
-		'test_SA_tol' : 1e-9,
-		'test_maps_SA_tol' : 1e-10,
-		'test_Minv_h_tol' : 1e-7,
-		'test_projToAffine_tol' : 1e-7,
+		'test_SA_tol' : 1e-10,
+		'test_maps_SA_tol' : 1e-11,
+		'test_Minv_h_tol' : 1e-12,
+		'test_projToAffine_tol' : 1e-12,
 		#
 		'util_rng' : np.random.default_rng(seed=17),
 		}
