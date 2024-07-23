@@ -155,6 +155,46 @@ def partial_trace_no_inds(x, dims, inds_in, inds_out, dim_out):
 # # print(np.allclose( partial_trace(tensorProd(B,A,I), [2], [3,2,2]), np.trace(A) * tensorProd(B,I)))
 
 
+def kron_4D(left_dim, x, right_dim ):
+	if right_dim > 1:
+		tmp = _4D_kron_AxI(x, right_dim, x.shape[0])
+		if left_dim > 1:
+			return _4D_kron_IxA(tmp,left_dim, tmp.shape[0])
+	elif left_dim > 1:
+		return _4D_kron_IxA(x,left_dim, x.shape[0])
+	elif (left_dim,right_dim) == (1,1):
+		return x 
+	# right first is faster
+	
+	
+	
+def _4D_kron_AxI(A, d, m):
+	out = np.zeros((m,d,m,d),dtype=A.dtype)
+	r = np.arange(d)
+	out[:,r,:,r] = A
+	out.shape = (m*d,m*d)
+	return out
+    
+def _4D_kron_IxA(A, d, m):
+	out = np.zeros((d,m,d,m),dtype=A.dtype)
+	r = np.arange(d)
+	out[r,:,r,:] = A
+	out.shape = (m*d,m*d)
+	return out
+
+
+'''
+# test kron_4D
+m=20
+dl=3
+dr =4
+A = np.random.rand(m,m)
+AxI = np.kron(A, np.identity(dr))	
+IxAxI = np.kron(np.identity(dl), AxI)
+
+print(np.allclose(IxAxI, kron_4D(dl,A,dr)))
+'''
+
 
 def xOtimesI_inds(subsystems, fulldims):
 	''' 
