@@ -263,10 +263,15 @@ class SCS_Solver:
 		
 		if maxiter is None:
 			maxiter = self.settings['scs_maxiter'] 
+		else: 
+			self.settings['scs_maxiter']  = maxiter
 		
 		if printout_every is None:
 			printout_every = self.settings['scs_compute_resid_every_n_iters'] 
-		
+		else:
+			self.settings['scs_compute_resid_every_n_iters'] = printout_every
+			
+			
 		self.iter = 0
 		termination_criteria_satisfied = False
 		self.t_start = time.perf_counter()

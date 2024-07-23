@@ -160,6 +160,8 @@ def kron_4D(left_dim, x, right_dim ):
 		tmp = _4D_kron_AxI(x, right_dim, x.shape[0])
 		if left_dim > 1:
 			return _4D_kron_IxA(tmp,left_dim, tmp.shape[0])
+		else:
+			return tmp
 	elif left_dim > 1:
 		return _4D_kron_IxA(x,left_dim, x.shape[0])
 	elif (left_dim,right_dim) == (1,1):

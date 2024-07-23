@@ -355,7 +355,7 @@ class PartTrace(Maps):
 					mf.xOtimesI_inds(subsystems, state_dims)
 				self._adj_impl = self._impl_adj_xOtimesI
  
-			case 'kron':
+			case 'kron' | '4D':
 				try:
 					is_left = \
 						min(subsystems) == 1
@@ -375,24 +375,30 @@ class PartTrace(Maps):
 					print("to use the kron()-based implementation, subsystems must consist of leftmost and/or rightmost contiguous blocks")
 					raise
 				else:
+					
 					tot_dim_subsys = np.prod([state_dims[i-1] for i in subsystems])
 					if subsys_contig:
 						if is_left:
-							self.id_left = [np.identity(tot_dim_subsys),]
+							self.id_left_dim = tot_dim_subsys	
+							self.id_left = [np.identity(self.id_left_dim),]
+							self.id_right_dim = 1
 							self.id_right = []
 							
 						if is_right:
+							self.id_left_dim = 1
 							self.id_left = []
-							self.id_right = [np.identity(tot_dim_subsys),]
+							self.id_right_dim = tot_dim_subsys
+							self.id_right = [np.identity(self.id_right_dim),]
 					else:
-						left_dim = np.prod([state_dims[i-1] for i in range(1,min(compl_subsystems))])
-						right_dim = np.prod([state_dims[i-1] for i in range(max(compl_subsystems)+1, len(state_dims) +1 )])
-						self.id_left = [np.identity(left_dim),]
-						self.id_right = [np.identity(right_dim),]
-					
-					self._adj_impl = self._impl_adj_kron	
-
-		
+						self.id_left_dim = np.prod([state_dims[i-1] for i in range(1,min(compl_subsystems))])
+						self.id_right_dim = np.prod([state_dims[i-1] for i in range(max(compl_subsystems)+1, len(state_dims) +1 )])
+						self.id_left = [np.identity(self.id_left_dim),]
+						self.id_right = [np.identity(self.id_right_dim),]
+				
+					if self.implementation == 'kron':	
+						self._adj_impl = self._impl_adj_kron	
+					elif self.implementation == '4D':
+						self._adj_impl = self._impl_adj_4D
 		
 		
 	def apply(self, x):
@@ -401,13 +407,15 @@ class PartTrace(Maps):
 	def apply_adj(self, x):
 		return self._adj_impl(x)
 	
+	# different implementaions of adjoint action: 
 	def _impl_adj_xOtimesI(self,x):
 		return mf.xOtimesI_no_Inds(x, self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose, self.totaldim)
 	
 	def _impl_adj_kron(self,x):
 		return mf.tensorProd(self.id_left +  [x,] + self.id_right )
 
-	
+	def _impl_adj_4D(self,x):
+		return mf.kron_4D(self.id_left_dim, x, self.id_right_dim )
 	
 	
 
