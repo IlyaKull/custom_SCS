@@ -177,6 +177,9 @@ class CGmap(Maps):
 		dims = {'in': np.prod(action['dims_in']), 'out': np.prod(action['dims_out'])} # total dimensions
 		super().__init__(name, dims, adj_name = name + '^*', implementation = implementation)
 		self.kraus = kraus
+		
+		assert len(action['dims_in']) ==  len(action['pattern']), f"map {self.name} action pattern mismatch dims_in: {action['dims_in']} pattern {action['pattern']}"
+		assert len(action['dims_out']) ==  len(action['pattern_adj']), f"map {self.name} action adjoint pattern mismatch dims_out: {action['dims_out']} pattern {action['pattern_adj']}"
 		self.action = action
 		# self.implementation = implementation
 		
@@ -186,8 +189,8 @@ class CGmap(Maps):
 			first_pos = next(i for i in range(len(self.action['pattern'])) if self.action['pattern'][i] == 1)
 			
 
-			self.IKI = []
-			self.IKI_dag = []
+			IxKxI = []
+			IxKxI_dag = []
 			for Kop in kraus:
 				terms_to_tensor = []
 				for i,a in enumerate(self.action['pattern']):
@@ -198,27 +201,28 @@ class CGmap(Maps):
 						terms_to_tensor.append(Kop)
 						
 				
-				self.IKI.append( mf.tensorProd(terms_to_tensor)	)
-				self.IKI_dag.append(self.IKI[-1].conj().T)	
+				IxKxI.append( mf.tensorProd(terms_to_tensor)	)
+				IxKxI_dag.append(IxKxI[-1].conj().T)	
 			
-			if len(self.IKI) > 1:
-				self._apply_kron_impl = mf.apply_multiple_kraus_kron
+			if len(IxKxI) > 1:
+				self._apply_impl = mf.apply_multiple_kraus_kron
 			else:	
-				self._apply_kron_impl = mf.apply_single_kraus_kron
-		
-		
-		
-	def apply(self, x, checks = False):
-		if self.implementation == 'kron':
-			return self._apply_kron_impl(x, self.IKI)
+				self._apply_impl = mf.apply_single_kraus_kron
+			self.aux_apply_args =  (IxKxI,)
+			self.aux_apply_adj_args =  (IxKxI_dag,)
+			
+			
 		elif self.implementation == 'contract':
-			return mf.apply_cg_maps(x, self.action['dims_in'], self.kraus, self.action['pattern'])
+			self._apply_impl =  mf.apply_cg_maps
+			self.aux_apply_args = 		(self.action['dims_in'], 	self.kraus, 						self.action['pattern'])
+			self.aux_apply_adj_args = 	(self.action['dims_out'], 	[k.conj().T for k in self.kraus] , 	self.action['pattern_adj'])
+			
+	def apply(self, x, checks = False):
+		return self._apply_impl(x, *self.aux_apply_args)
 	
 	def apply_adj(self, x, checks = False):
-		if self.implementation == 'kron':
-			return self._apply_kron_impl(x, self.IKI_dag)
-		elif self.implementation == 'contract':
-			return mf.apply_cg_maps(x, self.action['dims_out'], [k.conj().T for k in self.kraus] , self.action['pattern_adj'])
+		return self._apply_impl(x, *self.aux_apply_adj_args)
+	
 		
 	 
 	
