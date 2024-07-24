@@ -4,6 +4,11 @@ import numpy as np
 import functools as ft
 
 
+def anticomm(A,B):
+	return A@B + B@A
+
+
+
 def tensorProd(*terms):
 	'''
 	admits list input as well as *args

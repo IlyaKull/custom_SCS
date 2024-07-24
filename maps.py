@@ -262,13 +262,14 @@ class TraceWith(Maps):
 		# assert tuple(reversed(self.operator.shape)) == x.shape, f"dimensions of operator {self.op_name} don't match input matrix"
 		# assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
 	
-		return np.trace(self.operator.T.conj() @ x)
+		return np.trace(self.operator @ x)
 	
 	def apply_adj(self, x):
 		
 		# assert x.size == 1, f"to apply the adjoint of trace[{self.op_name} * ] the input should be a scalar, x has size {x.size}"
 		# assert self.operator.dtype == x.dtype, f"operator {self.op_name} is {self.operator.dtype} and matrix m is {x.dtype}"
-			
+		
+		# operator is assumed to be self-adjoint
 		return x * self.operator
 		
 		
@@ -345,7 +346,7 @@ class PartTrace(Maps):
 	def __init__(self,  
 		subsystems,  # subsystems to trace : set
 		state_dims, #  dims of input
-		implementation = 'xOtimesI' # which function to call for the adjoint operation
+		implementation = '4D' # which function to call for the adjoint operation
 		):
 				
 		name = f"Trace_[{subsystems}/{len(state_dims)}]"
