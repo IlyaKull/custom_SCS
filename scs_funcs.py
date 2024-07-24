@@ -83,7 +83,7 @@ class SCS_Solver:
 		# at initialization 
 		self.cg_iter_counter = 0
 		
-		self.settings['cg_tol'] = self.settings['cg_tol_Minvh_init']
+		self.cg_tol = self.settings['cg_tol_Minvh_init']
 		Minv_h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
 		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b)
 				
@@ -281,7 +281,7 @@ class SCS_Solver:
 		else:
 			self.settings['scs_compute_resid_every_n_iters'] = printout_every
 		
-		self.settings['cg_tol'] = self.settings['cg_tol_min']
+		self.cg_tol = self.settings['cg_tol_max']
 		self.iter = 0
 		termination_criteria_satisfied = False
 		self.t_start = time.perf_counter()
@@ -302,11 +302,12 @@ class SCS_Solver:
 			self._print_log(maxed_out_iters = True)
 		
 	def _adapt_cg_tol(self):
-		if self.settings['adaptive_cg_iters']:
-			self.settings['cg_tol_min'] = self.settings['cg_tol']
-			self.settings['cg_tol'] = min([self.resid_prim/10, self.resid_dual/10, self.resid_gap/10, self.settings['cg_tol_min'] ])	
+		if self.settings['cg_adaptive_tol']:
+			self.settings['cg_tol_max'] = self.cg_tol
+			scl = self.settings['cg_adaptive_tol_resid_scale']
+			self.cg_tol = min([self.resid_prim/scl, self.resid_dual/scl, self.resid_gap/scl, self.settings['cg_tol_max'] ])	
 		else:
-			self.settings['cg_tol'] = 1e-12
+			self.cg_tol = self.settings['fixed_cg_tol']
 		
 			
 	
@@ -314,8 +315,8 @@ class SCS_Solver:
 				
 		col_width = self.settings['log_col_width']
 		 
-		res_format_str = '0.6g'
-		obj_format_str = '0.6g'
+		res_format_str = '0.5g'
+		obj_format_str = '0.5g'
 		
 		log_columns = {"Iter" : 	{'val' : self.iter, 			'format_str' : 'g'},
 			"Prim res" : 			{'val' : self.resid_prim, 		'format_str' : res_format_str},
@@ -658,7 +659,7 @@ class SCS_Solver:
 		
 		return scipy_cg(A = self.lin_op, b = x,\
 			atol= self.settings['cg_atol'],\
-			tol = self.settings['cg_tol'],\
+			tol = self.cg_tol,\
 			maxiter = self.settings['cg_maxiter'],\
 			callback = self._cg_count_iter
 		)
@@ -883,14 +884,15 @@ def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
 
 def default_settings():
 	d = {
-		'cg_atol' : 0,
-		'cg_tol' : None,
-		'cg_tol_min' : 1e-3, # cg solves to at least this precision when adaptive tolerance is used
-		'cg_tol_Minvh_init' : 1e-14, 
-		'cg_maxiter' : 2000,
-		'adaptive_cg_iters' : True,
+		'cg_atol' : 1e-12,        # stopping criteria of cg:  norm(b - A @ x) <= max(rtol*norm(b), atol)
+		'cg_tol_max' : 1e-3, # when adaptive tolerance is True, cg starts from this tolerance and only decreases see  scs_solver._adapt_cg_tol()
+		'cg_tol_Minvh_init' : 1e-14, # tolerance for initial (one-time) solve of M^-1*h
+		'cg_maxiter' : 100,
+		'cg_adaptive_tol' : True, # adapt the tolerance as iterations progress, see  scs_solver._adapt_cg_tol()
+		'cg_adaptive_tol_resid_scale' : 2.5, # tolerance is updated as min(resid[...]/resid_scale), see  scs_solver._adapt_cg_tol()
+		'fixed_cg_tol' : 1e-11, # used if adaptive is false
 		#
-		'log_col_width' : 12, 
+		'log_col_width' : 10, 
 		'log_time_func_calls' : True,
 		#
 		'scs_maxiter': 2000,

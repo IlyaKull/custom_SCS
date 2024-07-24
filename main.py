@@ -42,6 +42,7 @@ def main():
 		'scs_scaling_sigma' : 	0.001,
 		'scs_scaling_rho' : 	0.01,
 		'scs_q' : 				q,
+		'adaptive_cg_iters' : False,
 	}
 	
 	try:
