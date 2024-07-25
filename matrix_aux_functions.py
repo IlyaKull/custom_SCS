@@ -203,6 +203,166 @@ print(np.allclose(IxAxI, kron_4D(dl,A,dr)))
 '''
 
 
+def xOtimesI(x, subsystems, fulldims, checks = False):
+	''' 
+	adjoint of partial trace: adds \otimes \id terms in specified subsystems
+	subsystems are counted from 1 
+	'''
+	kept_sys = [ (i not in subsystems) for i in range(1,len(fulldims)+1)]
+	
+	kept_dims = [fulldims[i] for i in range(len(fulldims)) if kept_sys[i]]
+	traced_dims = [fulldims[i] for i in range(len(fulldims)) if not kept_sys[i]]
+	 
+	if checks:
+		assert x.shape[0] == x.shape[1] and x.shape[0] == np.prod(np.array(fulldims)[kept_sys]),\
+			f"x has wrong dimensions: x.shape = {x.shape}, dimsfull= {dimsfull}, subsystems= {subsystems}"
+	
+	# id terms are added on the right and then permuted to their place 
+	xI = np.kron(x,\
+			np.identity(\
+				np.prod(\
+					[ d for i,d in enumerate(fulldims) if not kept_sys[i]]
+				)
+			)
+		).reshape( kept_dims + traced_dims + kept_dims + traced_dims )
+		
+	
+	perm_l = np.zeros((len(fulldims)),dtype = int)
+	perm_l[kept_sys] = range(sum(kept_sys))
+	perm_l[[ not b for b in kept_sys] ] = range(sum(kept_sys),len(fulldims))
+	perm_r = np.zeros((len(fulldims)),dtype = int)
+	perm_r[kept_sys] = [ i+ len(fulldims) for i in range(sum(kept_sys))]
+	perm_r[[ not b for b in kept_sys] ] = [ i+ len(fulldims) for i in range(sum(kept_sys),len(fulldims)) ]
+	
+	perm  = perm_l.tolist() + perm_r.tolist()
+	
+	if checks: 
+		assert fulldims + fulldims == [(kept_dims + traced_dims + kept_dims + traced_dims)[i] for i in perm ], 'permutation check!!'
+	
+	return np.transpose(xI, axes = perm).reshape( (np.prod(fulldims),np.prod(fulldims)) )
+	
+
+def test_xOtimesI():	
+	
+	X = np.array([[0,1],[1,0]])
+	A = np.arange(16).reshape((4,4))
+	I2 = np.identity(2)
+	I3 = np.identity(3)
+	I4 = np.identity(4)
+	
+	print(np.allclose( xOtimesI(tensorProd(A,X), [2], [4,2,2]) , tensorProd(A,I2,X)))
+	print(np.allclose( xOtimesI(tensorProd(A,X), [3], [4,2,3]) , tensorProd(A,X,I3)))
+	print(np.allclose( xOtimesI(tensorProd(A,X), [1], [3,4,2]) , tensorProd(I3,A,X)))
+	
+	print(np.allclose( xOtimesI(tensorProd(A,X,A), [1], [3,4,2,4]) , tensorProd(I3,A,X,A)))
+	print(np.allclose( xOtimesI(tensorProd(A,X,A), [2], [4,3,2,4]) , tensorProd(A,I3,X,A)))
+	print(np.allclose( xOtimesI(tensorProd(A,X,A), [3], [4,2,3,4]) , tensorProd(A,X,I3,A)))
+	print(np.allclose( xOtimesI(tensorProd(A,X,A), [4], [4,2,4,3]) , tensorProd(A,X,A,I3)))
+	
+	
+	dims = [2,3,4,5]
+	
+	M = np.random.rand(np.prod(dims),np.prod(dims))
+	for i in range(4):
+		ptM = partial_trace(M, [i+1], dims)
+		dI= dims[i]
+		dimsA = [d  for j,d in enumerate(dims) if j!=i]
+		A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
+		AxI = xOtimesI(A, [i+1], dims)
+		
+		print(f'part trace test pos = {i}: ' , np.allclose(np.trace(ptM @ A),np.trace(M @ AxI)))
+
+test_xOtimesI()	 
+ 
+
+
+ 
+
+
+def xOtimesI_fast(A, d_I, dimsA, pos, checks = False):
+	if checks:
+		assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
+		assert  0 <= pos <= len(dimsA), f'position can be between 0 and len(dims). pos = {pos}, dims = {dims}'
+
+	dims = dimsA[:]
+	dims.insert(pos,d_I)
+	out = np.zeros(tuple(dims + dims))
+	r = np.arange(d_I)
+	out[tuple(slice(d) if i != pos else r for i,d in enumerate(dims)) * 2] = A.reshape(tuple(dimsA) * 2)
+	out.shape = (np.prod(dims),np.prod(dims))
+	return out
+
+def test_xOtimesI_fast():	
+	d1 =4
+	dimsA = [d1,2]
+	A1 = np.random.rand(d1,d1)
+	X = np.array([[0,1],[1,0]])
+	A = np.kron(A1, X)
+
+
+	d_I = 4
+	IxA1xX = tensorProd(np.identity(d_I), A1,X)
+	pos = 0
+	B0 = xOtimesI_fast(A,d_I,dimsA,pos)
+	print(np.allclose(IxA1xX,B0))
+
+	A1xIxX = tensorProd(A1, np.identity(d_I), X)
+	pos = 1
+	B1 = xOtimesI_fast(A,d_I,dimsA,pos)
+	print(np.allclose(A1xIxX,B1))
+
+	A1xXxI = tensorProd(A1, X, np.identity(d_I)) 
+	pos = 2
+	B2 = xOtimesI_fast(A,d_I,dimsA,pos)
+	print(np.allclose(A1xXxI,B2))
+	
+	X = np.array([[0,1],[1,0]])
+	A = np.arange(16).reshape((4,4))
+	I2 = np.identity(2)
+	I3 = np.identity(3)
+	I4 = np.identity(4)
+	
+	print(np.allclose( xOtimesI_fast(tensorProd(A,X),2, pos=1, dimsA=[4,2]) , tensorProd(A,I2,X)))
+	print(np.allclose( xOtimesI_fast(tensorProd(A,X),3, pos=2, dimsA=[4,2]) , tensorProd(A,X,I3)))
+	print(np.allclose( xOtimesI_fast(tensorProd(A,X),3, pos=0, dimsA=[4,2]) , tensorProd(I3,A,X)))
+	
+	print(np.allclose( xOtimesI_fast(tensorProd(A,X,A),3, pos=0, dimsA=[4,2,4]) , tensorProd(I3,A,X,A)))
+	print(np.allclose( xOtimesI_fast(tensorProd(A,X,A),3, pos=1, dimsA=[4,2,4]) , tensorProd(A,I3,X,A)))
+	print(np.allclose( xOtimesI_fast(tensorProd(A,X,A),3, pos=2, dimsA=[4,2,4]) , tensorProd(A,X,I3,A)))
+	print(np.allclose( xOtimesI_fast(tensorProd(A,X,A),3, pos=3, dimsA=[4,2,4]) , tensorProd(A,X,A,I3)))
+	
+	dims = [2,3,4,5]
+	
+	M = np.random.rand(np.prod(dims),np.prod(dims))
+	for i in range(4):
+		ptM = partial_trace(M, [i+1], dims)
+		dI= dims[i]
+		dimsA = [d  for j,d in enumerate(dims) if j!=i]
+		A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
+		AxI = xOtimesI_fast(A,dI, dimsA,i)
+		
+		print(f'_fast part trace test pos = {i}: ' , np.allclose(np.trace(ptM @ A),np.trace(M @ AxI)))
+
+	
+	
+test_xOtimesI_fast()
+
+def compare_xOtimesI():
+	import timeit
+	
+	dimsA = [3,4,5,3,5]
+	A = np.random.rand(*tuple(dimsA*2))
+	dI = 4
+	
+	for i in range(len(dimsA)+1):
+		print('permute', timeit.timeit(lambda: xOtimesI(A, [i+1], dimsA[:i]+[dI]+dimsA[i:] ) , number = 100))
+		print('broadcast', timeit.timeit(lambda: xOtimesI_fast(A,d_I =dI, dimsA=dimsA, pos = i) , number = 100)) 
+		
+ 
+compare_xOtimesI()	 
+	
+
+
 def xOtimesI_inds(subsystems, fulldims):
 	''' 
 	computes indices for adjoint of partial trace
@@ -242,75 +402,6 @@ def xOtimesI_no_Inds(x, dim_I_in_xI, shape_for_reshape_xI, axes_for_transpose, t
 		
 	return np.transpose(xI, axes = axes_for_transpose).reshape( (totaldim,)*2 )
 	
-
-
-def xOtimesI(x, subsystems, fulldims, checks = False):
-	''' 
-	adjoint of partial trace: adds \otimes \id terms in specified subsystems
-	'''
-	kept_sys = [ (i not in subsystems) for i in range(1,len(fulldims)+1)]
-	
-	kept_dims = [fulldims[i] for i in range(len(fulldims)) if kept_sys[i]]
-	traced_dims = [fulldims[i] for i in range(len(fulldims)) if not kept_sys[i]]
-	 
-	if checks:
-		assert x.shape[0] == x.shape[1] and x.shape[0] == np.prod(np.array(fulldims)[kept_sys]),\
-			f"x has wrong dimensions: x.shape = {x.shape}, dimsfull= {dimsfull}, subsystems= {subsystems}"
-	
-	# id terms are added on the right and then permuted to their place 
-	xI = np.kron(x,\
-			np.identity(\
-				np.prod(\
-					[ d for i,d in enumerate(fulldims) if not kept_sys[i]]
-				)
-			)
-		).reshape( kept_dims + traced_dims + kept_dims + traced_dims )
-		
-	
-	perm_l = np.zeros((len(fulldims)),dtype = int)
-	perm_l[kept_sys] = range(sum(kept_sys))
-	perm_l[[ not b for b in kept_sys] ] = range(sum(kept_sys),len(fulldims))
-	perm_r = np.zeros((len(fulldims)),dtype = int)
-	perm_r[kept_sys] = [ i+ len(fulldims) for i in range(sum(kept_sys))]
-	perm_r[[ not b for b in kept_sys] ] = [ i+ len(fulldims) for i in range(sum(kept_sys),len(fulldims)) ]
-	
-	perm  = perm_l.tolist() + perm_r.tolist()
-	
-	if checks: 
-		assert fulldims + fulldims == [(kept_dims + traced_dims + kept_dims + traced_dims)[i] for i in perm ], 'permutation check!!'
-	
-	return np.transpose(xI, axes = perm).reshape( (np.prod(fulldims),np.prod(fulldims)) )
-	
-
-# # # '''
-# # # test xOtimesI
-# # # '''	
- 
- 
-# # # X = np.array([[0,1],[1,0]])
-# # # A = np.arange(16).reshape((4,4))
-# # # B = np.arange(4).reshape((2,2))
-# # # I2 = np.identity(2)
-# # # I3 = np.identity(3)
-
-# # # print('I3 =\n',I3)
-
-# # # AX = np.kron(A,X)
-# # # BX = np.kron(B,X)
-
-	
-
-# # # print(np.allclose( xOtimesI(AX, [2], [4,2,2]) , tensorProd(A,I2,X)))
-# # # print(np.allclose( xOtimesI(AX, [3], [4,2,3]) , tensorProd(A,X,I3)))
-# # # print(np.allclose( xOtimesI(AX, [3], [4,2,3]) , tensorProd(A,X,I3)))
-
-
- 
-# # # print(np.allclose( xOtimesI(BX, [1], [3,2,2],checks=True) , tensorProd(I3,B,X))) # !!!!!!!!!!!!!!!!!!!!!!!!
-# # # # print('BX =\n',BX)
-# # # # print(tensorProd(I3,B,X))
-# # # # print(xOtimesI(BX, [1], [3,2,2]))
- 
 
 
 

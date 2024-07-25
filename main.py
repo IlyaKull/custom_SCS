@@ -40,10 +40,11 @@ def main():
 	n=   int(sys.argv[1])
 	problem_module.set_problem(n)
  	
-	settings = {'scs_scaling_sigma' : 	0.001,
-				'scs_scaling_rho' : 	0.01,
+	settings = {'scs_scaling_sigma' : 	0.0004, 	# rescales b
+				'scs_scaling_rho' : 	0.001, 	# rescales c
 				'scs_q' : 				1.5,
 				'adaptive_cg_iters' : True,
+				'cg_adaptive_tol_resid_scale' : 20,
 	}
 	
 	try:

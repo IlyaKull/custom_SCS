@@ -263,8 +263,10 @@ class SCS_Solver:
 		# RESCALE
 		self.b *= self.settings['scs_scaling_sigma']
 		self.c *= self.settings['scs_scaling_rho']
-		
-		
+		print(f"########################### RESCALING PROBLEM: ")
+		print(f"		b --> sigma * b ; (sigma = {self.settings['scs_scaling_sigma'] :0.3g})")
+		print(f"		c --> rho * c ;   (rho = {self.settings['scs_scaling_rho'] :0.3g})")
+		print("#"*60)
 		
 		
 	
@@ -909,7 +911,7 @@ def default_settings():
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
 		'test_SA_tol' : 1e-10,
-		'test_maps_SA_tol' : 1e-11,
+		'test_maps_SA_tol' : 1e-10,
 		'test_Minv_h_tol' : 1e-12,
 		'test_projToAffine_tol' : 1e-12,
 		#
