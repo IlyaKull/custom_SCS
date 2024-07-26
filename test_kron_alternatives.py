@@ -66,44 +66,9 @@ def _1_IxAxI_right_first(A,d,m):
 	tmp = _0_4D_kron_AxI(A,d,m)
 	return _0_4D_kron_IxA(tmp,d,d*m)
 
-def _2_4D_kron_gen(A,d_I,dimsA,pos):
-	
-	assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
-	assert  0 <= pos <= len(dimsA), f'position can be between 0 and len(dims). pos = {pos}, dims = {dims}'
 
-	dims = dimsA[:]
-	dims.insert(pos,d_I)
-	out = np.zeros(tuple(dims + dims))
-	r = np.arange(d_I)
-	out[tuple(slice(d) if i != pos else r for i,d in enumerate(dims)) * 2] = A.reshape(tuple(dimsA) * 2)
-	out.shape = (np.prod(dims),np.prod(dims))
-	return out
-	
-d1 =4
-dimsA = [d1,2]
-A1 = np.random.rand(d1,d1)
-X = np.array([[0,1],[1,0]])
-A = np.kron(A1, X)
 
-print('A = \n',A)
 
-d_I = 2
-IxA1xX = np.kron(np.identity(d_I),A)
-pos = 0
-B0 = _2_4D_kron_gen(A,d_I,dimsA,pos)
-print(np.allclose(IxA1xX,B0))
-
-A1xIxX = np.kron(np.kron(A1,np.identity(d_I)),X) 
-pos = 1
-B1 = _2_4D_kron_gen(A,d_I,dimsA,pos)
-print(np.allclose(A1xIxX,B1))
-
-A1xXxI = np.kron(A,np.identity(d_I)) 
-pos = 2
-B2 = _2_4D_kron_gen(A,d_I,dimsA,pos)
-print(np.allclose(A1xXxI,B2))
-
-zb
 
 profile.add_function(_0_4D_kron_IxA)
 profile.add_function(_0_4D_kron_AxI)

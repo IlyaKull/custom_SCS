@@ -3,6 +3,23 @@ import scipy.sparse as sps
 import numpy as np
 import functools as ft
 
+import line_profiler
+
+
+
+def main():
+	profile = line_profiler.LineProfiler()
+	profile.enable_by_count()
+	# test_xOtimesI()	 
+	# test_xOtimesI_bc()
+	# compare_xOtimesI()
+	
+	
+	profile.add_function(partial_trace_einsum)
+	profile.add_function(partial_trace_bc)
+	test_partial_trace()	 
+	profile.print_stats()
+
 
 def anticomm(A,B):
 	return A@B + B@A
@@ -73,9 +90,14 @@ def dim_symm_matrix(d):
 
 
 
+def partial_trace(x, subsystems, dims):
+	'''
+	the _einsum function is faster than the _bc function 
+	'''
+	return partial_trace_einsum(x, subsystems, dims)
+	
 
-
-def partial_trace(x, subsystems, dims, checks = False):
+def partial_trace_einsum(x, subsystems, dims, checks = False):
 	
 	if checks:
 		assert isinstance(subsystems, list) or isinstance(subsystems, tuple) , 'subsystems should be a list or a tuple'
@@ -124,41 +146,49 @@ def partial_trace_no_inds(x, dims, inds_in, inds_out, dim_out):
 			)
 
 
+def partial_trace_bc(x, subsystem, dims):
+	
+	r = np.arange(dims[subsystem])
+	inds = tuple(slice(d) if i != subsystem else r for i,d in enumerate(dims))*2
+	dims_out = [d for i,d in enumerate(dims) if i!=subsystem ]
+	x.shape = tuple(dims)*2
+	x = x[inds]
+	x = np.sum(x, axis=0)
+	return x.reshape((np.prod(dims_out),)*2)
 
 
-# # '''
-# # test partial_trace
-# # '''
-
-# # X = np.array([[0,1],[1,0]])
-# # A = np.array([[1,0],[0,3]])
-# # I = np.identity(2)
-# # AX = np.kron(A,X)
-# # AXX= np.kron(AX,X)
-# # XXA = np.kron(X,np.kron(X,A))
 
 
-# # # p1AX = partial_trace(AX, [1], [2,2])
-# # # print(p1AX)
+def test_partial_trace():
+	'''
+	test partial_trace funcs
+	'''
+	
+	X = np.array([[0,1],[1,0]])
+	A = np.array([[1,0],[0,3]])
+	I = np.identity(4)
+	AX = np.kron(A,X)
+	AXX= np.kron(AX,X)
+	XXA = np.kron(X,np.kron(X,A))
 
-# # # p2AX = partial_trace(AX, [2], [2,2])
-# # # print(p2AX)
-
-# # # p1AXX = partial_trace(AXX, [1], [2,2,2])
-# # # print(p1AXX)
-
-# # # p2AXX = partial_trace(AXX, [2], [2,2,2])
-# # # print(p2AXX)
-
-# # # p3AXX = partial_trace(AXX, [3], [2,2,2])
-# # # print(p3AXX)
-
-# # B = np.arange(9).reshape((3,3))
-
-# # print(np.allclose( partial_trace(tensorProd(B,A,I), [3], [3,2,2]), np.trace(I) * tensorProd(B,A)))
-# # print(np.allclose( partial_trace(tensorProd(B,A,I), [1], [3,2,2]), np.trace(B) * tensorProd(A,I)))
-# # print(np.allclose( partial_trace(tensorProd(B,A,I), [2], [3,2,2]), np.trace(A) * tensorProd(B,I)))
-
+	B = np.arange(9).reshape((3,3))
+	
+	print(np.allclose( partial_trace_einsum(tensorProd(B,A,I), [3], [3,2,4]), np.trace(I) * tensorProd(B,A)))
+	print(np.allclose( partial_trace_einsum(tensorProd(B,A,I), [1], [3,2,4]), np.trace(B) * tensorProd(A,I)))
+	print(np.allclose( partial_trace_einsum(tensorProd(B,A,I), [2], [3,2,4]), np.trace(A) * tensorProd(B,I)))
+	
+	print(np.allclose( partial_trace_bc(tensorProd(B,A,I), 2, [3,2,4]), np.trace(I) * tensorProd(B,A)))
+	print(np.allclose( partial_trace_bc(tensorProd(B,A,I), 0, [3,2,4]), np.trace(B) * tensorProd(A,I)))
+	print(np.allclose( partial_trace_bc(tensorProd(B,A,I), 1, [3,2,4]), np.trace(A) * tensorProd(B,I)))
+	
+	
+	
+	dims = [4,8,9,6,5]
+	for j in range(10):
+		A = np.random.rand(*(np.prod(dims),)*2)
+		for s in range(len(dims)):
+			assert np.allclose( partial_trace_einsum(A, [s+1], dims), partial_trace_bc(A, s, dims))
+	
 
 def kron_4D(left_dim, x, right_dim ):
 	if right_dim > 1:
@@ -272,14 +302,12 @@ def test_xOtimesI():
 		
 		print(f'part trace test pos = {i}: ' , np.allclose(np.trace(ptM @ A),np.trace(M @ AxI)))
 
-test_xOtimesI()	 
- 
 
 
  
 
 
-def xOtimesI_fast(A, d_I, dimsA, pos, checks = False):
+def xOtimesI_bc(A, d_I, dimsA, pos, checks = False):
 	if checks:
 		assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
 		assert  0 <= pos <= len(dimsA), f'position can be between 0 and len(dims). pos = {pos}, dims = {dims}'
@@ -292,7 +320,7 @@ def xOtimesI_fast(A, d_I, dimsA, pos, checks = False):
 	out.shape = (np.prod(dims),np.prod(dims))
 	return out
 
-def test_xOtimesI_fast():	
+def test_xOtimesI_bc():	
 	d1 =4
 	dimsA = [d1,2]
 	A1 = np.random.rand(d1,d1)
@@ -303,17 +331,17 @@ def test_xOtimesI_fast():
 	d_I = 4
 	IxA1xX = tensorProd(np.identity(d_I), A1,X)
 	pos = 0
-	B0 = xOtimesI_fast(A,d_I,dimsA,pos)
+	B0 = xOtimesI_bc(A,d_I,dimsA,pos)
 	print(np.allclose(IxA1xX,B0))
 
 	A1xIxX = tensorProd(A1, np.identity(d_I), X)
 	pos = 1
-	B1 = xOtimesI_fast(A,d_I,dimsA,pos)
+	B1 = xOtimesI_bc(A,d_I,dimsA,pos)
 	print(np.allclose(A1xIxX,B1))
 
 	A1xXxI = tensorProd(A1, X, np.identity(d_I)) 
 	pos = 2
-	B2 = xOtimesI_fast(A,d_I,dimsA,pos)
+	B2 = xOtimesI_bc(A,d_I,dimsA,pos)
 	print(np.allclose(A1xXxI,B2))
 	
 	X = np.array([[0,1],[1,0]])
@@ -322,14 +350,14 @@ def test_xOtimesI_fast():
 	I3 = np.identity(3)
 	I4 = np.identity(4)
 	
-	print(np.allclose( xOtimesI_fast(tensorProd(A,X),2, pos=1, dimsA=[4,2]) , tensorProd(A,I2,X)))
-	print(np.allclose( xOtimesI_fast(tensorProd(A,X),3, pos=2, dimsA=[4,2]) , tensorProd(A,X,I3)))
-	print(np.allclose( xOtimesI_fast(tensorProd(A,X),3, pos=0, dimsA=[4,2]) , tensorProd(I3,A,X)))
+	print(np.allclose( xOtimesI_bc(tensorProd(A,X),2, pos=1, dimsA=[4,2]) , tensorProd(A,I2,X)))
+	print(np.allclose( xOtimesI_bc(tensorProd(A,X),3, pos=2, dimsA=[4,2]) , tensorProd(A,X,I3)))
+	print(np.allclose( xOtimesI_bc(tensorProd(A,X),3, pos=0, dimsA=[4,2]) , tensorProd(I3,A,X)))
 	
-	print(np.allclose( xOtimesI_fast(tensorProd(A,X,A),3, pos=0, dimsA=[4,2,4]) , tensorProd(I3,A,X,A)))
-	print(np.allclose( xOtimesI_fast(tensorProd(A,X,A),3, pos=1, dimsA=[4,2,4]) , tensorProd(A,I3,X,A)))
-	print(np.allclose( xOtimesI_fast(tensorProd(A,X,A),3, pos=2, dimsA=[4,2,4]) , tensorProd(A,X,I3,A)))
-	print(np.allclose( xOtimesI_fast(tensorProd(A,X,A),3, pos=3, dimsA=[4,2,4]) , tensorProd(A,X,A,I3)))
+	print(np.allclose( xOtimesI_bc(tensorProd(A,X,A),3, pos=0, dimsA=[4,2,4]) , tensorProd(I3,A,X,A)))
+	print(np.allclose( xOtimesI_bc(tensorProd(A,X,A),3, pos=1, dimsA=[4,2,4]) , tensorProd(A,I3,X,A)))
+	print(np.allclose( xOtimesI_bc(tensorProd(A,X,A),3, pos=2, dimsA=[4,2,4]) , tensorProd(A,X,I3,A)))
+	print(np.allclose( xOtimesI_bc(tensorProd(A,X,A),3, pos=3, dimsA=[4,2,4]) , tensorProd(A,X,A,I3)))
 	
 	dims = [2,3,4,5]
 	
@@ -339,13 +367,13 @@ def test_xOtimesI_fast():
 		dI= dims[i]
 		dimsA = [d  for j,d in enumerate(dims) if j!=i]
 		A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
-		AxI = xOtimesI_fast(A,dI, dimsA,i)
+		AxI = xOtimesI_bc(A,dI, dimsA,i)
 		
 		print(f'_fast part trace test pos = {i}: ' , np.allclose(np.trace(ptM @ A),np.trace(M @ AxI)))
 
 	
 	
-test_xOtimesI_fast()
+
 
 def compare_xOtimesI():
 	import timeit
@@ -354,13 +382,16 @@ def compare_xOtimesI():
 	A = np.random.rand(*tuple(dimsA*2))
 	dI = 4
 	
+	profile.add_function(xOtimesI)
+	profile.add_function(xOtimesI_bc)
+
 	for i in range(len(dimsA)+1):
 		print('permute', timeit.timeit(lambda: xOtimesI(A, [i+1], dimsA[:i]+[dI]+dimsA[i:] ) , number = 100))
-		print('broadcast', timeit.timeit(lambda: xOtimesI_fast(A,d_I =dI, dimsA=dimsA, pos = i) , number = 100)) 
-		
- 
-compare_xOtimesI()	 
+		print('broadcast', timeit.timeit(lambda: xOtimesI_bc(A,d_I =dI, dimsA=dimsA, pos = i) , number = 100)) 
 	
+	profile.print_stats()	
+
+
 
 
 def xOtimesI_inds(subsystems, fulldims):
@@ -405,7 +436,7 @@ def xOtimesI_no_Inds(x, dim_I_in_xI, shape_for_reshape_xI, axes_for_transpose, t
 
 
 
-# @profile	
+
 def apply_multiple_kraus_kron(x, IKI):
 	dim_out = IKI[0].shape[0]
 		
@@ -418,8 +449,8 @@ def apply_multiple_kraus_kron(x, IKI):
 def apply_single_kraus_kron(x, IKI):
 	return IKI[0] @ x @ IKI[0].conj().T
 		
-		
-# @profile
+
+
 def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 	'''
 	apply map to single subsystem of x: 
@@ -467,8 +498,8 @@ def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 		
 	return y
 	
-	
-# @profile	
+
+
 def test_apply_kraus():
 
 	'''
@@ -683,3 +714,7 @@ test apply_cg_maps
 		
 	
 
+
+	
+if __name__ == '__main__':
+	main()
