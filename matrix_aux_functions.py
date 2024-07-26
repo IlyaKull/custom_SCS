@@ -1,4 +1,4 @@
-
+import itertools
 import scipy.sparse as sps		
 import numpy as np
 import functools as ft
@@ -17,7 +17,7 @@ def main():
 	# profile.add_function(xOtimesI_bc)
 	# profile.add_function(xOtimesI_4D_perm)
 	N=1
-	test_xOtimesI(xOtimesI_kron_perm, N)
+	# test_xOtimesI(xOtimesI_kron_perm, N)
 	# test_xOtimesI(xOtimesI_4D_perm, N )
 	# test_xOtimesI(xOtimesI_bc,N)
 	test_xOtimesI(xOtimesI_bc_multi, N)
@@ -103,9 +103,13 @@ def partial_trace(x, subsystems, dims):
 	'''
 	the _einsum function is faster than the _bc function 
 	'''
+	if len(subsystems)==0:
+		return x
 	return partial_trace_einsum(x, subsystems, dims)
 	
-
+def xOtimesI(A, subsystems, fulldims, checks = False):
+	return xOtimesI_bc_multi(A, subsystems, fulldims, checks = False)
+	
 def partial_trace_einsum(x, subsystems, dims, checks = False):
 	
 	if checks:
@@ -325,11 +329,15 @@ def xOtimesI_bc(A, subsystems, fulldims, checks = False):
 
 
 def xOtimesI_bc_multi(A, subsystems, fulldims, checks = False):
+	if len(subsystems)==0:
+		return A
+	
 	pos = [s-1 for s in subsystems] # indexing from 0 in this function
 	dimsA = [d for i,d in enumerate(fulldims) if not (i in pos)]
 	dimsId = [d for i,d in enumerate(fulldims) if (i in pos)]
-	# print(f"dimsA = {dimsA}")
-	# print(f"dimsId = {dimsId}")
+	
+	print(f"dimsA = {dimsA}")
+	print(f"dimsId = {dimsId}")
 	
 	if checks:
 		assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
@@ -393,13 +401,17 @@ def test_xOtimesI(xOtimes_func,N):
 	dims = [3,12,12,5]
 	for rep in range(N):
 		M = np.random.rand(np.prod(dims),np.prod(dims))
-		for i in [0,1,2,3]:
-			ptM = partial_trace(M, [i+1], dims)
-			dimsA = [d  for j,d in enumerate(dims) if j!=i]
-			A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
-			AxI = xOtimes_func(A,[i+1], dims)
-			
-			assert  np.allclose(np.trace(ptM @ A),np.trace(M @ AxI))
+		
+		stuff = [1,2,3,4]
+		for L in range(len(stuff) + 1):
+			for subset in itertools.combinations(stuff, L):
+				print(list(subset))
+				ptM = partial_trace(M, list(subset), dims)
+				dimsA = [d  for j,d in enumerate(dims) if not j+1 in subset]
+				A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
+				AxI = xOtimes_func(A, list(subset), dims)
+				
+				assert  np.allclose(np.trace(ptM @ A),np.trace(M @ AxI))
 
 	X = np.array([[0,1],[1,0]])
 	A = np.arange(16).reshape((4,4))
@@ -414,7 +426,6 @@ def test_xOtimesI(xOtimes_func,N):
 	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1,2,5,7], [3,2,4,2,2,4,3]) , tensorProd(I3,I2,A,X,I2,A,I3))
 	
 	
-
 
 
 
