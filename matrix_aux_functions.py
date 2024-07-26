@@ -8,17 +8,26 @@ import line_profiler
 
 
 def main():
-	profile = line_profiler.LineProfiler()
-	profile.enable_by_count()
-	# test_xOtimesI()	 
-	# test_xOtimesI_bc()
-	# compare_xOtimesI()
+	# profile = line_profiler.LineProfiler()
+	# profile.enable_by_count()
 	
 	
-	profile.add_function(partial_trace_einsum)
-	profile.add_function(partial_trace_bc)
-	test_partial_trace()	 
-	profile.print_stats()
+	
+	# profile.add_function(xOtimesI_kron_perm)
+	# profile.add_function(xOtimesI_bc)
+	# profile.add_function(xOtimesI_4D_perm)
+	N=1
+	test_xOtimesI(xOtimesI_kron_perm, N)
+	# test_xOtimesI(xOtimesI_4D_perm, N )
+	# test_xOtimesI(xOtimesI_bc,N)
+	test_xOtimesI(xOtimesI_bc_multi, N)
+	
+	
+	# # # profile.add_function(partial_trace_einsum)
+	# # # profile.add_function(partial_trace_bc)
+	# # # test_partial_trace()	 
+	
+	# profile.print_stats()
 
 
 def anticomm(A,B):
@@ -138,7 +147,8 @@ def partial_trace_inds(subsystems, dims):
 	
 	return inds_in.ravel().tolist(), inds_out.ravel().tolist(), dim_out
 	
-# @profile
+
+
 def partial_trace_no_inds(x, dims, inds_in, inds_out, dim_out):
 	
 	return np.reshape(
@@ -205,14 +215,14 @@ def kron_4D(left_dim, x, right_dim ):
 	
 	
 	
-def _4D_kron_AxI(A, d, m):
+def xOtimesI_4D_AxI(A, d, m):
 	out = np.zeros((m,d,m,d),dtype=A.dtype)
 	r = np.arange(d)
 	out[:,r,:,r] = A
 	out.shape = (m*d,m*d)
 	return out
     
-def _4D_kron_IxA(A, d, m):
+def xOtimesI_4D_IxA(A, d, m):
 	out = np.zeros((d,m,d,m),dtype=A.dtype)
 	r = np.arange(d)
 	out[r,:,r,:] = A
@@ -220,20 +230,7 @@ def _4D_kron_IxA(A, d, m):
 	return out
 
 
-'''
-# test kron_4D
-m=20
-dl=3
-dr =4
-A = np.random.rand(m,m)
-AxI = np.kron(A, np.identity(dr))	
-IxAxI = np.kron(np.identity(dl), AxI)
-
-print(np.allclose(IxAxI, kron_4D(dl,A,dr)))
-'''
-
-
-def xOtimesI(x, subsystems, fulldims, checks = False):
+def xOtimesI_kron_perm(x, subsystems, fulldims, checks = False):
 	''' 
 	adjoint of partial trace: adds \otimes \id terms in specified subsystems
 	subsystems are counted from 1 
@@ -271,43 +268,49 @@ def xOtimesI(x, subsystems, fulldims, checks = False):
 	
 	return np.transpose(xI, axes = perm).reshape( (np.prod(fulldims),np.prod(fulldims)) )
 	
-
-def test_xOtimesI():	
+def xOtimesI_4D_perm(x, subsystems, fulldims, checks = False):
+	''' 
+	adjoint of partial trace: adds \otimes \id terms in specified subsystems
+	subsystems are counted from 1 
+	'''
+	kept_sys = [ (i not in subsystems) for i in range(1,len(fulldims)+1)]
 	
-	X = np.array([[0,1],[1,0]])
-	A = np.arange(16).reshape((4,4))
-	I2 = np.identity(2)
-	I3 = np.identity(3)
-	I4 = np.identity(4)
+	kept_dims = [fulldims[i] for i in range(len(fulldims)) if kept_sys[i]]
+	traced_dims = [fulldims[i] for i in range(len(fulldims)) if not kept_sys[i]]
+	 
+	if checks:
+		assert x.shape[0] == x.shape[1] and x.shape[0] == np.prod(np.array(fulldims)[kept_sys]),\
+			f"x has wrong dimensions: x.shape = {x.shape}, dimsfull= {dimsfull}, subsystems= {subsystems}"
 	
-	print(np.allclose( xOtimesI(tensorProd(A,X), [2], [4,2,2]) , tensorProd(A,I2,X)))
-	print(np.allclose( xOtimesI(tensorProd(A,X), [3], [4,2,3]) , tensorProd(A,X,I3)))
-	print(np.allclose( xOtimesI(tensorProd(A,X), [1], [3,4,2]) , tensorProd(I3,A,X)))
+	# id terms are added on the right and then permuted to their place 
 	
-	print(np.allclose( xOtimesI(tensorProd(A,X,A), [1], [3,4,2,4]) , tensorProd(I3,A,X,A)))
-	print(np.allclose( xOtimesI(tensorProd(A,X,A), [2], [4,3,2,4]) , tensorProd(A,I3,X,A)))
-	print(np.allclose( xOtimesI(tensorProd(A,X,A), [3], [4,2,3,4]) , tensorProd(A,X,I3,A)))
-	print(np.allclose( xOtimesI(tensorProd(A,X,A), [4], [4,2,4,3]) , tensorProd(A,X,A,I3)))
-	
-	
-	dims = [2,3,4,5]
-	
-	M = np.random.rand(np.prod(dims),np.prod(dims))
-	for i in range(4):
-		ptM = partial_trace(M, [i+1], dims)
-		dI= dims[i]
-		dimsA = [d  for j,d in enumerate(dims) if j!=i]
-		A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
-		AxI = xOtimesI(A, [i+1], dims)
+	Ix = xOtimesI_4D_IxA(x, np.prod(traced_dims), np.prod(kept_dims)).reshape( traced_dims+ kept_dims +  traced_dims + kept_dims  )
 		
-		print(f'part trace test pos = {i}: ' , np.allclose(np.trace(ptM @ A),np.trace(M @ AxI)))
+	traced_sys = [ not b for b in kept_sys]
+	
+	perm_l = np.zeros((len(fulldims)),dtype = int)
+	perm_l[traced_sys] = range(sum(traced_sys))
+	perm_l[ kept_sys] = range(sum(traced_sys),len(fulldims))
+	perm_r = np.zeros((len(fulldims)),dtype = int)
+	perm_r[traced_sys] = [i+len(fulldims) for i in range(sum(traced_sys))]
+	perm_r[ kept_sys] = [i+len(fulldims) for i in range(sum(traced_sys),len(fulldims))]
+	
+	perm  = perm_l.tolist() + perm_r.tolist()
+	
+	if checks: 
+		assert fulldims + fulldims == [(kept_dims + traced_dims + kept_dims + traced_dims)[i] for i in perm ], 'permutation check!!'
+	
+	return np.transpose(Ix, axes = perm).reshape( (np.prod(fulldims),np.prod(fulldims)) )
 
 
 
- 
-
-
-def xOtimesI_bc(A, d_I, dimsA, pos, checks = False):
+def xOtimesI_bc(A, subsystems, fulldims, checks = False):
+	assert len(subsystems) == 1 , "only one subsystem supported"
+	pos = subsystems[0]-1 # indexing from 0 in this function
+	d_I = fulldims[pos]
+	dimsA = [d for i,d in enumerate(fulldims) if i != pos]
+	 
+	
 	if checks:
 		assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
 		assert  0 <= pos <= len(dimsA), f'position can be between 0 and len(dims). pos = {pos}, dims = {dims}'
@@ -320,7 +323,35 @@ def xOtimesI_bc(A, d_I, dimsA, pos, checks = False):
 	out.shape = (np.prod(dims),np.prod(dims))
 	return out
 
-def test_xOtimesI_bc():	
+
+def xOtimesI_bc_multi(A, subsystems, fulldims, checks = False):
+	pos = [s-1 for s in subsystems] # indexing from 0 in this function
+	dimsA = [d for i,d in enumerate(fulldims) if not (i in pos)]
+	dimsId = [d for i,d in enumerate(fulldims) if (i in pos)]
+	# print(f"dimsA = {dimsA}")
+	# print(f"dimsId = {dimsId}")
+	
+	if checks:
+		assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
+	
+	
+	out = np.zeros(tuple(fulldims + fulldims))
+	rs = np.unravel_index(list(range(np.prod(dimsId))), tuple(dimsId))
+	inds = []
+	j=0
+	for i,d in enumerate(fulldims):
+		if i in pos:
+			inds.append(rs[j]) 
+			j+=1
+		else:
+			inds.append(slice(d))
+		
+	out[tuple(inds)*2] = A.reshape(tuple(dimsA) * 2)
+	out.shape = (np.prod(fulldims),np.prod(fulldims))
+	return out
+
+
+def test_xOtimesI(xOtimes_func,N):	
 	d1 =4
 	dimsA = [d1,2]
 	A1 = np.random.rand(d1,d1)
@@ -331,18 +362,18 @@ def test_xOtimesI_bc():
 	d_I = 4
 	IxA1xX = tensorProd(np.identity(d_I), A1,X)
 	pos = 0
-	B0 = xOtimesI_bc(A,d_I,dimsA,pos)
-	print(np.allclose(IxA1xX,B0))
+	B0 = xOtimes_func(A, [1], [d_I,d1,2])
+	assert np.allclose(IxA1xX,B0)
 
 	A1xIxX = tensorProd(A1, np.identity(d_I), X)
 	pos = 1
-	B1 = xOtimesI_bc(A,d_I,dimsA,pos)
-	print(np.allclose(A1xIxX,B1))
+	B1 = xOtimes_func(A,[2], [d1,d_I,2])
+	assert np.allclose(A1xIxX,B1)
 
 	A1xXxI = tensorProd(A1, X, np.identity(d_I)) 
 	pos = 2
-	B2 = xOtimesI_bc(A,d_I,dimsA,pos)
-	print(np.allclose(A1xXxI,B2))
+	B2 = xOtimes_func(A,[3], [d1,2,d_I])
+	assert np.allclose(A1xXxI,B2)
 	
 	X = np.array([[0,1],[1,0]])
 	A = np.arange(16).reshape((4,4))
@@ -350,46 +381,39 @@ def test_xOtimesI_bc():
 	I3 = np.identity(3)
 	I4 = np.identity(4)
 	
-	print(np.allclose( xOtimesI_bc(tensorProd(A,X),2, pos=1, dimsA=[4,2]) , tensorProd(A,I2,X)))
-	print(np.allclose( xOtimesI_bc(tensorProd(A,X),3, pos=2, dimsA=[4,2]) , tensorProd(A,X,I3)))
-	print(np.allclose( xOtimesI_bc(tensorProd(A,X),3, pos=0, dimsA=[4,2]) , tensorProd(I3,A,X)))
+	assert np.allclose( xOtimes_func(tensorProd(A,X),[2],[4,2,2]) , tensorProd(A,I2,X))
+	assert np.allclose( xOtimes_func(tensorProd(A,X),[3],[4,2,3]) , tensorProd(A,X,I3))
+	assert np.allclose( xOtimes_func(tensorProd(A,X),[1],[3,4,2]) , tensorProd(I3,A,X))
 	
-	print(np.allclose( xOtimesI_bc(tensorProd(A,X,A),3, pos=0, dimsA=[4,2,4]) , tensorProd(I3,A,X,A)))
-	print(np.allclose( xOtimesI_bc(tensorProd(A,X,A),3, pos=1, dimsA=[4,2,4]) , tensorProd(A,I3,X,A)))
-	print(np.allclose( xOtimesI_bc(tensorProd(A,X,A),3, pos=2, dimsA=[4,2,4]) , tensorProd(A,X,I3,A)))
-	print(np.allclose( xOtimesI_bc(tensorProd(A,X,A),3, pos=3, dimsA=[4,2,4]) , tensorProd(A,X,A,I3)))
+	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1], [3,4,2,4]) , tensorProd(I3,A,X,A))
+	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[2], [4,3,2,4]) , tensorProd(A,I3,X,A))
+	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[3], [4,2,3,4]) , tensorProd(A,X,I3,A))
+	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[4], [4,2,4,3]) , tensorProd(A,X,A,I3))
 	
-	dims = [2,3,4,5]
-	
-	M = np.random.rand(np.prod(dims),np.prod(dims))
-	for i in range(4):
-		ptM = partial_trace(M, [i+1], dims)
-		dI= dims[i]
-		dimsA = [d  for j,d in enumerate(dims) if j!=i]
-		A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
-		AxI = xOtimesI_bc(A,dI, dimsA,i)
-		
-		print(f'_fast part trace test pos = {i}: ' , np.allclose(np.trace(ptM @ A),np.trace(M @ AxI)))
+	dims = [3,12,12,5]
+	for rep in range(N):
+		M = np.random.rand(np.prod(dims),np.prod(dims))
+		for i in [0,1,2,3]:
+			ptM = partial_trace(M, [i+1], dims)
+			dimsA = [d  for j,d in enumerate(dims) if j!=i]
+			A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
+			AxI = xOtimes_func(A,[i+1], dims)
+			
+			assert  np.allclose(np.trace(ptM @ A),np.trace(M @ AxI))
 
+	X = np.array([[0,1],[1,0]])
+	A = np.arange(16).reshape((4,4))
+	I2 = np.identity(2)
+	I3 = np.identity(3)
+	I4 = np.identity(4)
+	
+	assert np.allclose( xOtimes_func(tensorProd(A,X),[2,3],[4,2,2,2]) , tensorProd(A,I2,I2,X))
+	
+	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1,3,6], [3,4,2,2,4,3]) , tensorProd(I3,A,I2,X,A,I3))
+	
+	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1,2,5,7], [3,2,4,2,2,4,3]) , tensorProd(I3,I2,A,X,I2,A,I3))
 	
 	
-
-
-def compare_xOtimesI():
-	import timeit
-	
-	dimsA = [3,4,5,3,5]
-	A = np.random.rand(*tuple(dimsA*2))
-	dI = 4
-	
-	profile.add_function(xOtimesI)
-	profile.add_function(xOtimesI_bc)
-
-	for i in range(len(dimsA)+1):
-		print('permute', timeit.timeit(lambda: xOtimesI(A, [i+1], dimsA[:i]+[dI]+dimsA[i:] ) , number = 100))
-		print('broadcast', timeit.timeit(lambda: xOtimesI_bc(A,d_I =dI, dimsA=dimsA, pos = i) , number = 100)) 
-	
-	profile.print_stats()	
 
 
 
