@@ -8,26 +8,22 @@ import line_profiler
 
 
 def main():
-	# profile = line_profiler.LineProfiler()
-	# profile.enable_by_count()
+	profile = line_profiler.LineProfiler()
+	profile.enable_by_count()
+	
+	N=10
+	profile.add_function(partial_trace_no_inds)
+	profile.add_function(partial_trace_inds)
+	profile.add_function(xOtimesI_bc_multi)
+	
+	test_partial_trace(partial_trace)	 
+	test_xOtimesI(xOtimesI, N)
 	
 	
 	
-	# profile.add_function(xOtimesI_kron_perm)
-	# profile.add_function(xOtimesI_bc)
-	# profile.add_function(xOtimesI_4D_perm)
-	N=1
-	# test_xOtimesI(xOtimesI_kron_perm, N)
-	# test_xOtimesI(xOtimesI_4D_perm, N )
-	# test_xOtimesI(xOtimesI_bc,N)
-	test_xOtimesI(xOtimesI_bc_multi, N)
 	
 	
-	# # # profile.add_function(partial_trace_einsum)
-	# # # profile.add_function(partial_trace_bc)
-	# # # test_partial_trace()	 
-	
-	# profile.print_stats()
+	profile.print_stats()
 
 
 def anticomm(A,B):
@@ -103,12 +99,29 @@ def partial_trace(x, subsystems, dims):
 	'''
 	the _einsum function is faster than the _bc function 
 	'''
-	if len(subsystems)==0:
+	
+	if {s for s in subsystems} == {s+1 for s in range(len(dims))}:
+		return np.array([[np.trace(x)]]) # return a 1x1 matrix
+	elif subsystems == []:
 		return x
-	return partial_trace_einsum(x, subsystems, dims)
+	else:
+		return partial_trace_no_inds(x, dims, *partial_trace_inds(subsystems, dims))
+	
+		# return partial_trace_einsum(x, subsystems, dims)
+
 	
 def xOtimesI(A, subsystems, fulldims, checks = False):
-	return xOtimesI_bc_multi(A, subsystems, fulldims, checks = False)
+	if set(subsystems) == {s+1 for s in range(len(fulldims))}:
+		assert np.prod(A.shape)==1, f"tensor with id for all subsystems is defined for scalars only, A.shape = {A.shape}"
+		A.shape = (1,1)
+		return A * np.identity(np.prod(fulldims))
+	elif subsystems == []:
+		return A
+	else:
+		return xOtimesI_bc_multi(A, subsystems, fulldims, checks = False)
+
+
+
 	
 def partial_trace_einsum(x, subsystems, dims, checks = False):
 	
@@ -137,8 +150,10 @@ def partial_trace_einsum(x, subsystems, dims, checks = False):
 
 
 def partial_trace_inds(subsystems, dims):
-	
-	
+	'''
+	compute inds for _einsum version
+	when the same map is applied many times...
+	'''
 	kept_sys = [ (i not in subsystems) for i in range(1,len(dims)+1)]
 	
 	dim_out = np.prod(np.array(dims)[kept_sys])
@@ -150,7 +165,7 @@ def partial_trace_inds(subsystems, dims):
 	inds_out  = inds_in[:,np.array(kept_sys)] # [1,2,3; 4,2,3] --> [1;4] i.e. 'ijkljk-->il'
 	
 	return inds_in.ravel().tolist(), inds_out.ravel().tolist(), dim_out
-	
+		
 
 
 def partial_trace_no_inds(x, dims, inds_in, inds_out, dim_out):
@@ -173,12 +188,12 @@ def partial_trace_bc(x, subsystem, dims):
 
 
 
-def test_partial_trace():
+def test_partial_trace(partial_trace_func):
 	'''
 	test partial_trace funcs
 	'''
-	
-	X = np.array([[0,1],[1,0]])
+	print(f"testing partial trace function: '{partial_trace_func.__name__}'", end  ='... ')
+	X = np.array([[0,1],[1,0]]) 
 	A = np.array([[1,0],[0,3]])
 	I = np.identity(4)
 	AX = np.kron(A,X)
@@ -186,25 +201,22 @@ def test_partial_trace():
 	XXA = np.kron(X,np.kron(X,A))
 
 	B = np.arange(9).reshape((3,3))
-	
-	print(np.allclose( partial_trace_einsum(tensorProd(B,A,I), [3], [3,2,4]), np.trace(I) * tensorProd(B,A)))
-	print(np.allclose( partial_trace_einsum(tensorProd(B,A,I), [1], [3,2,4]), np.trace(B) * tensorProd(A,I)))
-	print(np.allclose( partial_trace_einsum(tensorProd(B,A,I), [2], [3,2,4]), np.trace(A) * tensorProd(B,I)))
-	
-	print(np.allclose( partial_trace_bc(tensorProd(B,A,I), 2, [3,2,4]), np.trace(I) * tensorProd(B,A)))
-	print(np.allclose( partial_trace_bc(tensorProd(B,A,I), 0, [3,2,4]), np.trace(B) * tensorProd(A,I)))
-	print(np.allclose( partial_trace_bc(tensorProd(B,A,I), 1, [3,2,4]), np.trace(A) * tensorProd(B,I)))
-	
-	
-	
-	dims = [4,8,9,6,5]
-	for j in range(10):
-		A = np.random.rand(*(np.prod(dims),)*2)
-		for s in range(len(dims)):
-			assert np.allclose( partial_trace_einsum(A, [s+1], dims), partial_trace_bc(A, s, dims))
-	
+	try:
+		assert np.allclose( partial_trace_func(tensorProd(B,A,I), [3], [3,2,4]), np.trace(I) * tensorProd(B,A))
+		assert np.allclose( partial_trace_func(tensorProd(B,A,I), [1], [3,2,4]), np.trace(B) * tensorProd(A,I))
+		assert np.allclose( partial_trace_func(tensorProd(B,A,I), [2], [3,2,4]), np.trace(A) * tensorProd(B,I))
+		
+		assert np.allclose( partial_trace_func(tensorProd(B,A,I), [1,2,3], [3,2,4]), np.trace(A) *np.trace(B) *np.trace(I))
+		
+		assert np.allclose( partial_trace_func(tensorProd(B,A,I,B), [3,1], [3,2,4,3]), np.trace(I) * np.trace(B) * tensorProd(A,B))
+		assert np.allclose( partial_trace_func(tensorProd(B,A,I,B), [1,2], [3,2,4,3]), np.trace(B) * np.trace(A) * tensorProd(I,B))
+		assert np.allclose( partial_trace_func(tensorProd(B,A,I,B), [2,3], [3,2,4,3]), np.trace(A) * np.trace(I) * tensorProd(B,B))
+	except AssertionError:
+		raise
+	else:
+		print('passed')
 
-def kron_4D(left_dim, x, right_dim ):
+def xOtimesI_LR(left_dim, x, right_dim ):
 	if right_dim > 1:
 		tmp = _4D_kron_AxI(x, right_dim, x.shape[0])
 		if left_dim > 1:
@@ -272,7 +284,9 @@ def xOtimesI_kron_perm(x, subsystems, fulldims, checks = False):
 	
 	return np.transpose(xI, axes = perm).reshape( (np.prod(fulldims),np.prod(fulldims)) )
 	
-def xOtimesI_4D_perm(x, subsystems, fulldims, checks = False):
+	
+	
+def xOtimesI_bc_perm(x, subsystems, fulldims, checks = False):
 	''' 
 	adjoint of partial trace: adds \otimes \id terms in specified subsystems
 	subsystems are counted from 1 
@@ -329,15 +343,14 @@ def xOtimesI_bc(A, subsystems, fulldims, checks = False):
 
 
 def xOtimesI_bc_multi(A, subsystems, fulldims, checks = False):
-	if len(subsystems)==0:
-		return A
+	
 	
 	pos = [s-1 for s in subsystems] # indexing from 0 in this function
 	dimsA = [d for i,d in enumerate(fulldims) if not (i in pos)]
 	dimsId = [d for i,d in enumerate(fulldims) if (i in pos)]
 	
-	print(f"dimsA = {dimsA}")
-	print(f"dimsId = {dimsId}")
+	# print(f"dimsA = {dimsA}")
+	# print(f"dimsId = {dimsId}")
 	
 	if checks:
 		assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
@@ -360,72 +373,86 @@ def xOtimesI_bc_multi(A, subsystems, fulldims, checks = False):
 
 
 def test_xOtimesI(xOtimes_func,N):	
-	d1 =4
-	dimsA = [d1,2]
-	A1 = np.random.rand(d1,d1)
-	X = np.array([[0,1],[1,0]])
-	A = np.kron(A1, X)
+	print(f"testing xOtimes function: '{xOtimes_func.__name__}' ", end = '... ')
+	try:
+		d1 =4
+		dimsA = [d1,2]
+		A1 = np.random.rand(d1,d1)
+		X = np.array([[0,1],[1,0]])
+		A = np.kron(A1, X)
 
-
-	d_I = 4
-	IxA1xX = tensorProd(np.identity(d_I), A1,X)
-	pos = 0
-	B0 = xOtimes_func(A, [1], [d_I,d1,2])
-	assert np.allclose(IxA1xX,B0)
-
-	A1xIxX = tensorProd(A1, np.identity(d_I), X)
-	pos = 1
-	B1 = xOtimes_func(A,[2], [d1,d_I,2])
-	assert np.allclose(A1xIxX,B1)
-
-	A1xXxI = tensorProd(A1, X, np.identity(d_I)) 
-	pos = 2
-	B2 = xOtimes_func(A,[3], [d1,2,d_I])
-	assert np.allclose(A1xXxI,B2)
-	
-	X = np.array([[0,1],[1,0]])
-	A = np.arange(16).reshape((4,4))
-	I2 = np.identity(2)
-	I3 = np.identity(3)
-	I4 = np.identity(4)
-	
-	assert np.allclose( xOtimes_func(tensorProd(A,X),[2],[4,2,2]) , tensorProd(A,I2,X))
-	assert np.allclose( xOtimes_func(tensorProd(A,X),[3],[4,2,3]) , tensorProd(A,X,I3))
-	assert np.allclose( xOtimes_func(tensorProd(A,X),[1],[3,4,2]) , tensorProd(I3,A,X))
-	
-	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1], [3,4,2,4]) , tensorProd(I3,A,X,A))
-	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[2], [4,3,2,4]) , tensorProd(A,I3,X,A))
-	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[3], [4,2,3,4]) , tensorProd(A,X,I3,A))
-	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[4], [4,2,4,3]) , tensorProd(A,X,A,I3))
-	
-	dims = [3,12,12,5]
-	for rep in range(N):
-		M = np.random.rand(np.prod(dims),np.prod(dims))
+		d_I = 4
+		IxA1xX = tensorProd(np.identity(d_I), A1,X)
+		pos = 0
+		B0 = xOtimes_func(A, [1], [d_I,d1,2])
+		assert np.allclose(IxA1xX,B0)
 		
-		stuff = [1,2,3,4]
-		for L in range(len(stuff) + 1):
-			for subset in itertools.combinations(stuff, L):
-				print(list(subset))
-				ptM = partial_trace(M, list(subset), dims)
-				dimsA = [d  for j,d in enumerate(dims) if not j+1 in subset]
-				A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
-				AxI = xOtimes_func(A, list(subset), dims)
-				
-				assert  np.allclose(np.trace(ptM @ A),np.trace(M @ AxI))
+		assert np.allclose(A, xOtimes_func(A, [3], [d1,2,1]))
+		assert np.allclose(A, xOtimes_func(A, [1], [1,d1,2]))
+		assert np.allclose(np.identity(d_I), xOtimes_func(np.array([[1]]), [2], [1,d_I]))
+		assert np.allclose(np.identity(d_I), xOtimes_func(np.array([[1]]), [1], [d_I,1]))
 
-	X = np.array([[0,1],[1,0]])
-	A = np.arange(16).reshape((4,4))
-	I2 = np.identity(2)
-	I3 = np.identity(3)
-	I4 = np.identity(4)
-	
-	assert np.allclose( xOtimes_func(tensorProd(A,X),[2,3],[4,2,2,2]) , tensorProd(A,I2,I2,X))
-	
-	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1,3,6], [3,4,2,2,4,3]) , tensorProd(I3,A,I2,X,A,I3))
-	
-	assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1,2,5,7], [3,2,4,2,2,4,3]) , tensorProd(I3,I2,A,X,I2,A,I3))
-	
-	
+
+		A1xIxX = tensorProd(A1, np.identity(d_I), X)
+		pos = 1
+		B1 = xOtimes_func(A,[2], [d1,d_I,2])
+		assert np.allclose(A1xIxX,B1)
+
+		A1xXxI = tensorProd(A1, X, np.identity(d_I)) 
+		pos = 2
+		B2 = xOtimes_func(A,[3], [d1,2,d_I])
+		assert np.allclose(A1xXxI,B2)
+		
+		X = np.array([[0,1],[1,0]])
+		A = np.arange(16).reshape((4,4))
+		I2 = np.identity(2)
+		I3 = np.identity(3)
+		I4 = np.identity(4)
+		
+		
+		
+		assert np.allclose( xOtimes_func(tensorProd(A,X),[2],[4,2,2]) , tensorProd(A,I2,X))
+		assert np.allclose( xOtimes_func(tensorProd(A,X),[3],[4,2,3]) , tensorProd(A,X,I3))
+		assert np.allclose( xOtimes_func(tensorProd(A,X),[1],[3,4,2]) , tensorProd(I3,A,X))
+		
+		assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1], [3,4,2,4]) , tensorProd(I3,A,X,A))
+		assert np.allclose( xOtimes_func(tensorProd(A,X,A),[2], [4,3,2,4]) , tensorProd(A,I3,X,A))
+		assert np.allclose( xOtimes_func(tensorProd(A,X,A),[3], [4,2,3,4]) , tensorProd(A,X,I3,A))
+		assert np.allclose( xOtimes_func(tensorProd(A,X,A),[4], [4,2,4,3]) , tensorProd(A,X,A,I3))
+		
+		X = np.array([[0,1],[1,0]])
+		A = np.arange(16).reshape((4,4))
+		I2 = np.identity(2)
+		I3 = np.identity(3)
+		I4 = np.identity(4)
+		
+		assert np.allclose( xOtimes_func(tensorProd(A,X),[2,3],[4,2,2,2]) , tensorProd(A,I2,I2,X))
+		
+		assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1,3,6], [3,4,2,2,4,3]) , tensorProd(I3,A,I2,X,A,I3))
+		
+		assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1,2,5,7], [3,2,4,2,2,4,3]) , tensorProd(I3,I2,A,X,I2,A,I3))
+		
+		dims = [3,4,3,4]
+		for rep in range(N):
+			M = np.random.rand(np.prod(dims),np.prod(dims))
+			
+			stuff = list(range(1,len(dims)+1))
+			for L in range(len(stuff) + 1):
+				for subset in itertools.combinations(stuff, L):
+					# print(list(subset))
+					ptM = partial_trace(M, list(subset), dims)
+					dimsA = [d  for j,d in enumerate(dims) if not j+1 in subset] if list(subset) != list(range(1,len(stuff)+1)) else 1
+					A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
+										
+					AxI = xOtimes_func(A, list(subset), dims)
+						
+					assert  np.allclose(np.trace(ptM @ A),np.trace(M @ AxI))
+		
+		
+	except:
+		raise
+	else:
+		print('passed')
 
 
 
