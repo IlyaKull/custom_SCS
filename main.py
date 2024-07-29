@@ -18,11 +18,11 @@ problem_module = one_step_relax_LTI_N_problem
 
 def main():
 	
-	profile_lines = False
+	profile_lines = True
 	if profile_lines:
 		profile = line_profiler.LineProfiler()
-		profile.add_function(mf.apply_single_kraus_kron)
-		profile.add_function(Maps.__call__)
+		profile.add_function(mf.xOtimesI_bc_multi_no_inds)
+		profile.add_function(mf.xOtimesI_bc_multi_inds)
 		profile.enable_by_count()
 
 	chi = int(sys.argv[1])

@@ -396,9 +396,9 @@ def xOtimesI_bc_multi_no_inds(A, fulldims, inds, dimsA, checks = False):
 	
 	out = np.zeros(tuple(fulldims + fulldims))
 	out[tuple(inds)*2] = A.reshape(tuple(dimsA) * 2)
-	out.shape = (np.prod(fulldims),np.prod(fulldims))
+	# out.shape = (np.prod(fulldims),np.prod(fulldims))
 	
-	return out
+	return np.reshape(out, (np.prod(fulldims),np.prod(fulldims)))
 
 
 def test_xOtimesI(xOtimes_func,N):	
