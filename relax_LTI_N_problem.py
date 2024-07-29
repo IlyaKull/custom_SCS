@@ -8,7 +8,7 @@ import numpy as np
 import util
 
 
-def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
+def set_problem(n,D,d, cg_impl = 'kron'):
 
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  RELAX LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
 	
@@ -54,13 +54,13 @@ def set_problem(n,D,d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 
 	
 	
-	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho, implementation = xOtimesI_impl )
-	tr_r_rho = maps.PartTrace(subsystems = [k0+1], state_dims = dims_rho, implementation = xOtimesI_impl )
+	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho )
+	tr_r_rho = maps.PartTrace(subsystems = [k0+1], state_dims = dims_rho )
 	
 	tr_l_rho_MINUS_tr_r_rho = maps.AddMaps([tr_l_rho, tr_r_rho], [-1, +1])
 			
-	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega, implementation = xOtimesI_impl )
-	tr_r_omega = maps.PartTrace(subsystems = [4], state_dims = dims_omega, implementation = xOtimesI_impl )
+	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega )
+	tr_r_omega = maps.PartTrace(subsystems = [4], state_dims = dims_omega )
 
 	tr = maps.Trace(dim = rho.matdim )
 

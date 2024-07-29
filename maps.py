@@ -346,91 +346,40 @@ class PartTrace(Maps):
 	def __init__(self,  
 		subsystems,  # subsystems to trace : set
 		state_dims, #  dims of input
-		implementation = '4D' # which function to call for the adjoint operation
 		):
 				
 		name = f"Trace_[{subsystems}/{len(state_dims)}]"
 		remaining_subsystems = {i+1 for i in range(len(state_dims))}.difference(subsystems)
 		dims = {'in': np.prod(state_dims),
 				'out': np.prod( [state_dims[i-1] for i in remaining_subsystems] ) }
-		super().__init__(name, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]', implementation = implementation )
+		
+		try:
+			assert subsystems != [] 
+			assert set(subsystems) != {s+1 for s in range(len(state_dims))}
+			assert all([1 <= s <= len(state_dims) for s in subsystems])
+		except AssertionError:
+			print(f"map {name}: problem with subsystems = {subsystems}, dims = {state_dims}")
+			raise
+		
+		super().__init__(name, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]' )
 		self.state_dims = state_dims
 		self.subsystems = subsystems
-		# self.implementation = implementation 
+		
 		
 		# pre compute inds for pTr op
-		self.pTr_inds_in, self.pTr_inds_out, self.pTr_dim_out = mf.partial_trace_inds(subsystems, state_dims)
+		self.pTr_inds = mf.partial_trace_inds(subsystems, state_dims)
+		# self.totaldim = np.prod(state_dims)
 		
-		self.totaldim = np.prod(state_dims)
-
-		match self.implementation:
-			case 'xOtimesI':
-
-				self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose = \
-					mf.xOtimesI_inds(subsystems, state_dims)
-				self._adj_impl = self._impl_adj_xOtimesI
- 
-			case 'kron' | '4D':
-				try:
-					is_left = \
-						min(subsystems) == 1
-					is_right = \
-						max(subsystems) == len(state_dims)
-					
-					assert is_left or is_right
-					
-					subsys_contig = \
-						set(subsystems) == set(range(min(subsystems), max(subsystems)+1)) 
-					
-					compl_subsystems = set(range(1,len(state_dims)+1)) - set(subsystems)
-					compl_subsys_contig = \
-						compl_subsystems == set(range(min(compl_subsystems), max(compl_subsystems)+1)) 
-					assert compl_subsys_contig
-				except AssertionError:
-					print("to use the kron()-based implementation, subsystems must consist of leftmost and/or rightmost contiguous blocks")
-					raise
-				else:
-					
-					tot_dim_subsys = np.prod([state_dims[i-1] for i in subsystems])
-					if subsys_contig:
-						if is_left:
-							self.id_left_dim = tot_dim_subsys	
-							self.id_left = [np.identity(self.id_left_dim),]
-							self.id_right_dim = 1
-							self.id_right = []
-							
-						if is_right:
-							self.id_left_dim = 1
-							self.id_left = []
-							self.id_right_dim = tot_dim_subsys
-							self.id_right = [np.identity(self.id_right_dim),]
-					else:
-						self.id_left_dim = np.prod([state_dims[i-1] for i in range(1,min(compl_subsystems))])
-						self.id_right_dim = np.prod([state_dims[i-1] for i in range(max(compl_subsystems)+1, len(state_dims) +1 )])
-						self.id_left = [np.identity(self.id_left_dim),]
-						self.id_right = [np.identity(self.id_right_dim),]
-				
-					if self.implementation == 'kron':	
-						self._adj_impl = self._impl_adj_kron	
-					elif self.implementation == '4D':
-						self._adj_impl = self._impl_adj_4D
+		# pre compute inds for xOtimesI op
+		self.xOtimes_inds = mf.xOtimesI_bc_multi_inds(subsystems, state_dims)
 		
 		
+	
 	def apply(self, x):
-		return mf.partial_trace_no_inds(x, self.state_dims, self.pTr_inds_in, self.pTr_inds_out, self.pTr_dim_out)
+		return mf.partial_trace_no_inds(x, self.state_dims, *self.pTr_inds)
 		
 	def apply_adj(self, x):
-		return self._adj_impl(x)
-	
-	# different implementaions of adjoint action: 
-	def _impl_adj_xOtimesI(self,x):
-		return mf.xOtimesI_no_Inds(x, self.xI_dim_I, self.xI_shape_for_reshape, self.xI_axes_for_transpose, self.totaldim)
-	
-	def _impl_adj_kron(self,x):
-		return mf.tensorProd(self.id_left +  [x,] + self.id_right )
-
-	def _impl_adj_4D(self,x):
-		return mf.kron_4D(self.id_left_dim, x, self.id_right_dim )
+		return mf.xOtimesI_bc_multi_no_inds(x, self.state_dims, *self.xOtimes_inds)
 	
 	
 

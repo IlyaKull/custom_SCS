@@ -11,7 +11,7 @@ exact_sol = 0.25 -np.log(2) # exact sol heisenberg
 
 		
 
-def set_problem(chi , d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
+def set_problem(chi , d, cg_impl = 'kron'):
 	
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  ONE STEP RELAX LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
 	
@@ -38,13 +38,13 @@ def set_problem(chi , d, xOtimesI_impl = 'kron', cg_impl = 'kron'):
 	
 	H = np.kron(h_term, np.identity(d**(n-1-2))) # extend to size of rho
 	
-	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho, implementation = xOtimesI_impl )
-	tr_r_rho = maps.PartTrace(subsystems = [n-1], state_dims = dims_rho, implementation = xOtimesI_impl )
+	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho )
+	tr_r_rho = maps.PartTrace(subsystems = [n-1], state_dims = dims_rho)
 	
 	tr_l_rho_MINUS_tr_r_rho = maps.AddMaps([tr_l_rho, tr_r_rho], [-1, +1])
 			
-	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega, implementation = xOtimesI_impl )
-	tr_r_omega = maps.PartTrace(subsystems = [3], state_dims = dims_omega, implementation = xOtimesI_impl )
+	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega)
+	tr_r_omega = maps.PartTrace(subsystems = [3], state_dims = dims_omega )
 
 	tr = maps.Trace(dim = rho.matdim )
 

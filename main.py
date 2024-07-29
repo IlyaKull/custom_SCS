@@ -11,9 +11,9 @@ import matrix_aux_functions as mf
 import LTI_N_problem, relax_LTI_N_problem, one_step_relax_LTI_N_problem, GAP_LTI_N_problem
 
 # problem_module = relax_LTI_N_problem 
-# problem_module = one_step_relax_LTI_N_problem
+problem_module = one_step_relax_LTI_N_problem
 # problem_module = LTI_N_problem
-problem_module = GAP_LTI_N_problem
+# problem_module = GAP_LTI_N_problem
 
 
 def main():
@@ -24,24 +24,18 @@ def main():
 		profile.add_function(mf.apply_single_kraus_kron)
 		profile.add_function(Maps.__call__)
 		profile.enable_by_count()
-	
- 	# # # chi = int(sys.argv[1])
-	# # # maxiter =  int(sys.argv[2])
-	
-	# # # q = 1.6
-	# # # xOtimesI_impl = '4D'
-	# # # cg_impl = 'kron'
-	
-	# # # rng = np.random.default_rng(seed=17)
-	
-	# # # problem_module.set_problem(chi  = chi , d =2, xOtimesI_impl = xOtimesI_impl, cg_impl = cg_impl)
- 	
+
+	chi = int(sys.argv[1])
 	maxiter =  int(sys.argv[2])
-	n=   int(sys.argv[1])
-	problem_module.set_problem(n)
+
+	problem_module.set_problem(chi = chi, d =2)
  	
-	settings = {'scs_scaling_sigma' : 	0.0004, 	# rescales b
-				'scs_scaling_rho' : 	0.001, 	# rescales c
+	# maxiter =  int(sys.argv[2])
+	# n=   int(sys.argv[1])
+	# problem_module.set_problem(n)
+ 	
+	settings = {'scs_scaling_sigma' : 	0.1, 	# rescales b
+				'scs_scaling_rho' : 	0.01, 	# rescales c
 				'scs_q' : 				1.5,
 				'adaptive_cg_iters' : True,
 				'cg_adaptive_tol_resid_scale' : 20,

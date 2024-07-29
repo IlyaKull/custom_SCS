@@ -8,22 +8,19 @@ import line_profiler
 
 
 def main():
-	profile = line_profiler.LineProfiler()
-	profile.enable_by_count()
+	# profile = line_profiler.LineProfiler()
+	# profile.enable_by_count()
 	
-	N=10
-	profile.add_function(partial_trace_no_inds)
-	profile.add_function(partial_trace_inds)
-	profile.add_function(xOtimesI_bc_multi)
 	
+	# profile.add_function(partial_trace_no_inds)
+	# profile.add_function(partial_trace_inds)
+	# profile.add_function(xOtimesI_bc_multi)
+	N=5
 	test_partial_trace(partial_trace)	 
 	test_xOtimesI(xOtimesI, N)
 	
 	
-	
-	
-	
-	profile.print_stats()
+	# profile.print_stats()
 
 
 def anticomm(A,B):
@@ -118,7 +115,9 @@ def xOtimesI(A, subsystems, fulldims, checks = False):
 	elif subsystems == []:
 		return A
 	else:
-		return xOtimesI_bc_multi(A, subsystems, fulldims, checks = False)
+		# return xOtimesI_bc_multi(A, subsystems, fulldims, checks = False)
+		return xOtimesI_bc_multi_no_inds(A, fulldims, *xOtimesI_bc_multi_inds(subsystems, fulldims))
+	
 
 
 
@@ -369,6 +368,36 @@ def xOtimesI_bc_multi(A, subsystems, fulldims, checks = False):
 		
 	out[tuple(inds)*2] = A.reshape(tuple(dimsA) * 2)
 	out.shape = (np.prod(fulldims),np.prod(fulldims))
+	return out
+
+
+def xOtimesI_bc_multi_inds(subsystems, fulldims):
+	
+	pos = [s-1 for s in subsystems] # indexing from 0 in this function
+	dimsA = [d for i,d in enumerate(fulldims) if not (i in pos)]
+	dimsId = [d for i,d in enumerate(fulldims) if (i in pos)]
+	
+	rs = np.unravel_index(list(range(np.prod(dimsId))), tuple(dimsId))
+	inds = []
+	j=0
+	for i,d in enumerate(fulldims):
+		if i in pos:
+			inds.append(rs[j]) 
+			j+=1
+		else:
+			inds.append(slice(d))
+		
+	return inds, dimsA
+
+def xOtimesI_bc_multi_no_inds(A, fulldims, inds, dimsA, checks = False):
+	
+	if checks:
+		assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
+	
+	out = np.zeros(tuple(fulldims + fulldims))
+	out[tuple(inds)*2] = A.reshape(tuple(dimsA) * 2)
+	out.shape = (np.prod(fulldims),np.prod(fulldims))
+	
 	return out
 
 
