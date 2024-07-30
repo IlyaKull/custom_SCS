@@ -8,19 +8,24 @@ import line_profiler
 
 
 def main():
-	# profile = line_profiler.LineProfiler()
-	# profile.enable_by_count()
 	
 	
-	# profile.add_function(partial_trace_no_inds)
-	# profile.add_function(partial_trace_inds)
-	# profile.add_function(xOtimesI_bc_multi)
-	N=5
 	test_partial_trace(partial_trace)	 
-	test_xOtimesI(xOtimesI, N)
+	test_xOtimesI(xOtimesI, N=10)
 	
 	
-	# profile.print_stats()
+	for dims in [[2,2,2],[2,2,100,2,2]]:
+		profile = line_profiler.LineProfiler()
+		profile.enable_by_count()
+		# profile.add_function(partial_trace_no_inds)
+		# profile.add_function(partial_trace_inds)
+		profile.add_function(xOtimesI_bc_multi_no_inds)
+		profile.add_function(xOtimesI_LR)
+		
+		bench_xOtimes_LR(dims =dims, N=100)
+		
+		
+		profile.print_stats()
 
 
 def anticomm(A,B):
@@ -217,13 +222,13 @@ def test_partial_trace(partial_trace_func):
 
 def xOtimesI_LR(left_dim, x, right_dim ):
 	if right_dim > 1:
-		tmp = _4D_kron_AxI(x, right_dim, x.shape[0])
+		tmp = xOtimesI_4D_AxI(x, right_dim, x.shape[0])
 		if left_dim > 1:
-			return _4D_kron_IxA(tmp,left_dim, tmp.shape[0])
+			return xOtimesI_4D_IxA(tmp,left_dim, tmp.shape[0])
 		else:
 			return tmp
 	elif left_dim > 1:
-		return _4D_kron_IxA(x,left_dim, x.shape[0])
+		return xOtimesI_4D_IxA(x,left_dim, x.shape[0])
 	elif (left_dim,right_dim) == (1,1):
 		return x 
 	# right first is faster
@@ -393,12 +398,12 @@ def xOtimesI_bc_multi_no_inds(A, fulldims, inds, dimsA, checks = False):
 	
 	if checks:
 		assert A.shape[0] == np.prod(dimsA), 'dims should multiply to the dimensions of A'
-	
-	out = np.zeros(tuple(fulldims + fulldims))
+	out = np.zeros((np.prod(fulldims),)*2)
+	out.shape = tuple(fulldims + fulldims)
 	out[tuple(inds)*2] = A.reshape(tuple(dimsA) * 2)
-	# out.shape = (np.prod(fulldims),np.prod(fulldims))
-	
-	return np.reshape(out, (np.prod(fulldims),np.prod(fulldims)))
+	out.shape = (np.prod(fulldims),np.prod(fulldims))
+	# np.reshape(out, (np.prod(fulldims),np.prod(fulldims)))
+	return out
 
 
 def test_xOtimesI(xOtimes_func,N):	
@@ -461,11 +466,18 @@ def test_xOtimesI(xOtimes_func,N):
 		
 		assert np.allclose( xOtimes_func(tensorProd(A,X,A),[1,2,5,7], [3,2,4,2,2,4,3]) , tensorProd(I3,I2,A,X,I2,A,I3))
 		
-		dims = [3,4,3,4]
-		for rep in range(N):
-			M = np.random.rand(np.prod(dims),np.prod(dims))
-			
+		# dims = [2,33,2]
+		# for rep in range(N):
+			# for subset in [[1],[len(dims)]]:
+				# subset = [1]
+				# dimsA = [d for i,d in enumerate(dims) if not i+1 in subset ]
+				# A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
+								
+				# AxI = xOtimes_func(A, subset, dims)
+		for rep in range(N):			
+			dims = [2,2,2,2,2]	
 			stuff = list(range(1,len(dims)+1))
+			M = np.random.rand(np.prod(dims),np.prod(dims))
 			for L in range(len(stuff) + 1):
 				for subset in itertools.combinations(stuff, L):
 					# print(list(subset))
@@ -483,7 +495,20 @@ def test_xOtimesI(xOtimes_func,N):
 	else:
 		print('passed')
 
+def bench_xOtimes_LR(dims, N, xOtimes_func=xOtimesI):
 
+	for rep in range(N):
+		for subset in [[1],[len(dims)]]:
+			dimsA = [d for i,d in enumerate(dims) if not i+1 in subset ]
+			A = np.random.rand( np.prod(dimsA),np.prod(dimsA))
+			if subset == [1]:
+				AxI = xOtimesI_LR(dims[0], A, 1 )
+			elif subset == [len(dims)]:
+				AxI = xOtimesI_LR(1, A, dims[-1] )
+				
+			AxI2 = xOtimes_func(A, subset, dims)
+			assert np.allclose(AxI,AxI2)
+					
 
 def xOtimesI_inds(subsystems, fulldims):
 	''' 

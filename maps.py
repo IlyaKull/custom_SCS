@@ -424,7 +424,7 @@ class PartTrace(Maps):
 		return mf.partial_trace_no_inds(x, self.state_dims, *self.pTr_inds)
 		
 	def apply_adj(self, x):
-		return mf.xOtimesI_bc_multi_no_inds(x, self.state_dims, *self.xOtimes_inds)
+		return mf.xOtimesI_bc_multi_no_inds(x.copy(), self.state_dims, *self.xOtimes_inds)
 	
 	
 

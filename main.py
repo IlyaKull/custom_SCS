@@ -22,7 +22,8 @@ def main():
 	if profile_lines:
 		profile = line_profiler.LineProfiler()
 		profile.add_function(mf.xOtimesI_bc_multi_no_inds)
-		profile.add_function(mf.xOtimesI_bc_multi_inds)
+		profile.add_function(mf.partial_trace_no_inds)
+		# profile.add_function(mf.xOtimesI_bc_multi_inds)
 		profile.enable_by_count()
 
 	chi = int(sys.argv[1])
