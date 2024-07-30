@@ -8,6 +8,8 @@ from constraints import Constraint
 import time
 import util
 
+from multiprocessing.pool import ThreadPool
+
 class SCS_Solver:
 	'''
 	after defining all the optimization variables (OptVar class),
@@ -509,9 +511,22 @@ class SCS_Solver:
 		project each PSD variable to PSD cone 
 		(diagonalize --> set negative eigs to 0 )
 		'''
+		
+		'''
+			
+def dosomething(var):
+    sleep(randint(1,5))
+    print(var)
+
+array = ["a", "b", "c", "d", "e"]
+with ThreadPool(processes=2) as pool:
+    pool.map(dosomething, array)
+		'''
 		t = time.perf_counter()
 		
 		out[...] = u
+		
+		
 		
 		for var_list,u_slice in zip((self.primal_vars, self.dual_vars), (self.y_slice, self.x_slice)) :
 			for var in var_list:
