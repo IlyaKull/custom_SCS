@@ -14,7 +14,7 @@ def main():
 	test_xOtimesI(xOtimesI, N=10)
 	
 	
-	for dims in [[2,2,2],[2,2,100,2,2]]:
+	for dims in [[2,2,2],[2,100,2],[5,2,5],[5,2,10,2,5]]:
 		profile = line_profiler.LineProfiler()
 		profile.enable_by_count()
 		# profile.add_function(partial_trace_no_inds)
@@ -22,9 +22,9 @@ def main():
 		profile.add_function(xOtimesI_bc_multi_no_inds)
 		profile.add_function(xOtimesI_LR)
 		
-		bench_xOtimes_LR(dims =dims, N=100)
+		bench_xOtimes_LR(dims =dims, N=10)
 		
-		
+		print(f"========================== dims = {dims} ================================")
 		profile.print_stats()
 
 
