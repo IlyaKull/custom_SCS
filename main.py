@@ -1,5 +1,5 @@
 import line_profiler
-import sys
+import sys, os
 import numpy as np
 from scs_funcs import SCS_Solver
 import scs_funcs
@@ -32,6 +32,7 @@ def main():
 	match sys.argv[3].lower():
 		case 'true':
 			use_multithread = True
+			os.environ["OMP_NUM_THREADS"] = "1"
 			print('>>>>>>>>>>>>>>>>>>>>>>>>>>>> MULTITHREADING = TURE')
 		case 'false':
 			use_multithread = False
