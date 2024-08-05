@@ -7,8 +7,9 @@ from scipy.sparse.linalg import cg as scipy_cg
 from constraints import Constraint
 import time
 import util
+import concurrent.futures
 
-from multiprocessing.pool import ThreadPool
+
 
 class SCS_Solver:
 	'''
@@ -512,32 +513,27 @@ class SCS_Solver:
 		(diagonalize --> set negative eigs to 0 )
 		'''
 		
-		'''
-			
-def dosomething(var):
-    sleep(randint(1,5))
-    print(var)
-
-array = ["a", "b", "c", "d", "e"]
-with ThreadPool(processes=2) as pool:
-    pool.map(dosomething, array)
-		'''
+		"""
+		 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+			for index in range(2):
+				executor.submit(database.update, index)
+		# .submit(function, *args, **kwargs)
+		"""
+	
 		t = time.perf_counter()
-		
+
 		out[...] = u
 		
-		
-		
-		for var_list,u_slice in zip((self.primal_vars, self.dual_vars), (self.y_slice, self.x_slice)) :
-			for var in var_list:
-				if var.cone == 'PSD':  
-					eigenvals, U =  self._eig_impl( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
-					# print(var.name, eigenvals)
-					eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
-					# print(var.name, eigenvals)
+		if self.settings['thread_multithread']:
+			ctx_mgr = concurrent.futures.ThreadPoolExecutor(max_workers=self.settings["thread_max_workers"])
+		else:
+			ctx_mgr = util.NullContextManager(util.DummyExecutor()) # a dummy context
+ 
+		with ctx_mgr as executor:
+			for var_list,u_slice in zip((self.primal_vars, self.dual_vars), (self.y_slice, self.x_slice)) :
+				for var in var_list:
+					executor.submit(self._project_single_var_to_cone,  u=u, out=out, var=var, u_slice=u_slice )
 					
-					out[u_slice][var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
-				
 		# project tao to R_+
 		if u[self.tao_slice] < 0:
 			out[self.tao_slice] = 0.
@@ -545,6 +541,17 @@ with ThreadPool(processes=2) as pool:
 		t = time.perf_counter() - t
 		self.t_cone += t
 
+
+	def _project_single_var_to_cone(self, u, out, var, u_slice):
+		if var.cone == 'PSD':  
+			eigenvals, U =  self._eig_impl( np.reshape(u[u_slice][var.slice], (var.matdim, var.matdim) ) )
+			# print(var.name, eigenvals)
+			eigenvals[eigenvals < 0 ] = 0 # set negative eigenvalues to 0
+			# print(var.name, eigenvals)
+			
+			out[u_slice][var.slice] = (U @ np.diag(eigenvals) @ U.conj().T).ravel() # and rotate back
+
+	
 	def _eig_impl(self, M):
 		# return scipy_eigsh(M)
 		return np.linalg.eigh(M)
@@ -925,10 +932,13 @@ def default_settings():
 		#
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
-		'test_SA_tol' : 1e-10,
+		'test_SA_tol' : 1e-9,
 		'test_maps_SA_tol' : 1e-10,
 		'test_Minv_h_tol' : 1e-12,
 		'test_projToAffine_tol' : 1e-12,
+		#
+		'thread_multithread' : False,
+		'thread_max_workers' : 5,
 		#
 		'util_rng' : np.random.default_rng(seed=17),
 		}

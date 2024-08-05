@@ -361,50 +361,7 @@ class PartTrace(Maps):
 			print(f"map {name}: problem with subsystems = {subsystems}, dims = {state_dims}")
 			raise
 		
-		# universal (_bc_multi) implementation still slower than _LR implementation... check this and maybe add option 
-		# # try:
-				# # is_left = \
-					# # min(subsystems) == 1
-				# # is_right = \
-					# # max(subsystems) == len(state_dims)
-				
-				# # assert is_left or is_right
-				
-				# # subsys_contig = \
-					# # set(subsystems) == set(range(min(subsystems), max(subsystems)+1)) 
-				
-				# # compl_subsystems = set(range(1,len(state_dims)+1)) - set(subsystems)
-				# # compl_subsys_contig = \
-					# # compl_subsystems == set(range(min(compl_subsystems), max(compl_subsystems)+1)) 
-				# # assert compl_subsys_contig
-			# # except AssertionError:
-				# # print("to use the kron()-based implementation, subsystems must consist of leftmost and/or rightmost contiguous blocks")
-				# # raise
-			# # else:
-				
-				# # tot_dim_subsys = np.prod([state_dims[i-1] for i in subsystems])
-				# # if subsys_contig:
-					# # if is_left:
-						# # self.id_left_dim = tot_dim_subsys	
-						# # self.id_left = [np.identity(self.id_left_dim),]
-						# # self.id_right_dim = 1
-						# # self.id_right = []
-						
-					# # if is_right:
-						# # self.id_left_dim = 1
-						# # self.id_left = []
-						# # self.id_right_dim = tot_dim_subsys
-						# # self.id_right = [np.identity(self.id_right_dim),]
-				# # else:
-					# # self.id_left_dim = np.prod([state_dims[i-1] for i in range(1,min(compl_subsystems))])
-					# # self.id_right_dim = np.prod([state_dims[i-1] for i in range(max(compl_subsystems)+1, len(state_dims) +1 )])
-					# # self.id_left = [np.identity(self.id_left_dim),]
-					# # self.id_right = [np.identity(self.id_right_dim),]
-			
-				# # if self.implementation == 'kron':	
-					# # self._adj_impl = self._impl_adj_kron	
-				# # elif self.implementation == '4D':
-					# # self._adj_impl = self._impl_adj_4D
+		
 		
 		super().__init__(name, dims, adj_name = f'(x)Id_[{subsystems}/{len(state_dims)}]' )
 		self.state_dims = state_dims

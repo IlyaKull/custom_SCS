@@ -15,3 +15,20 @@ def determine_k0(d,chi):
 		raise
 	
 	return k0
+
+
+class NullContextManager:
+	def __init__(self, dummy_resource=None):
+		self.dummy_resource = dummy_resource
+	def __enter__(self):
+		return self.dummy_resource
+	def __exit__(self, *args):
+		pass
+
+class DummyExecutor:
+	def __init__(self):
+		pass
+		
+	def submit(self, func, *args, **kwargs):
+		# calls the function on the input
+		func(*args, **kwargs)

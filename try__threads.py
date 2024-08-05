@@ -37,7 +37,9 @@ def dgnlz(a):
 
 
 
-
+	
+	
+	
 array = initialize()
 t = time.perf_counter()
 # print_arr(array)
