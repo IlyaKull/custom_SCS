@@ -21,9 +21,10 @@ def main():
 	profile_lines = False
 	if profile_lines:
 		profile = line_profiler.LineProfiler()
-		profile.add_function(mf.xOtimesI_bc_multi_no_inds)
-		profile.add_function(mf.partial_trace_no_inds)
-		# profile.add_function(mf.xOtimesI_bc_multi_inds)
+		
+		profile.add_function(scs_funcs._impl_apply_constr)
+		profile.add_function(scs_funcs.SCS_Solver._project_to_cone)
+		
 		profile.enable_by_count()
 
 	n = int(sys.argv[1])
@@ -36,6 +37,7 @@ def main():
 			print('>>>>>>>>>>>>>>>>>>>>>>>>>>>> MULTITHREADING = TURE')
 		case 'false':
 			use_multithread = False
+			os.environ["OMP_NUM_THREADS"] = "8"
 			print('>>>>>>>>>>>>>>>>>>>>>>>>>>>> MULTITHREADING = FALSE')
 		case _:
 			raise Exception("argv[3]: multithreading = 'true' or 'false'")

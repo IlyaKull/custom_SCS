@@ -73,7 +73,8 @@ class SCS_Solver:
 			self.len_primal_vec_y,\
 			self.dtype,\
 			self.primal_constraints,\
-			self.dual_constraints\
+			self.dual_constraints,\
+			self.settings
 		)
 		
 		self._test_constraints_validity()
@@ -820,13 +821,14 @@ class LinOp_id_plus_AT_A(LinearOperator):
 	'''
 	linear operator with a buffer to store the intermediate y = Ax vector in the calculation of (1 + A^T @ A)x
 	'''
-	def __init__(self, len_x, len_y, dtype, primal_constraints, dual_constraints):
+	def __init__(self, len_x, len_y, dtype, primal_constraints, dual_constraints, settings):
 		
 		self.len_dual_vec_x = len_x
 		self.len_primal_vec_y = len_y
 		self.primal_constraints = primal_constraints
 		self.dual_constraints = dual_constraints
 		self.dtype = dtype
+		self.settings = settings
 		
 		self.y_buffer = np.zeros(len_y, dtype = dtype)
 		self.x_buffer = np.zeros(len_x, dtype = dtype)
@@ -870,7 +872,7 @@ def apply_primal_constr(obj, y, out = None ):
 	if out is specified then the function acts in place: v_out += primal_constraints(v_in)
 	otherwise (out=None) it returns v_out = primal_constraints(v_in)
 	'''
-	return _impl_apply_constr(y, obj.primal_constraints, len_out = obj.len_dual_vec_x, out = out)
+	return _impl_apply_constr(y, obj.primal_constraints, obj.settings, len_out = obj.len_dual_vec_x, out = out)
 
 def apply_dual_constr(obj, x, out = None ):
 	'''
@@ -879,31 +881,37 @@ def apply_dual_constr(obj, x, out = None ):
 	'''
 	# print('applying dual constraints', 'constraints list:', [c.label for c in obj.dual_constraints])
 	# print('out var = ', out)
-	return _impl_apply_constr(x, obj.dual_constraints, len_out = obj.len_primal_vec_y, out = out)
+	return _impl_apply_constr(x, obj.dual_constraints, obj.settings, len_out = obj.len_primal_vec_y, out = out)
 
 
 
-def _impl_apply_constr(v_in, constr_list, out = None, len_out = None):
+def _impl_apply_constr(v_in, constr_list, settings, out = None, len_out = None):
 	''' 
 	if out is specified then the function acts in place: v_out += constraints(v_in)
 	otherwise (out=None) it returns the result
 	'''
 	if out is None:
-		# print(f"applying constraints {constr_list[0].primal_or_dual}, OUT IS NONE")
 		out = np.zeros(len_out)
-		for c in constr_list:
-			c.__call__(v_in, v_out = out )
-		return out 
-		
+		return_flag = True
 	else:
-		# print(f"applying constraints {constr_list[0].primal_or_dual}, OUT IS SPECIFIED")
+		return_flag = False
+	
+	if settings['thread_multithread']:
+		ctx_mgr = concurrent.futures.ThreadPoolExecutor(max_workers=settings["thread_max_workers"])
+	else:
+		ctx_mgr = util.NullContextManager(util.DummyExecutor()) # a dummy context
+ 
+	with ctx_mgr as executor:
 		for c in constr_list:
-			c.__call__(v_in, v_out = out )
-		
+			executor.submit(c.__call__,  v_in=v_in, v_out = out )
+
+	if return_flag:
+		return out
+	else:
 		return None
 
  
- 
+	
 
 
 def default_settings():
