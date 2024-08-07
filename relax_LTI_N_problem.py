@@ -6,15 +6,29 @@ from constraints import Constraint
 import matrix_aux_functions as mf
 import numpy as np
 import util
+from CGmaps import iso_from_MPS
 
 
-def set_problem(n,D,d, cg_impl = 'kron'):
+exact_sol = 0.25 -np.log(2) # exact sol heisenberg
+
+def set_problem(n,D, mps, cg_impl = 'kron'):
 
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  RELAX LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
 	
 	 
+	d=2
+	# heisenberg model with sub-lattice rotation -H_xxz(1,1,-1)
+	h_term = np.array(  [[0.25, 0, 0, 0],
+					[0, -0.25, -0.5, 0],
+					[0, -0.5, -0.25, 0],
+					[0, 0, 0, 0.25]]
+				)
 	
 	k0 = util.determine_k0(d, chi = D**2)
+	H = np.kron(h_term, np.identity(d**(k0+1-2))) # extend to size of rho
+	
+	
+	
 	print(f'k0={k0}')
 	
 	assert n >= k0+2 , f'n has to be at least {k0+2}: n = {n}'
@@ -26,9 +40,7 @@ def set_problem(n,D,d, cg_impl = 'kron'):
 
 	rho = OptVar('rho','primal', dims = dims_rho , cone = 'PSD', dtype = float)
 	
-	rng = np.random.default_rng(seed=166)
-	H = rng.random((rho.matdim, rho.matdim))
-	H = H + H.T.conj()
+	
 	
 	
 	# states is a dict with >>key = the number of spins<<
@@ -37,20 +49,27 @@ def set_problem(n,D,d, cg_impl = 'kron'):
 	for k in range(k0+2,n+1):
 		states[k] = OptVar(f"omega_{k}",'primal', dims = dims_omega, cone = 'PSD', dtype = float)
 
-	rng = np.random.default_rng(seed=166)	
+	
+	# compute isometries for CG
+	
+	V0, L, R = iso_from_MPS(mps, k0, n)
+	
 	# cg maps acting on rho
 	action_l0 = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}
 	action_r0 = {'dims_in': dims_rho, 'pattern':(0,) + (1,)*k0, 'pattern_adj':(0,1,1), 'dims_out':(d,D,D)}
-	krausOps0 = [rng.random((D**2,d**k0)), ]
+	krausOps0 = [V0, ]
 	C_l0 = maps.CGmap('C_l0', krausOps0, action = action_l0 , implementation = cg_impl)
 	C_r0 = maps.CGmap('C_r0', krausOps0, action = action_r0 , implementation = cg_impl)
 
 	# cg maps acting on omegas 
 	action_l1 = {'dims_in': dims_omega, 'pattern':(1,1,1,0), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}
 	action_r1 = {'dims_in': dims_omega, 'pattern':(0,1,1,1), 'pattern_adj':(0,1,1), 'dims_out':(d,D,D)}
-	krausOps1 = [rng.random((D**2,D*D*d)),]
-	C_l1 = maps.CGmap('C_l1', krausOps1, action = action_l1 , implementation = cg_impl)
-	C_r1 = maps.CGmap('C_r1', krausOps1, action = action_r1 , implementation = cg_impl)
+	
+	C_l = [[],]*(n+1)
+	C_r = [[],]*(n+1)
+	for k in range(k0+2,n):
+		C_l[k] = maps.CGmap(f'C_l{k}', [L[k-2],], action = action_l1 , implementation = cg_impl)
+		C_r[k] = maps.CGmap(f'C_r{k}', [R[k-2],], action = action_r1 , implementation = cg_impl)
 
 	
 	
@@ -147,7 +166,7 @@ def set_problem(n,D,d, cg_impl = 'kron'):
 		Constraint(**{
 			'label': f'left_{k}', 
 			'sign_list': [-1, +1],
-			'map_list': [C_l1, tr_l_omega],
+			'map_list': [C_l[k], tr_l_omega],
 			'adj_flag_list': [False, False],
 			'var_list': [states[k], states[k+1]],
 			'primal_or_dual': 'primal',
@@ -157,7 +176,7 @@ def set_problem(n,D,d, cg_impl = 'kron'):
 		Constraint(**{
 			'label': f'right_{k}', 
 			'sign_list': [-1, +1],
-			'map_list': [C_r1, tr_r_omega],
+			'map_list': [C_r[k], tr_r_omega],
 			'adj_flag_list': [False, False],
 			'var_list': [states[k], states[k+1]],
 			'primal_or_dual': 'primal',
@@ -186,7 +205,7 @@ def set_problem(n,D,d, cg_impl = 'kron'):
 		Constraint(**{
 				'label': f"D_{k}", 
 				'sign_list':  [+1, +1, -1, -1],
-				'map_list': [tr_l_omega, tr_r_omega , C_l1, C_r1 ]  ,
+				'map_list': [tr_l_omega, tr_r_omega , C_l[k], C_r[k] ]  ,
 				'adj_flag_list': [True, True, True, True ],
 				'var_list': [g_l[k-1], g_r[k-1], g_l[k], g_r[k]],
 				'primal_or_dual': 'dual',
