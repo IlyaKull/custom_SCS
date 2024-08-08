@@ -7,13 +7,14 @@ import matrix_aux_functions as mf
 import numpy as np
 import util
 from CGmaps import iso_from_MPS
+import logging
 
-
+logger = logging.getLogger(__name__)
 exact_sol = 0.25 -np.log(2) # exact sol heisenberg
 
 def set_problem(n,D, mps, cg_impl = 'kron'):
 
-	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  RELAX LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
+	logger.info('PROBLEM:  RELAX LTI N')
 	
 	 
 	d=2
@@ -29,7 +30,7 @@ def set_problem(n,D, mps, cg_impl = 'kron'):
 	
 	
 	
-	print(f'k0={k0}')
+	logger.info(f'k0={k0}')
 	
 	assert n >= k0+2 , f'n has to be at least {k0+2}: n = {n}'
 	 
@@ -222,8 +223,8 @@ def set_problem(n,D, mps, cg_impl = 'kron'):
 			'conjugateVar': states[n],
 			}) 
 
-	 
-	Constraint.print_constr_list()
+	if logging.DEBUG >= logging.root.level:
+		Constraint.print_constr_list()
 	
 	OptVar._close_var_lists()
 	

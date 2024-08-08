@@ -1,6 +1,11 @@
 import numpy as np
 from ncon import ncon
 
+
+import logging
+logger = logging.getLogger(__name__)
+
+
 def main():
 	D = 5
 	d = 3
@@ -34,6 +39,14 @@ def iso_from_MPS(MPS, k0, n, return_all_Vs=False):
 	'''
 	input MPS as 3-dim array
 	'''
+	logger.info(f'computing isometries, k0 = {k0}, n = {n}')
+	nmax=24
+	try:
+		assert n<=nmax
+	except AssertionError:
+		logger.critical(f'isometries can be computed for n <= nmax; nmax = {nmax}, n = {n}')
+		raise
+	
 	d = MPS.shape[1]
 	D = MPS.shape[0]
 	assert D == MPS.shape[2], f'MPS shape problem: MPS.shape = {MPS.shape}'
@@ -46,6 +59,7 @@ def iso_from_MPS(MPS, k0, n, return_all_Vs=False):
 		V = [[],]*(n+1)
 	
 	for k in range(k0,n+1):
+		logger.debug(f'k={k} isometry started')
 		indCell=[[-(k+1), -1, 1],];
 		for l in range(1,k-1):
 			indCell.append( [l, -(l+1), l+1])
@@ -70,9 +84,10 @@ def iso_from_MPS(MPS, k0, n, return_all_Vs=False):
 		# print(f'P = {P}')
 		MPSProd = ncon([MPS,]*k, indCell, forder=[-k-1, -k-2] + list(range(-1,-k-1,-1)));
 		MPSProdMat = np.reshape(MPSProd,(D**2,d**k))
-
+		
 		# to obtain an isometry from  MPSProdMat   P^-1 needs to be applied to it
 		# where P^2 is the following D^2xD^2 matrix:
+		
 		Q,r = np.linalg.qr(MPSProdMat.T)
 		P[k]=r.T
 		
@@ -80,61 +95,63 @@ def iso_from_MPS(MPS, k0, n, return_all_Vs=False):
 			V0 = Q.T
 		if return_all_Vs:
 			V[k] = Q.T
-	
-	# Left and Right Isometries
-	# the left and right isometries should satisfy:
-	# L_k *(I,V_k)  = V_k+1  ;    R_k *(V_k,I)  = V_k+1 
+			
+		logger.debug(f'k={k} isometry done')
+	'''
+	Left and Right Isometries
+	the left and right isometries should satisfy:
+	L_k *(I,V_k)  = V_k+1  ;    R_k *(V_k,I)  = V_k+1 
 
-	   # --LL--VV--   --VV--     ;   --RR------   --VV-- 
-		 # LL  VV--     VV--     ;     RR--VV--     VV-- 
-		 # LL  VV--  =  VV--     ;     RR  VV--  =  VV-- 
-		 # LL--VV--     VV--     ;     RR  VV--     VV-- 
-	   # --LL------   --VV--     ;   --RR--VV--   --VV-- 
+	   --LL--VV--   --VV--     ;   --RR------   --VV-- 
+		 LL  VV--     VV--     ;     RR--VV--     VV-- 
+		 LL  VV--  =  VV--     ;     RR  VV--  =  VV-- 
+		 LL--VV--     VV--     ;     RR  VV--     VV-- 
+	   --LL------   --VV--     ;   --RR--VV--   --VV-- 
 
-	 # i.e.
-		 # L_k = (P_k+1)^-1 * (PmpsL)_k
+	 i.e.
+		 L_k = (P_k+1)^-1 * (PmpsL)_k
 
-	   # --LL--     --Pinv-------PP--    %   --RR----    --Pinv   .-------
-		 # LL         Pinv       PP      %     RR--        Pinv   |   PP--      
-		 # LL     =   Pinv--mmm--PP      %     RR     =    Pinv--www--PP      
-		 # LL--       Pinv   |   PP--    %     RR          Pinv       PP      
-	   # --LL----   --Pinv   .-------    %   --RR--      --Pinv-------PP--     
+	   --LL--     --Pinv-------PP--    %   --RR----    --Pinv   .-------
+		 LL         Pinv       PP      %     RR--        Pinv   |   PP--      
+		 LL     =   Pinv--mmm--PP      %     RR     =    Pinv--www--PP      
+		 LL--       Pinv   |   PP--    %     RR          Pinv       PP      
+	   --LL----   --Pinv   .-------    %   --RR--      --Pinv-------PP--     
 
-	 # where  P is r' from the qr decomposition and we define (PmpsL)_k and (PmpsR)_k :
+	 where  P is r' from the qr decomposition and we define (PmpsL)_k and (PmpsR)_k :
 
-		# -------PP--      --PmpsL--    ;     .-------        PmpsL---
-			   # PP          PmpsL      ;     |   PP--        PmpsL--
-		# --mps--PP     =: --PmpsL      ;  --www--PP     =: --PmpsL
-		   # |   PP--        PmpsL--    ;         PP          PmpsL
-		   # .-------        PmpsL---   ;  -------PP--      --PmpsL--
+		-------PP--      --PmpsL--    ;     .-------        PmpsL---
+			   PP          PmpsL      ;     |   PP--        PmpsL--
+		--mps--PP     =: --PmpsL      ;  --www--PP     =: --PmpsL
+		   |   PP--        PmpsL--    ;         PP          PmpsL
+		   .-------        PmpsL---   ;  -------PP--      --PmpsL--
 	 
-	 # (mmm) and (www) stand for the mps tensor  :
+	 (mmm) and (www) stand for the mps tensor  :
 
-								 # (d) 
-	   # (l)--mmm--(r)              |  
-			 # |         =    (r)--www--(l)
-			# (d)                
-	 # as we don't want to compute r^-1 explicitly
-	 # we solve  
-	   # (r_k+1) * L_k = (PmpsL)_k 
-	 # for L_k, and similarly for R_k:
-	   # (r_k+1) * R_k = (PmpsR)_k
+								 (d) 
+	   (l)--mmm--(r)              |  
+			 |         =    (r)--www--(l)
+			(d)                
+	 as we don't want to compute r^-1 explicitly
+	 we solve  
+	   (r_k+1) * L_k = (PmpsL)_k 
+	 for L_k, and similarly for R_k:
+	   (r_k+1) * R_k = (PmpsR)_k
 
 
-	 #  compute PmpsL and PmpsR
-	#  PmpsL:
-	# 
-	#  (-1)------(1)-PP--(-3)     
-	#  (-1)--mps-(1)-PP--(-3)
-	#         |           
-	#         .----------(-2)       
-	# 
-	#  PmpsR:
-	#         .----------(-3)
-	#         |
-	#  (-1)--www-(1)-PP--(-2)     
-	#  (-1)------(1)-PP--(-2)           
-	#
+	  compute PmpsL and PmpsR
+	 PmpsL:
+	
+	 (-1)------(1)-PP--(-3)     
+	 (-1)--mps-(1)-PP--(-3)
+	        |           
+	        .----------(-2)       
+	
+	 PmpsR:
+	        .----------(-3)
+	        |
+	 (-1)--www-(1)-PP--(-2)     
+	 (-1)------(1)-PP--(-2)           
+	'''
 	
 	PmpsL = [[],]*(n+1)
 	PmpsR = [[],]*(n+1)
@@ -163,6 +180,8 @@ def iso_from_MPS(MPS, k0, n, return_all_Vs=False):
 	for k in range(k0,n):
 		L[k] = np.linalg.solve(P[k+1], PmpsL[k])	   
 		R[k] = np.linalg.solve(P[k+1], PmpsR[k])  
+	
+	logger.info('done')
 	
 	if return_all_Vs:
 		return V0, L, R, V

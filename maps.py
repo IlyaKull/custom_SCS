@@ -4,12 +4,15 @@ import copy
 import time
 import matrix_aux_functions as mf
 from util import sign_str
+
+import logging
+logger = logging.getLogger(__name__)
+
  
 class Maps:
 	"""
 	
 	"""
-	verbose= False
 	list_all_maps = []
 	log_calls = True
 	
@@ -32,7 +35,7 @@ class Maps:
 		self.calls_adj = 0
 		
 		Maps.list_all_maps.append(self)
-	
+		logger.debug(f'map {self.name} created')
 	
 	# def mod_map(self, adjoint = False):
 		# '''
@@ -65,9 +68,9 @@ class Maps:
 		if Maps.log_calls:
 			t = time.perf_counter()
 		
-		if Maps.verbose:
-			print(f'----------> calling map {self.name} on variable {var.name}')
-			print(f'----------> var dims = {var.dims}')
+		if logging.root.level == 0:
+			logger.notset(f'----------> calling map {self.name} on variable {var.name}')
+			logger.notset(f'----------> var dims = {var.dims}')
 			
 		mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
 			
@@ -131,7 +134,7 @@ class Maps:
 		"""
 		maps_max_violation = dict()
 		for m in cls.list_all_maps:
-			print(f"testing self-adjiontness of map {m.name}")
+			logger.debug(f"testing self-adjiontness of map {m.name}")
 			map_tests=[]
 			
 			for n in range(n_samples):
@@ -149,7 +152,7 @@ class Maps:
 			except AssertionError:
 				raise
 			else:
-				print(f"Map {m.name} passed self-adjoint test")
+				logger.debug(f"Map {m.name} passed self-adjoint test")
 		
 		return maps_max_violation
 					
@@ -358,7 +361,7 @@ class PartTrace(Maps):
 			assert set(subsystems) != {s+1 for s in range(len(state_dims))}
 			assert all([1 <= s <= len(state_dims) for s in subsystems])
 		except AssertionError:
-			print(f"map {name}: problem with subsystems = {subsystems}, dims = {state_dims}")
+			logger.error(f"map {name}: problem with subsystems = {subsystems}, dims = {state_dims}")
 			raise
 		
 		

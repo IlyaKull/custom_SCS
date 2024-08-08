@@ -15,6 +15,9 @@ problem_module = relax_LTI_N_problem
 # problem_module = LTI_N_problem
 # problem_module = GAP_LTI_N_problem
 
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(levelname)-6s: %(name)-20s:: %(message)s', datefmt='%H:%M:%S')
 
 def main():
 	
@@ -34,12 +37,14 @@ def main():
 	match sys.argv[4].lower():
 		case 'true':
 			use_multithread = True
-			os.environ["OMP_NUM_THREADS"] = "1"
-			print('>>>>>>>>>>>>>>>>>>>>>>>>>>>> MULTITHREADING = TURE')
+			OMP_NUM_THREADS = 1
+			os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
+			logger.info(f'MULTITHREADING = TURE, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 		case 'false':
 			use_multithread = False
-			os.environ["OMP_NUM_THREADS"] = "8"
-			print('>>>>>>>>>>>>>>>>>>>>>>>>>>>> MULTITHREADING = FALSE')
+			OMP_NUM_THREADS = 20
+			os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
+			logger.info(f'MULTITHREADING = FALSE, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 		case _:
 			raise Exception("argv[3]: multithreading = 'true' or 'false'")
 	
@@ -54,7 +59,7 @@ def main():
 				'adaptive_cg_iters' : True,
 				'cg_adaptive_tol_resid_scale' : 20,
 				'thread_multithread' : use_multithread, 
-				'thread_max_workers' : 2
+				'thread_max_workers' : 20
 	}
 	
 	try:

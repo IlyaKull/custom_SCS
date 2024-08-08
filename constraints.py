@@ -8,6 +8,10 @@ from util import sign_str
 
 import matrix_aux_functions as mf
 
+import logging
+logger = logging.getLogger(__name__)
+
+
 class Constraint:
 	""" Each constraint is an expression of the form
 	A*a + B*b + C*c +... + H 
@@ -57,13 +61,13 @@ class Constraint:
 		else:
 			constr_list = Constraint.dual_constraints
 		
+		logger.debug(f'adding constraint {self.label} to {primal_or_dual} constraint list')
 		if add_to_constr_list:
 			constr_list.append(self)
 			
-		
 		self._add_maps_to_table()
-	
-	
+		
+		
 	
 	def _add_maps_to_table(self):
 		'''
@@ -74,8 +78,8 @@ class Constraint:
 		This condition is checked when each constraint is added:
 		primal constraints are added to the table, dual constraints are checked against the primal ones.		
 		'''
+		
 		if self.primal_or_dual == 'primal':
-			print(f'adding primal constr {self.label}')
 			for s,m,f,v in zip(self.signs, self.maps, self.adj_flags, self.var_list):
 				
 				if (self.conjugateVar, v) in Constraint.maps_table:
@@ -87,12 +91,10 @@ class Constraint:
 																	'ticked_by_dual' : False\
 																	}
 		if self.primal_or_dual == 'dual':
-			print(f'adding dual constr {self.label}, checking existing entries')
-			 
 			for s,m,f,v in zip(self.signs, self.maps, self.adj_flags, self.var_list):
-					print(f"pair {v.name, self.conjugateVar.name}")
+					# print(f"pair {v.name, self.conjugateVar.name}")
 					if (v, self.conjugateVar) in Constraint.maps_table:
-						print('found in table')
+						# print('found in table')
 						ts = Constraint.maps_table[(v, self.conjugateVar)]['sign']
 						tm = Constraint.maps_table[(v, self.conjugateVar)]['map']
 						tf = Constraint.maps_table[(v, self.conjugateVar)]['adj_flag']
@@ -104,7 +106,9 @@ class Constraint:
 					else:
 						raise Exception(f"when adding dual constraint {self.label} maps table entry  {(v.name, self.conjugateVar.name)} was not found.\n ADD ALL PRIMAL CONSTRAINTS FIRST")
 					
-
+		
+		
+		
 	# @profile
 	def __call__(self, v_in, v_out):
 		"""
@@ -114,8 +118,8 @@ class Constraint:
 		I.E. CONSTRAINTS ALWAYS ACT IN PLACE  as +=
 		"""
 		
-		if maps.Maps.verbose:
-			print(f"calling constraint {self.label}")
+		if logging.root.level==0:
+			logger.notset(f"calling constraint {self.label}")
 		
 		if not self.conjugateVar.added_to_var_list:
 			print('~~~~~~~~~~ !!!!!!!!!!!!!!!!! \n',\
@@ -124,16 +128,16 @@ class Constraint:
 			return 1
 		
 		 
-		if maps.Maps.verbose:
-			print(f"conj var: {self.conjugateVar.name}")
+		if logging.root.level==0:
+			logger.notset(f"conj var: {self.conjugateVar.name}")
 		
 		for s,M,f,var in zip(self.signs, self.maps, self.adj_flags, self.var_list):
-			if maps.Maps.verbose:
-				print(f"s = {s}")
-				print(f"M = {M.name}")
-				print(f"adj = {f}")
-				print(f"var = {var}")
-				print(f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
+			if logging.root.level==0:
+				logger.notset(f"s = {s}")
+				logger.notset(f"M = {M.name}")
+				logger.notset(f"adj = {f}")
+				logger.notset(f"var = {var}")
+				logger.notset(f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
 				 
 			
 			 
@@ -146,16 +150,17 @@ class Constraint:
 	
 	@classmethod
 	def print_constr_list(cls):
+		width = 15
 		for i, constr_list in enumerate((cls.primal_constraints, cls.dual_constraints)):
-			print('='*80)
-			print('~'*25 + ' {} CONSTRAINTS: '.format( ('PRIMAL', 'DUAL')[i]).center(20) + '~'*25 )
+			print('='*100)
+			print('{} CONSTRAINTS: '.format( ('PRIMAL', 'DUAL')[i]).center(100)  )
 			print(f'Total of {len(constr_list)} constraints')
-			print('='*80)
-			print('name'.ljust(12) +' : ' + 'conj var'.ljust(12) + ' : ' + 'constr type'.ljust(12) + ' : expression') 
-			print('-'*80)
+			print('='*100)
+			print('name'.ljust(width) +' : ' + 'conj var'.ljust(width) + ' : expression') 
+			print('-'*100)
 			
 			for c in constr_list:
-				cls.print_constraint(c)
+				cls.print_constraint(c, width)
 	
 	
 	@classmethod
@@ -177,14 +182,14 @@ class Constraint:
 			print( {(k[0].name, k[1].name): v['ticked_by_dual'] for k,v in cls.maps_table.items()} )
 			raise
 		else:
-			print('Maps table checked')
+			logger.info('Maps table checked')
 	
 	@staticmethod
-	def print_constraint(c):
+	def print_constraint(c, width):
 			"""
 			print the expression for the constraint
 			"""
-			print(f"{c.label:12} : {c.conjugateVar.name:12} : ", end=' ')
+			print(c.label.ljust(width) +  " : " + c.conjugateVar.name.ljust(width) +  " : ", end=' ')
 			
 			for (sign, CGmap, adj_flag, optVar) in zip(c.signs, c.maps, c.adj_flags, c.var_list):
 				if adj_flag:

@@ -1,4 +1,7 @@
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class OptVar:
@@ -55,17 +58,20 @@ class OptVar:
 			# add variable to list
 			var_list.append(self)			
 			
-			print(f"{dtype.__name__} variable {self.name} was added to the list of {primal_or_dual} variables")
+			logger.debug(f"{dtype.__name__} variable {self.name} was added to the list of {primal_or_dual} variables")
 			
 	
 	@classmethod
 	def _close_var_lists(cls):
-		print('>>>>>>>>>>>>>>>>>>> closing variable list')
-		print('>>>>>>>>>>>>>>>>>>> adding variables is no longer possible (OptVar.lists_closed = True )')
+		logger.info('closing variable list')
+		logger.info('adding variables is no longer possible (OptVar.lists_closed = True )')
 		cls.len_dual_vec_x = cls.dual_vars[-1].slice.stop
 		cls.len_primal_vec_y = cls.primal_vars[-1].slice.stop
 		cls.lists_closed = True
-		cls.primal_vars[-1].print_var_list()
+		
+		
+		if logging.DEBUG >= logging.root.level:
+			cls.print_var_list()
 		
 		# slice of all dual vars x in u=[x,y,tao]
 		cls.x_slice = slice(cls.dual_vars[0].slice.start, cls.dual_vars[-1].slice.stop)
@@ -82,14 +88,14 @@ class OptVar:
 		
 		 
 		
-		print(f"length of primal vector (y): {cls.len_primal_vec_y}")
-		print(f"length of dual vector (x): {cls.len_dual_vec_x}")
-		print(f"dtype of x and y: {cls.dtype}")
+		logger.debug(f"length of primal vector (y): {cls.len_primal_vec_y}")
+		logger.debug(f"length of dual vector (x): {cls.len_dual_vec_x}")
+		logger.debug(f"dtype of x and y: {cls.dtype}")
 
 
 	@classmethod
 	def print_var_list(cls):
-		print('='*80)
+		('='*80)
 		print('~'*30 + ' VARIABLES: '.center(20) + '~'*30 )
 		print('='*80)
 		
