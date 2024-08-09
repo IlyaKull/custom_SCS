@@ -35,6 +35,7 @@ class SCS_Solver:
 	'''
 	def __init__(self, settings = dict(), exact_sol = None):
 		
+		logger.info(f'initializing scs solver')
 		if not OptVar.lists_closed:  # closing the lists fixes the sizes of the primal and dual vectors
 			OptVar._close_var_lists()
 			
@@ -44,10 +45,11 @@ class SCS_Solver:
 		# print(self.settings)
 		
 		self.exact_sol = exact_sol
-
+		logger.debug(f"importing constraints lists from 'Constraint' calss (constraints.py)")		
 		self.primal_constraints = Constraint.primal_constraints
 		self.dual_constraints = Constraint.dual_constraints
 		
+		logger.debug(f"importing variable lists from OprVar calss (variables.py)")
 		self.len_primal_vec_y = OptVar.len_primal_vec_y
 		self.len_dual_vec_x = OptVar.len_dual_vec_x
 		
@@ -63,7 +65,6 @@ class SCS_Solver:
 		self.dual_vars = OptVar.dual_vars
 		self.lists_closed = OptVar.lists_closed
 		
-		logger.info(f'initializing scs vectors')
 		# initialize iteration vectors:
 		self.u = self._initilize_vec()
 		self.v = self._initilize_vec()
@@ -72,8 +73,8 @@ class SCS_Solver:
 		# the q parameter in the iteration
 		self.q = self.settings['scs_q']
 		
-		logger.info(f'initializing linear operator')
-		# the linear operator 1+A^\dagger *A 
+		
+		logger.debug("initializing linear operator") 
 		self.lin_op = LinOp_id_plus_AT_A(self.len_dual_vec_x,\
 			self.len_primal_vec_y,\
 			self.dtype,\
@@ -95,16 +96,12 @@ class SCS_Solver:
 		self.cg_tol = self.settings['cg_tol_Minvh_init']
 		Minv_h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
 		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b)
-				
-		
  
 		# the following is also needed in every iteration	
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
 		self.Minv_h = Minv_h
 		
 		self._test_Minv_h(tol = self.settings['test_Minv_h_tol'])
-		
-		
 		
 		self.t_affine = 0.0
 		self._test_projToAffine()
@@ -124,7 +121,7 @@ class SCS_Solver:
 		self.primal_objective = None
 		self.dual_objective = None
 		
-		
+		logger.info(f'solver initialized')
 		
 			
 		
@@ -143,15 +140,16 @@ class SCS_Solver:
 		# check each map individualy
 		logger.info("TESTING: check all maps implementations M.apply_adj() is adj of M.apply():")
 		try:
-			violations = Maps._test_self_adjoint(rng = self.settings['util_rng'], n_samples = 20, tol = self.settings['test_maps_SA_tol'])
+			violations = Maps._test_self_adjoint(rng = self.settings['util_rng'],\
+				n_samples = 20,\
+				tol = self.settings['test_maps_SA_tol'])
 		except AssertionError:
-			raise
+			raise # assertion in above _test_self_adjoint func
 		else:
 			logger.info("All maps checked")
-			# print(violations)
+			
 		
-		
-		logger.info("TESTING ---------- 3: check that dual constraints are the adjiont of primal constraints:")
+		logger.info("TESTING: check that dual constraints are the adjiont of primal constraints (vdot(y, Ax) == vdot(A.Ty, x))")
 		rng = self.settings['util_rng']
 		 
 		sa_tests = np.zeros(self.settings['test_SA_num_rand_vecs'])
@@ -163,38 +161,30 @@ class SCS_Solver:
 		
 		max_violation_SA = max(abs(sa_tests))
 		try:
-			assert max_violation_SA < self.settings['test_SA_tol'],\
-				f"primal and dual constraints are not adjoints of each other.\n Max violation of vdot(y, Ax) - vdot(ATy, x) is {max_violation_SA : 0.3g}, tolerance {self.settings['test_SA_tol'] :0.3g}"
+			assert max_violation_SA < self.settings['test_SA_tol'],	f"primal and dual constraints are not adjoints of each other."
 		except AssertionError as SAerr:
-			logger.info(f"Self-adjoint tests: {sa_tests[0:10]}...{sa_tests[-1]}, max violation = {max_violation_SA}")
+			logger.critical(f"Max violation of vdot(y, Ax) - vdot(A.Ty, x) is {max_violation_SA : 0.3g}, tolerance {self.settings['test_SA_tol'] :0.3g}")
 			raise SAerr
 		else:
 			logger.info(f"Self adjoint test passed. max violation is {max_violation_SA : 0.3g}, tolerance {self.settings['test_SA_tol'] :0.3g}")
 		
-			# # test lin_op
-		# e = eigsh(self.lin_op, k = 1, which = 'SA')[0]
-		# try:
-			# assert min(e) > 1-self.settings['test_pos_tol'] , f"Linear Operator 1+A^T*A has is smaller than 1-tol. Min eig = {min(e) :0.3g}, tol={self.settings['test_pos_tol'] :0.3g}"
-		# except AssertionError:
-			# raise 
-		# else:
-			# print(f"OKOKOKOK positivit test passed. min eig of 1+A^T*A {min(e) :0.3g}, tol={self.settings['test_pos_tol'] :0.3g}")
-
+		
 		
 		
 	def _test_Minv_h(self, tol = None):
 		if tol is None: 
 			tol = self.settings['test_Minv_h_tol']
 			
-		logger.info("TESTING: Minv_h:")
+		logger.info("TESTING: Minv_h (M * Minvh == h):")
 		sb_hx, sb_hy = self.__apply_M(self.Minv_h[self.x_slice], self.Minv_h[self.y_slice])
 		resid = max(abs(np.concatenate([sb_hx, sb_hy]) - self.h))
 		try:
-			assert resid < tol, f"max|M*Minv_h - h resid| = {resid} > tol = {tol}"
+			assert resid < tol , 'Minv_h test failed'
 		except AssertionError:
+			logger.critical(f"max|M*Minv_h - h resid| = {resid} > tol = {tol}")
 			raise
 		else:
-			logger.info("passed")
+			logger.info("Minv_h passed")
 		
 		
 	def _test_projToAffine(self, tol = None):
@@ -203,51 +193,37 @@ class SCS_Solver:
 		rng = self.settings['util_rng']
 			
 		
-		# first check  1+Q(x,y,tao) computes what it should by comparing with direct computation
-		logger.info("TESTING: 1+Q implementation:")
 		tao = rng.random((1,))
 		x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,), dtype = self.dtype)
-		
-		Mxy_x, Mxy_y = self.__apply_M(x, y)
-		
-		one_plusQ_check = np.zeros(self.len_joint_vec_u)
-		one_plusQ_check[self.x_slice] = Mxy_x +  tao * self.c
-		one_plusQ_check[self.y_slice] = Mxy_y +  tao * self.b
-		one_plusQ_check[self.tao_slice] = tao -np.vdot(y,self.b) -np.vdot(x,self.c)
-		
 		u = np.concatenate([x,y,tao])
 		one_plus_Qu = self.__one_plus_Q(u)
-		resid = max(abs(one_plus_Qu - one_plusQ_check))
-		try:
-			assert resid < tol, f"max|(1+Q)u - (1+Q)_direct u| = {resid} > tol = {tol}"
-		except AssertionError:
-			raise
-		else:
-			logger.info("passed")
 		
+		if False: #tests from early debugging 
+			# test that project to affine method inverts 1+Q as it should
+			logger.info("TESTING: _project_to_affine() = (1+Q)^-1 :")
+			logger.debug("test _return method")
+			sbu1 = self.__project_to_affine_return(one_plus_Qu)
+			resid1 = max(abs(u-sbu1))
+			try:
+				assert resid1 < tol , "test _project_to_affine failed"
+			except AssertionError:
+				logger.critical(f"while testing invert 1+Q with _return func: resid = {resid1} > tol = {tol}")
+				raise
+			else:
+				logger.debug(f"test _project_to_affine_return passed")
+				
 		# test that project to affine method inverts 1+Q as it should
-		logger.info("TESTING: project_to_affine() = (1+Q)^-1 :")
-		logger.debug("test _return method")
-		sbu1 = self.__project_to_affine_return(one_plus_Qu)
-		resid1 = max(abs(u-sbu1))
-		try:
-			assert resid < tol, f"while testing invert 1+Q with _return func: resid = {resid1} > tol = {tol}"
-		except AssertionError:
-			raise
-		else:
-			logger.debug(f"passed")
-			
-		
-		logger.debug("test in-place method")	
+		logger.debug("test _project_to_affine")	
 		sbu2 = np.zeros(self.len_joint_vec_u)
 		self._project_to_affine(one_plus_Qu, out = sbu2 )
 		resid2 = max(abs(u-sbu2))
 		try:
-			assert resid < tol, f"while testing invert 1+Q with in-place func: resid = {resid2} > tol = {tol}"
+			assert resid2 < tol, "test _project_to_affine failed"
 		except AssertionError:
+			logger.critical(f"while testing invert 1+Q with in-place func: resid = {resid2} > tol = {tol}")
 			raise
 		else:
-			logger.info(f"passed: duration {self.t_affine} sec")
+			logger.info(f"test _project_to_affine passed")
 		
 	def _read_b_and_c(self):	
 		'''
@@ -272,9 +248,9 @@ class SCS_Solver:
 		# RESCALE
 		self.b *= self.settings['scs_scaling_sigma']
 		self.c *= self.settings['scs_scaling_rho']
-		logger.debug(f" RESCALING PROBLEM: ")
-		logger.debug(f"		b --> sigma * b ; (sigma = {self.settings['scs_scaling_sigma'] :0.3g})")
-		logger.debug(f"		c --> rho * c ;   (rho = {self.settings['scs_scaling_rho'] :0.3g})")
+		 
+		logger.debug(f"RESCALING: b --> sigma * b ; (sigma = {self.settings['scs_scaling_sigma'] :0.3g})")
+		logger.debug(f"RESCALING: c --> rho * c ;   (rho = {self.settings['scs_scaling_rho'] :0.3g})")
 		
 		
 		
@@ -299,9 +275,9 @@ class SCS_Solver:
 		
 		self._print_log(print_head = True, print_line = False)
 		
+		#iteration
 		while (self.iter < maxiter) and (not termination_criteria_satisfied):
 			self._iterate_scs()
-			# self.__iterate_scs_test()
 			self.iter += 1
 			
 			if self.iter % printout_every == 0 or self.iter == maxiter:
@@ -338,13 +314,13 @@ class SCS_Solver:
 			"Tot time":				{'val' : time.perf_counter() - self.t_start, 'format_str' : '0.3g'},
 			"Aff time":				{'val' : self.t_affine, 'format_str' : '0.3g'},
 			"Cone time":			{'val' : self.t_cone, 'format_str' : '0.3g'},
-			"avg cg iters":			{'val' : self.cg_avrg_iter_count, 'format_str' : 'g'},
+			"avg cg iter":			{'val' : self.cg_avrg_iter_count, 'format_str' : 'g'},
 		}
 		
 		if print_head:
-			print("="*72)
-			print("STARTING SCS")
-			print("="*72)
+			print("="*100)
+			print("STARTING SCS".center(100))
+			print("="*100)
 
 			for k in log_columns:
 				print(k.ljust(col_width), end = " | " )
@@ -429,7 +405,7 @@ class SCS_Solver:
 		# current dual objective
 		self.dual_objective = -cx
 		
-		
+		# average cg iterations since last time termination criteria checked
 		self.cg_avrg_iter_count = self.cg_iter_counter / self.iter_counter_for_cg_avg
 		self.cg_iter_counter = 0 
 		self.iter_counter_for_cg_avg = 0
@@ -696,6 +672,10 @@ class SCS_Solver:
 		
 		
 	def _cg_count_iter(self, x_k):
+		'''
+		callback function for conjugat gradient.
+		simply counts iterations.
+		'''
 		self.cg_iter_counter += 1
 		
 	def __apply_M(self,x,y):
@@ -929,7 +909,7 @@ def default_settings():
 		'cg_adaptive_tol_resid_scale' : 2.5, # tolerance is updated as min(resid[...]/resid_scale), see  scs_solver._adapt_cg_tol()
 		'fixed_cg_tol' : 1e-11, # used if adaptive is false
 		#
-		'log_col_width' : 10, 
+		'log_col_width' : 11, 
 		'log_time_func_calls' : True,
 		#
 		'scs_maxiter': 2000,

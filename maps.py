@@ -14,7 +14,8 @@ class Maps:
 	
 	"""
 	list_all_maps = []
-	log_calls = True
+	
+	log_calls = (logging.root.level <= 10)
 	
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.
@@ -68,9 +69,9 @@ class Maps:
 		if Maps.log_calls:
 			t = time.perf_counter()
 		
-		if logging.root.level == 0:
-			logger.notset(f'----------> calling map {self.name} on variable {var.name}')
-			logger.notset(f'----------> var dims = {var.dims}')
+		if logging.root.level <= 5:
+			logger.log(5, f' calling map {self.name} on variable {var.name}')
+			logger.log(5, f'----------> var dims = {var.dims}')
 			
 		mat = v_in[var.slice].reshape( (var.matdim, var.matdim) )
 			
@@ -97,8 +98,9 @@ class Maps:
 	@classmethod
 	def print_maps_log(cls):
 		 
-		
-		print('++++++++++++++++++++++ MAP-CALLS LOG +++++++++++++++++++++++')
+		print('='*100)
+		print('MAP-CALLS LOG'.center(100))
+		print('-'*100)
 		log_columns = lambda m:\
 			{"Name" : 	{'val' : m.name, 															'format_str' : '<', 	'group' : '---', 'col_width':30},
 				"Name adj":				{'val' : m.adj_name, 										'format_str' : '<', 	'group' : 'adj', 'col_width':30},
@@ -110,7 +112,6 @@ class Maps:
 				"t_total_adj" : 		{'val' : m.time_adj, 										'format_str' : '0.2g', 	'group' : 'adj', 'col_width':15},
 				"t_iter_adj" :			{'val' : m.time_adj / m.calls_adj if m.calls_adj > 0 else 0 , 'format_str' : '0.2g', 'group' : 'adj', 'col_width':15},
 			}
-		
 		
 			
 		for k,v in log_columns(cls.list_all_maps[0]).items():
@@ -124,7 +125,8 @@ class Maps:
 					if v['group'] in ['all', group_str]:
 						print(format(v['val'], v['format_str']).ljust(v['col_width']), end = " | " )
 				print('')
-			
+		
+		print('='*100)	
 				
 	
 	@classmethod
@@ -134,7 +136,7 @@ class Maps:
 		"""
 		maps_max_violation = dict()
 		for m in cls.list_all_maps:
-			logger.debug(f"testing self-adjiontness of map {m.name}")
+			logger.debug(f"map {m.name} testing self-adjiontness")
 			map_tests=[]
 			
 			for n in range(n_samples):
@@ -147,12 +149,12 @@ class Maps:
 			maps_max_violation[m.name] = max(map_tests)
 						
 			try:
-				assert maps_max_violation[m.name] < tol ,\
-					f"map {m.name} didn't pass SA test: |vdot(y, Mx) - vdot(M_dag_y, x)| = {abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x)) :0.3g}, tol = {tol}"			
+				assert maps_max_violation[m.name] < tol , f"map {m.name} failed SA test"
 			except AssertionError:
+				logger.critical(f"map {m.name} didn't pass SA test: |vdot(y, Mx) - vdot(M_dag_y, x)| = {abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x)) :0.3g}, tol = {tol}")
 				raise
 			else:
-				logger.debug(f"Map {m.name} passed self-adjoint test")
+				logger.debug(f"map {m.name} passed self-adjoint test")
 		
 		return maps_max_violation
 					

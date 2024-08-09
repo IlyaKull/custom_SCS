@@ -29,7 +29,7 @@ class Constraint:
 					adj_flag_list,
 					var_list,
 					primal_or_dual,
-					conjugateVar = None, 
+					conjugateVar, 
 					add_to_constr_list = True,
 					const = None):
 		
@@ -48,12 +48,13 @@ class Constraint:
 			self.const = const
 			
 				
-		# primal or dual constraint
-		assert primal_or_dual in ('primal', 'dual'), \
-			f"!!!!!!!!!!!!!!! Constraint {self.name} was not defined \n" + \
-			'!!!!!!!!!!!!!!! Specify if constraint is *primal* or *dual*'
-		
-		self.primal_or_dual = primal_or_dual
+		try:
+			assert primal_or_dual in ('primal', 'dual')
+		except AssertionError:
+			logger.critical(f"constraint {self.name} was not defined. Specify if constraint is *primal* or *dual*")
+			raise
+		else:
+			self.primal_or_dual = primal_or_dual
 		
 		# to which list to add
 		if primal_or_dual == 'primal': 
@@ -61,8 +62,9 @@ class Constraint:
 		else:
 			constr_list = Constraint.dual_constraints
 		
-		logger.debug(f'adding constraint {self.label} to {primal_or_dual} constraint list')
+		
 		if add_to_constr_list:
+			logger.debug(f'adding constraint {self.label} to {primal_or_dual} constraint list')
 			constr_list.append(self)
 			
 		self._add_maps_to_table()
@@ -83,7 +85,9 @@ class Constraint:
 			for s,m,f,v in zip(self.signs, self.maps, self.adj_flags, self.var_list):
 				
 				if (self.conjugateVar, v) in Constraint.maps_table:
-					raise Exception(f"when addig primal constraint {self.label} maps table entry {(self.conjugateVar.name, v.name)} already occupied")
+					logger.critical(f"when addig primal constraint {self.label} maps table entry",\
+						f"{(self.conjugateVar.name, v.name)} already occupied")
+					raise Exception("primal-dual variables pair repeated in table")
 				else:
 					Constraint.maps_table[(self.conjugateVar, v)] = {'sign' : s,\
 																	'map' : m,\
@@ -92,17 +96,21 @@ class Constraint:
 																	}
 		if self.primal_or_dual == 'dual':
 			for s,m,f,v in zip(self.signs, self.maps, self.adj_flags, self.var_list):
-					# print(f"pair {v.name, self.conjugateVar.name}")
+					logger.log(5,f"pair {v.name, self.conjugateVar.name}")
 					if (v, self.conjugateVar) in Constraint.maps_table:
-						# print('found in table')
+						logger.log(5,'found in table')
 						ts = Constraint.maps_table[(v, self.conjugateVar)]['sign']
 						tm = Constraint.maps_table[(v, self.conjugateVar)]['map']
 						tf = Constraint.maps_table[(v, self.conjugateVar)]['adj_flag']
 						tt = Constraint.maps_table[(v, self.conjugateVar)]['ticked_by_dual']
-						assert ts == s and tm == m and tf != f and tt == False,\
-							(f"when adding dual constraint {self.label} maps table entry {(v.name, self.conjugateVar.name)} doesn't match currnt input\n",\
+						try:
+							assert ts == s and tm == m and tf != f and tt == False
+						except AssertionError:
+							logger.critical(f"when adding dual constraint {self.label} maps table entry {(v.name, self.conjugateVar.name)} doesn't match currnt input\n",\
 							f"table entry: {ts, tm.name, tf}; current input: {s, m.name, f} (falgs match if opposite)")
-						Constraint.maps_table[(v, self.conjugateVar)]['ticked_by_dual'] = True
+							raise
+						else:
+							Constraint.maps_table[(v, self.conjugateVar)]['ticked_by_dual'] = True
 					else:
 						raise Exception(f"when adding dual constraint {self.label} maps table entry  {(v.name, self.conjugateVar.name)} was not found.\n ADD ALL PRIMAL CONSTRAINTS FIRST")
 					
@@ -118,26 +126,24 @@ class Constraint:
 		I.E. CONSTRAINTS ALWAYS ACT IN PLACE  as +=
 		"""
 		
-		if logging.root.level==0:
-			logger.notset(f"calling constraint {self.label}")
+		if logging.root.level<=5:
+			logger.log(5,f"calling constraint {self.label}")
 		
-		if not self.conjugateVar.added_to_var_list:
-			print('~~~~~~~~~~ !!!!!!!!!!!!!!!!! \n',\
-			f'the variable conjugate to constraint {self.label} ({self.conjugateVar.name})', \
-			'was not added to the list of variables and therefore does not have a buffer assigned' )
-			return 1
+		# if not self.conjugateVar.added_to_var_list:
+			# logger.critical(f'the variable conjugate to constraint {self.label} ({self.conjugateVar.name}) was not added to the list of variables' )
+			
 		
 		 
-		if logging.root.level==0:
-			logger.notset(f"conj var: {self.conjugateVar.name}")
+		if logging.root.level<=5:
+			logger.log(5,f"conj var: {self.conjugateVar.name}")
 		
 		for s,M,f,var in zip(self.signs, self.maps, self.adj_flags, self.var_list):
-			if logging.root.level==0:
-				logger.notset(f"s = {s}")
-				logger.notset(f"M = {M.name}")
-				logger.notset(f"adj = {f}")
-				logger.notset(f"var = {var}")
-				logger.notset(f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
+			if logging.root.level<=5:
+				logger.log(5,f"s = {s}")
+				logger.log(5,f"M = {M.name}")
+				logger.log(5,f"adj = {f}")
+				logger.log(5,f"var = {var}")
+				logger.log(5,f"out var slice = {v_out[ self.conjugateVar.slice ].shape}")
 				 
 			
 			 
@@ -178,8 +184,8 @@ class Constraint:
 		try:
 			assert all( [v['ticked_by_dual'] for v in cls.maps_table.values()]), 'dual constraints missing!'
 		except AssertionError:
-			print('pairs of variables which appear in primal but not in dual have value False:')
-			print( {(k[0].name, k[1].name): v['ticked_by_dual'] for k,v in cls.maps_table.items()} )
+			logger.critical('pairs of variables which appear in primal but not in dual have value False:')
+			logger.critical( {(k[0].name, k[1].name): v['ticked_by_dual'] for k,v in cls.maps_table.items()} )
 			raise
 		else:
 			logger.info('Maps table checked')

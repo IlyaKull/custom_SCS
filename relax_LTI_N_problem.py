@@ -30,7 +30,7 @@ def set_problem(n,D, mps, cg_impl = 'kron'):
 	
 	
 	
-	logger.info(f'k0={k0}')
+	logger.info(f'k0 = {k0}, base state: rho_{k0+1}, final state omega_{n}')
 	
 	assert n >= k0+2 , f'n has to be at least {k0+2}: n = {n}'
 	 

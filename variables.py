@@ -18,7 +18,7 @@ class OptVar:
 	y_slice = None
 	tao_slice = None
  	
-	def __init__(self, name, primal_or_dual, dims, cone = 'Rn', dtype = complex, add_to_var_list = True):
+	def __init__(self, name, primal_or_dual, dims, cone = 'Rn', dtype = complex):
 		
 		assert not OptVar.lists_closed, '!!!!!!!!!!! cannot add variables because variable list is closed (OptVar.lists_closed = True)'
 		
@@ -26,45 +26,45 @@ class OptVar:
 		self.primal_or_dual = primal_or_dual
 		self.dims = dims
 		self.dtype = dtype
-		self.added_to_var_list = add_to_var_list
+		# self.added_to_var_list = add_to_var_list
 		self.matdim = np.prod(dims)
 		
 		assert cone in {'Rn','PSD'}, f"Specify cone to which variable {self.name} belongs: 'Rn' or 'PSD'"
 		self.cone = cone
 		
-		if add_to_var_list:
-			# primal or dual variable
-			assert primal_or_dual in ('primal', 'dual'), \
-				f"!!!!!!!!!!!!!!! Variable {self.name} was not defined \n" + \
-				'!!!!!!!!!!!!!!! Specify if varialbe is primal or dual'
-			
-			# to which list to add
-			if primal_or_dual == 'primal': 
-				var_list = OptVar.primal_vars
-			else:
-				var_list = OptVar.dual_vars
-			
-			if not var_list:
-				last_index = -1
-				last_s = 0
-			else:
-				last_s = var_list[-1].slice.stop
-			
-			
-			# self.indices = [last_index +1, last_index + dim_symm_matrix(np.prod(dims)) ]
-			self.slice = slice(last_s, last_s + self.matdim**2 )
-									
-			
-			# add variable to list
-			var_list.append(self)			
-			
-			logger.debug(f"{dtype.__name__} variable {self.name} was added to the list of {primal_or_dual} variables")
+		# if add_to_var_list:
+		# primal or dual variable
+		assert primal_or_dual in ('primal', 'dual'), \
+			f"!!!!!!!!!!!!!!! Variable {self.name} was not defined \n" + \
+			'!!!!!!!!!!!!!!! Specify if varialbe is primal or dual'
+		
+		# to which list to add
+		if primal_or_dual == 'primal': 
+			var_list = OptVar.primal_vars
+		else:
+			var_list = OptVar.dual_vars
+		
+		if not var_list:
+			last_index = -1
+			last_s = 0
+		else:
+			last_s = var_list[-1].slice.stop
+		
+		
+		# self.indices = [last_index +1, last_index + dim_symm_matrix(np.prod(dims)) ]
+		self.slice = slice(last_s, last_s + self.matdim**2 )
+								
+		
+		# add variable to list
+		var_list.append(self)			
+		
+		logger.debug(f"{dtype.__name__} variable {self.name} was added to the list of {primal_or_dual} variables")
 			
 	
 	@classmethod
 	def _close_var_lists(cls):
-		logger.info('closing variable list')
-		logger.info('adding variables is no longer possible (OptVar.lists_closed = True )')
+		logger.debug('closing variable list (OptVar.lists_closed = True )')
+		
 		cls.len_dual_vec_x = cls.dual_vars[-1].slice.stop
 		cls.len_primal_vec_y = cls.primal_vars[-1].slice.stop
 		cls.lists_closed = True
@@ -95,15 +95,21 @@ class OptVar:
 
 	@classmethod
 	def print_var_list(cls):
-		('='*80)
+		print('='*100)
 		print('~'*30 + ' VARIABLES: '.center(20) + '~'*30 )
-		print('='*80)
+		print('-'*100)
 		
 		for i, var_list in enumerate((cls.primal_vars, cls.dual_vars)):
 			print('~'*10 + " {} VARS:".format(('PRIMAL', 'DUAL')[i]))
 			for var in var_list:
 				print(f"{var.name:20} : slice: {var.slice}", end=' ')
 				print(f": dims: {var.dims}: {var.dtype} : cone = {var.cone}")
+
+		print('='*100)
+
+
+
+
 
 
 

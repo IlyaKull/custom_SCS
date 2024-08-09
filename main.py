@@ -17,7 +17,10 @@ problem_module = relax_LTI_N_problem
 
 import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s: %(levelname)-6s: %(name)-20s:: %(message)s', datefmt='%H:%M:%S')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s: %(levelname)-8s: %(name)-20s:: %(message)s', datefmt='%H:%M:%S')
+logging.addLevelName(logging.DEBUG, '...DEBUG') 
+logging.addLevelName(5,"verbose")
+ 
 
 def main():
 	
@@ -42,7 +45,7 @@ def main():
 			logger.info(f'MULTITHREADING = TURE, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 		case 'false':
 			use_multithread = False
-			OMP_NUM_THREADS = 20
+			OMP_NUM_THREADS = 4
 			os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
 			logger.info(f'MULTITHREADING = FALSE, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 		case _:
@@ -59,7 +62,8 @@ def main():
 				'adaptive_cg_iters' : True,
 				'cg_adaptive_tol_resid_scale' : 20,
 				'thread_multithread' : use_multithread, 
-				'thread_max_workers' : 20
+				'thread_max_workers' : 4,
+				# 'test_maps_SA_tol' : 1e-22
 	}
 	
 	try:
@@ -70,8 +74,8 @@ def main():
 	scs_solver = SCS_Solver(settings , exact_sol = exact_sol)
 	scs_solver.run_scs(maxiter = maxiter, printout_every = 100)
 	
-	
-	Maps.print_maps_log()
+	if logging.root.level <= 10:
+		Maps.print_maps_log()
 	
 	if profile_lines:
 		profile.print_stats()
