@@ -7,7 +7,6 @@ from util import sign_str
 
 import logging
 logger = logging.getLogger(__name__)
-
  
 class Maps:
 	"""
@@ -15,7 +14,7 @@ class Maps:
 	"""
 	list_all_maps = []
 	
-	log_calls = (logging.root.level <= 10)
+	log_calls = (logging.root.level <= logging.DEBUG)
 	
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.

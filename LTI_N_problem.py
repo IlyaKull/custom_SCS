@@ -8,7 +8,7 @@ import numpy as np
 
 exact_sol = 0.25 -np.log(2) # exact sol heisenberg
  
-def set_problem(n,d):
+def set_LTI_N_problem(n,d):
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
 	
 	assert n>2, 'n must be > 2' 

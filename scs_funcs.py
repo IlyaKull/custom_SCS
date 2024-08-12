@@ -93,15 +93,16 @@ class SCS_Solver:
 		# at initialization 
 		self.cg_iter_counter = 0
 		
-		self.cg_tol = self.settings['cg_tol_Minvh_init']
 		Minv_h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
-		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b)
+		Minv_h[self.x_slice], Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b, tol = self.settings['cg_tol_Minvh_init'])
  
 		# the following is also needed in every iteration	
 		self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, Minv_h))
 		self.Minv_h = Minv_h
 		
 		self._test_Minv_h(tol = self.settings['test_Minv_h_tol'])
+		
+		self.cg_tol = self.settings['cg_tol_Minvh_init']
 		
 		self.t_affine = 0.0
 		self._test_projToAffine()
@@ -246,11 +247,13 @@ class SCS_Solver:
 		self.c_unscld_norm = np.linalg.norm(self.c)
 		
 		# RESCALE
-		self.b *= self.settings['scs_scaling_sigma']
-		self.c *= self.settings['scs_scaling_rho']
+		self.sigma = self.settings['scs_scaling_sigma']
+		self.rho = self.settings['scs_scaling_rho']
+		self.b *= self.sigma
+		self.c *= self.rho
 		 
-		logger.debug(f"RESCALING: b --> sigma * b ; (sigma = {self.settings['scs_scaling_sigma'] :0.3g})")
-		logger.debug(f"RESCALING: c --> rho * c ;   (rho = {self.settings['scs_scaling_rho'] :0.3g})")
+		logger.debug(f"RESCALING: b --> sigma * b ; (sigma = {self.sigma :0.3g})")
+		logger.debug(f"RESCALING: c --> rho * c ;   (rho = {self.rho :0.3g})")
 		
 		
 		
@@ -284,6 +287,7 @@ class SCS_Solver:
 				termination_criteria_satisfied = self._check_termination_criteria()
 				self._print_log(converged = termination_criteria_satisfied)
 				self._adapt_cg_tol()
+				self._adapt_scaling()
 		
 		if not termination_criteria_satisfied:
 			self._print_log(maxed_out_iters = True)
@@ -379,8 +383,8 @@ class SCS_Solver:
 		https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf (sec 3.5)
 		and retrun True if all stopping criteria are satisfied
 		'''
-		sigma = self.settings['scs_scaling_sigma']
-		rho = self.settings['scs_scaling_rho']
+		sigma = self.sigma
+		rho = self.rho
 		
 		# vars of RESCALED problem
 		tao =self.u[self.tao_slice]
@@ -394,7 +398,7 @@ class SCS_Solver:
 		# dual residuals =  2-norm(1/rho*(A.Ty + c))
 		self.resid_dual = np.linalg.norm((1/rho) * (apply_primal_constr(self, y_k) + self.c ))
 		
-		# both objectives rescaled to original 
+				# both objectives rescaled to original 
 		cx = (1/(sigma*rho)) * np.vdot(self.c, x_k)
 		by = (1/(sigma*rho)) * np.vdot(self.b, y_k)
 		# gap residuals = abs(c.T*x + b.T*y) (already scaled back)
@@ -409,12 +413,46 @@ class SCS_Solver:
 		self.cg_avrg_iter_count = self.cg_iter_counter / self.iter_counter_for_cg_avg
 		self.cg_iter_counter = 0 
 		self.iter_counter_for_cg_avg = 0
-		
-		
+				
 		return all( [self.resid_prim < self.settings['scs_prim_resid_tol'] * (1.0 + self.b_unscld_norm), \
 			self.resid_dual < self.settings['scs_dual_resid_tol'] * (1.0 + self.c_unscld_norm ), \
 			self.resid_gap < self.settings['scs_gap_resid_tol'] * (1.0 + abs(cx) + abs(by)) ] )
 		
+		
+		
+	def _adapt_scaling(self):
+		resid_ratio = self.resid_prim / self.resid_dual
+		if resid_ratio > self.settings['scs_adapt_scale_if_ratio'] or resid_ratio < (1 / self.settings['scs_adapt_scale_if_ratio']):
+			
+			sigma = self.sigma
+			rho = self.rho
+			tao =self.u[self.tao_slice]
+			x_k = self.u[self.x_slice] / tao / sigma
+			s_k = self.v[self.y_slice] / tao / sigma
+			y_k = self.u[self.y_slice] / tao / rho
+			
+			b = self.b / sigma
+			c = self.c / rho
+			
+			rescale_factor = resid_ratio**(1/4)
+			
+			self.sigma = sigma * rescale_factor
+			self.rho = rho / rescale_factor
+			logger.info(f'rescaling: sigma = {sigma:0.3g} --> {self.sigma:0.3g}; rho = {rho:0.3g} --> {self.rho:0.3g}')
+			self.b = b * self.sigma
+			self.c = c * self.rho
+			
+			self.h[self.x_slice] = self.c
+			self.h[self.y_slice] = self.b
+			
+			self.u[self.x_slice] = x_k * self.sigma * tao
+			self.v[self.y_slice] = s_k * self.sigma * tao
+			self.u[self.y_slice] = y_k * self.rho * tao
+			
+			self.Minv_h[self.x_slice], self.Minv_h[self.y_slice] = self.__solve_M_inv_return(self.c, self.b, tol = self.settings['cg_tol_Minvh_init'])
+			self.hMinvh_plus_one_inv = 	1.0/(1.0 + np.vdot(self.h, self.Minv_h))
+			
+			
 		
 	
 	def __iterate_scs_test(self):
@@ -604,7 +642,7 @@ class SCS_Solver:
 
 
 
-	def __solve_M_inv_return(self, w_x, w_y):
+	def __solve_M_inv_return(self, w_x, w_y, tol = None):
 		'''
 		this is for debugging. should give the same result as solve_M_inv(...)
 		also used for first computation of M_inv(h)
@@ -612,7 +650,7 @@ class SCS_Solver:
 		'''
 			
 		ATw_y = apply_primal_constr(self, w_y)
-		z_x, exit_code = self._conj_grad_impl( w_x - ATw_y)
+		z_x, exit_code = self._conj_grad_impl( w_x - ATw_y, tol = tol)
 		Az_x = apply_dual_constr(self, z_x)
 		z_y = w_y + Az_x
 		# print(f'cg exit code: {exit_code}')
@@ -656,16 +694,18 @@ class SCS_Solver:
 		
 			
 
-	def _conj_grad_impl(self, x):
+	def _conj_grad_impl(self, x, tol = None):
 		'''
 		put your favourite iterative solver here
 		'''		
-		
+		if tol is None:
+			tol = self.cg_tol
+			
 		#  norm(b - A @ x) <= max(rtol*norm(b), atol)
 		
 		return scipy_cg(A = self.lin_op, b = x,\
 			atol= self.settings['cg_atol'],\
-			tol = self.cg_tol,\
+			tol = tol,\
 			maxiter = self.settings['cg_maxiter'],\
 			callback = self._cg_count_iter
 		)
@@ -914,8 +954,9 @@ def default_settings():
 		#
 		'scs_maxiter': 2000,
 		'scs_q' : 1.5,
-		'scs_scaling_sigma' : 0.001,  
-		'scs_scaling_rho' : 0.1,    
+		'scs_scaling_sigma' : 0.00001,  
+		'scs_scaling_rho' : 1,  
+		'scs_adapt_scale_if_ratio' : 20, # adapts sigma and rho if primal/dual resid ratio is > x or < 1/x  
 		'scs_scaling_D': None, # not implemented yet
 		'scs_scaling_E': None, # not implemented yet
 		'scs_prim_resid_tol' : 1e-6,

@@ -1,5 +1,13 @@
 import line_profiler
 import sys, os
+
+import logging
+logger = logging.getLogger()
+logging.addLevelName(logging.DEBUG, '...DEBUG') 
+logging.addLevelName(5,"verbose")
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s: %(levelname)-8s: %(name)-20s:: %(message)s', datefmt='%H:%M:%S')
+# logger.setLevel(logging.DEBUG)
+
 import numpy as np
 from scs_funcs import SCS_Solver
 import scs_funcs
@@ -15,12 +23,6 @@ problem_module = relax_LTI_N_problem
 # problem_module = LTI_N_problem
 # problem_module = GAP_LTI_N_problem
 
-import logging
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s: %(levelname)-8s: %(name)-20s:: %(message)s', datefmt='%H:%M:%S')
-logging.addLevelName(logging.DEBUG, '...DEBUG') 
-logging.addLevelName(5,"verbose")
- 
 
 def main():
 	
@@ -41,23 +43,22 @@ def main():
 		case 'true':
 			use_multithread = True
 			OMP_NUM_THREADS = 1
-			os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
-			logger.info(f'MULTITHREADING = TURE, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 		case 'false':
 			use_multithread = False
 			OMP_NUM_THREADS = 4
-			os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
-			logger.info(f'MULTITHREADING = FALSE, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 		case _:
 			raise Exception("argv[3]: multithreading = 'true' or 'false'")
+	
+	os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
+	logger.info(f'MULTITHREADING = {use_multithread}, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 	
 	rng = np.random.default_rng(seed=166).random
 	mps = rng((D,2,D))
 	
-	problem_module.set_problem(n,D, mps)
+	problem_module.set_relax_LTI_N_problem(n,D, mps)
  	
-	settings = {'scs_scaling_sigma' : 	0.001, 	# rescales b
-				'scs_scaling_rho' : 	0.01, 	# rescales c
+	settings = {'scs_scaling_sigma' : 	0.00001, 	# rescales b
+				'scs_scaling_rho' : 	1.0, 	# rescales c
 				'scs_q' : 				1.5,
 				'adaptive_cg_iters' : True,
 				'cg_adaptive_tol_resid_scale' : 20,

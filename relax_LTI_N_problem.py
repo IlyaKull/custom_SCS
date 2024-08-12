@@ -8,11 +8,11 @@ import numpy as np
 import util
 from CGmaps import iso_from_MPS
 import logging
-
 logger = logging.getLogger(__name__)
+
 exact_sol = 0.25 -np.log(2) # exact sol heisenberg
 
-def set_problem(n,D, mps, cg_impl = 'kron'):
+def set_relax_LTI_N_problem(n,D, mps, cg_impl = 'kron'):
 
 	logger.info('PROBLEM:  RELAX LTI N')
 	
