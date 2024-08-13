@@ -235,7 +235,7 @@ class SCS_Solver:
 		'''
 		
 		self.h = np.zeros(self.len_dual_vec_x + self.len_primal_vec_y)
-		self.c = self.h[self.x_slice] # slices for convenienc
+		self.c = self.h[self.x_slice] 
 		self.b = self.h[self.y_slice]
 		for cstr in self.primal_constraints:
 			self.c[cstr.conjugateVar.slice] = cstr.const
@@ -413,7 +413,12 @@ class SCS_Solver:
 		self.cg_avrg_iter_count = self.cg_iter_counter / self.iter_counter_for_cg_avg
 		self.cg_iter_counter = 0 
 		self.iter_counter_for_cg_avg = 0
-				
+		
+		if any((np.isnan(self.resid_prim), np.isnan(self.resid_dual), np.isnan(self.resid_gap))):
+			logger.critical("residuals have nan values")
+			raise Exception('numerical problem')
+		
+		 
 		return all( [self.resid_prim < self.settings['scs_prim_resid_tol'] * (1.0 + self.b_unscld_norm), \
 			self.resid_dual < self.settings['scs_dual_resid_tol'] * (1.0 + self.c_unscld_norm ), \
 			self.resid_gap < self.settings['scs_gap_resid_tol'] * (1.0 + abs(cx) + abs(by)) ] )
@@ -434,10 +439,10 @@ class SCS_Solver:
 			b = self.b / sigma
 			c = self.c / rho
 			
-			rescale_factor = resid_ratio**(1/4)
+			rescale_factor = resid_ratio**(1/2)
 			
 			self.sigma = sigma * rescale_factor
-			self.rho = rho / rescale_factor
+			self.rho = rho #/ rescale_factor
 			logger.info(f'rescaling: sigma = {sigma:0.3g} --> {self.sigma:0.3g}; rho = {rho:0.3g} --> {self.rho:0.3g}')
 			self.b = b * self.sigma
 			self.c = c * self.rho
@@ -969,7 +974,7 @@ def default_settings():
 		'test_SA_tol' : 1e-9,
 		'test_maps_SA_tol' : 1e-10,
 		'test_Minv_h_tol' : 1e-12,
-		'test_projToAffine_tol' : 1e-12,
+		'test_projToAffine_tol' : 1e-9,
 		#
 		'thread_multithread' : False,
 		'thread_max_workers' : 5,

@@ -16,12 +16,12 @@ from scipy.sparse.linalg import LinearOperator
 from maps import Maps
 # import constraints
 import matrix_aux_functions as mf
-import LTI_N_problem, relax_LTI_N_problem, one_step_relax_LTI_N_problem, GAP_LTI_N_problem
+import LTI_N_problem, relax_LTI_N_problem, one_step_relax_LTI_N_problem, relax_GAP_LTI_N_problem
 
-problem_module = relax_LTI_N_problem 
+# problem_module = relax_LTI_N_problem 
 # problem_module = one_step_relax_LTI_N_problem
 # problem_module = LTI_N_problem
-# problem_module = GAP_LTI_N_problem
+problem_module = relax_GAP_LTI_N_problem
 
 
 def main():
@@ -36,10 +36,10 @@ def main():
 		profile.enable_by_count()
 
 	n = int(sys.argv[1])
-	D = int(sys.argv[2])
-	maxiter =  int(sys.argv[3])
+	D = 2
+	maxiter =  int(sys.argv[2])
 	
-	match sys.argv[4].lower():
+	match sys.argv[3].lower():
 		case 'true':
 			use_multithread = True
 			OMP_NUM_THREADS = 1
@@ -52,18 +52,19 @@ def main():
 	os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
 	logger.info(f'MULTITHREADING = {use_multithread}, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 	
-	rng = np.random.default_rng(seed=166).random
-	mps = rng((D,2,D))
+	# rng = np.random.default_rng(seed=166).random
+	# mps = rng((D,2,D))
 	
-	problem_module.set_relax_LTI_N_problem(n,D, mps)
+	problem_module.set_relax_GAP_LTI_N_problem(n,D)
  	
-	settings = {'scs_scaling_sigma' : 	0.00001, 	# rescales b
-				'scs_scaling_rho' : 	1.0, 	# rescales c
+	settings = {'scs_scaling_sigma' : 	0.0000001, 	# rescales b
+				'scs_scaling_rho' : 	1., 	# rescales c
+				'scs_adapt_scale_if_ratio' : 20,  
 				'scs_q' : 				1.5,
 				'adaptive_cg_iters' : True,
 				'cg_adaptive_tol_resid_scale' : 20,
 				'thread_multithread' : use_multithread, 
-				'thread_max_workers' : 4,
+				'thread_max_workers' : 5,
 				# 'test_maps_SA_tol' : 1e-22
 	}
 	

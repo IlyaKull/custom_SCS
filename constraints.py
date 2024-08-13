@@ -31,7 +31,8 @@ class Constraint:
 					primal_or_dual,
 					conjugateVar, 
 					add_to_constr_list = True,
-					const = None):
+					const = None,
+					const_name = 'zero'):
 		
 		assert len(map_list) == len(var_list), f'Supplied Maps and variables do not match in length in constraint {label}'
 		assert len(sign_list) == len(var_list), f'Supplied sign_list and map_list do not match in length in constraint {label}'
@@ -44,8 +45,10 @@ class Constraint:
  		
 		if const is None:
 			self.const = np.zeros(conjugateVar.matdim**2)
+			self.const_name = 'zero'
 		else:
 			self.const = const
+			self.const_name = const_name
 			
 				
 		try:
@@ -162,7 +165,10 @@ class Constraint:
 			print('{} CONSTRAINTS: '.format( ('PRIMAL', 'DUAL')[i]).center(100)  )
 			print(f'Total of {len(constr_list)} constraints')
 			print('='*100)
-			print('name'.ljust(width) +' : ' + 'conj var'.ljust(width) + ' : expression') 
+			print('name'.ljust(width) +\
+				' : ' + 'conj var'.ljust(width) +\
+				' : ' + 'constant'.ljust(width) +\
+				' : ' + 'expression'.ljust(width) ) 
 			print('-'*100)
 			
 			for c in constr_list:
@@ -195,13 +201,21 @@ class Constraint:
 			"""
 			print the expression for the constraint
 			"""
-			print(c.label.ljust(width) +  " : " + c.conjugateVar.name.ljust(width) +  " : ", end=' ')
+			# if isinstance(c.const, float):
+				# const_str = f"{c.const:0.3g}"
+			# else:
+				# const_str = f"[{c.const[0]},{c.const[1]},...]"
+				
+			print(c.label.ljust(width) +  " : " \
+				+ c.conjugateVar.name.ljust(width) +  " : "\
+				+ c.const_name.ljust(width) +  " : ", end=' ')
 			
 			for (sign, CGmap, adj_flag, optVar) in zip(c.signs, c.maps, c.adj_flags, c.var_list):
 				if adj_flag:
 					print(f"{sign_str(sign)} {CGmap.adj_name}({optVar.name}) ", end = '')
 				else:
 					print(f"{sign_str(sign)} {CGmap.name}({optVar.name}) ", end = '')
+			
 			
 			print('\n')
 

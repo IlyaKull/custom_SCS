@@ -122,7 +122,8 @@ def set_relax_LTI_N_problem(n,D, mps, cg_impl = 'kron'):
 		'var_list': [rho,],
 		'primal_or_dual': 'primal',
 		'conjugateVar': e,
-		'const' : 1.0       
+		'const' : 1.0,
+		'const_name' : '1'      
 		})
 	
 	# when no constant is specified (or is None)
@@ -196,7 +197,8 @@ def set_relax_LTI_N_problem(n,D, mps, cg_impl = 'kron'):
 			'var_list': [ b_l, b_r, a, e],
 			'primal_or_dual': 'dual',
 			'conjugateVar': rho,
-			'const': H.ravel()
+			'const': H.ravel(),
+			'const_name' : 'H'
 			}) 
 			
 	for k in range(k0+2,n):
