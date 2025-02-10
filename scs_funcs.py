@@ -25,7 +25,7 @@ class SCS_Solver:
 	https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 
 	
 	
-	When initialized this class first  closes the variable lists in the OptVar calss and
+	When initialized this class, it first closes the variable lists in the OptVar calss and
 	 retrieves all the calss variables from OptVar and Constraint classes, 
 	 such that all the data neede for the algorithm is encapsulated in this object. 
 	
@@ -710,7 +710,7 @@ class SCS_Solver:
 		
 		return scipy_cg(A = self.lin_op, b = x,\
 			atol= self.settings['cg_atol'],\
-			tol = tol,\
+			rtol = tol,\
 			maxiter = self.settings['cg_maxiter'],\
 			callback = self._cg_count_iter
 		)
@@ -967,7 +967,7 @@ def default_settings():
 		'scs_prim_resid_tol' : 1e-6,
 		'scs_dual_resid_tol' : 1e-6,
 		'scs_gap_resid_tol' : 1e-6,
-		'scs_compute_resid_every_n_iters' : 10,
+		'scs_compute_resid_every_n_iters' : 100,
 		#
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
