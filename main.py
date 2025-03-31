@@ -20,9 +20,9 @@ import LTI_N_problem, relax_LTI_N_problem, one_step_relax_LTI_N_problem, GAP_LTI
 
 import default_settings
 
-# problem_module = LTI_N_problem
+problem_module = LTI_N_problem
 # problem_module = relax_LTI_N_problem 
-problem_module = GAP_LTI_N_problem
+# problem_module = GAP_LTI_N_problem
 
 
 
@@ -39,7 +39,7 @@ def main():
 						action="store_true")
 	parser.add_argument("--multithread", help="number of threads", 
 					type=int, default = 1)
-	parser.add_argument("--maxiters", help="maximum number of SCS iterations", 
+	parser.add_argument("--maxiter", help="maximum number of SCS iterations", 
 					type=int, default = 2000)
 	parser.add_argument("--dispiters", help="display every x iterations", 
 					type=int, default = 100)
@@ -49,9 +49,19 @@ def main():
 					type=float, default = 10.0)
 	parser.add_argument("--scs_adapt_scale_if_ratio", help="adaptive rescalint if primal to dual residual ratio exceeds this amount", 
 					type=float, default = 50.0)
+
+	
 					
 	args = parser.parse_args()
 	
+	
+	
+	if args.verbose:
+		logger.setLevel(logging.DEBUG)
+	else:
+		logger.setLevel(logging.INFO)
+
+
 	if args.profileLines:
 		profile = line_profiler.LineProfiler()
 		profile.add_function(scs_funcs._impl_apply_constr)
@@ -71,14 +81,14 @@ def main():
 	
 	
 	settings_from_args = {'scs_scaling_sigma' 		: args.scs_scaling_sigma, 
-						'scs_scaling_rho' 			: arg.scs_scaling_rho, 
+						'scs_scaling_rho' 			: args.scs_scaling_rho, 
 						'scs_adapt_scale_if_ratio' 	: args.scs_adapt_scale_if_ratio,  
 						'thread_multithread' 		: use_multithread, 
 						'thread_max_workers' 		: OMP_NUM_THREADS,
 	}
 	
 	settings = default_settings.make()  
-	settings.update(settings_from_args).
+	settings.update(settings_from_args)
 		
 	solver = problem_module.set_problem_and_make_solver(args, settings)
  	
@@ -87,7 +97,7 @@ def main():
 	if logging.root.level <= 10:
 		Maps.print_maps_log()
 	
-	if profile_lines:
+	if args.profileLines:
 		profile.print_stats()
 	
 	

@@ -30,7 +30,7 @@ def define_arguments():
 	
 
 
-def set_problem_and_make_solve(args, settings):
+def set_problem_and_make_solver(args, settings):
 
 	logger.info('PROBLEM:  RELAX LTI N')
 	

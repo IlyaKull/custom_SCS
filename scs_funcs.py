@@ -8,7 +8,7 @@ from constraints import Constraint
 import time
 import util
 import concurrent.futures
-
+import default_settings
 
 import logging
 logger = logging.getLogger(__name__)
@@ -40,9 +40,9 @@ class SCS_Solver:
 			OptVar._close_var_lists()
 			
 		
-		self.settings = default_settings()  
+		self.settings = default_settings.make()  
 		self.settings.update(settings)
-		# print(self.settings)
+		 
 		
 		self.exact_sol = exact_sol
 		logger.debug(f"importing constraints lists from 'Constraint' calss (constraints.py)")		
