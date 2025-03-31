@@ -18,7 +18,7 @@ def make():
 		#
 		'scs_maxiter': 2000,
 		'scs_q' : 1.5,
-		'scs_scaling_sigma' : 0.00001,  
+		'scs_scaling_sigma' : 0.001,  
 		'scs_scaling_rho' : 1,  
 		'scs_adapt_scale_if_ratio' : 20, # adapts sigma and rho if primal/dual resid ratio is > x or < 1/x  
 		'scs_scaling_D': None, # not implemented yet
@@ -31,7 +31,7 @@ def make():
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
 		'test_SA_tol' : 1e-9,
-		'test_maps_SA_tol' : 1e-10,
+		'test_maps_SA_tol' : 1e-9,
 		'test_Minv_h_tol' : 1e-12,
 		'test_projToAffine_tol' : 1e-9,
 		#

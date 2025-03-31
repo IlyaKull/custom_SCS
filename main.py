@@ -20,8 +20,8 @@ import LTI_N_problem, relax_LTI_N_problem, one_step_relax_LTI_N_problem, GAP_LTI
 
 import default_settings
 
-problem_module = LTI_N_problem
-# problem_module = relax_LTI_N_problem 
+# problem_module = LTI_N_problem
+problem_module = relax_LTI_N_problem 
 # problem_module = GAP_LTI_N_problem
 
 
@@ -44,9 +44,9 @@ def main():
 	parser.add_argument("--dispiters", help="display every x iterations", 
 					type=int, default = 100)
 	parser.add_argument("--scs_scaling_sigma", help="SCS parameter that rescales b", 
-					type=float, default = 1.0)
+					type=float, default = 0.001)
 	parser.add_argument("--scs_scaling_rho", help="SCS parameter that rescales c", 
-					type=float, default = 10.0)
+					type=float, default = 1.0)
 	parser.add_argument("--scs_adapt_scale_if_ratio", help="adaptive rescalint if primal to dual residual ratio exceeds this amount", 
 					type=float, default = 50.0)
 

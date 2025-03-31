@@ -36,17 +36,19 @@ def set_problem_and_make_solver(args, settings):
 	
 	n = args.n
 	D = args.D
-		
+	d=2
+	
 	if args.mps_filename:
 		mps = read_mps_from_file(args.mps_filename)
 	else:
 		logger.critical("no MPS file specified!!! proceeding with random MPS")
 		rng = settings['util_rng']
 		mps = rng.random((d,D,d,)) 
+		
 	
 	cg_impl = 'kron'
 		 
-	d=2
+	
 	
 	# heisenberg model with sub-lattice rotation -H_xxz(1,1,-1)
 	h_term = np.array(  [[0.25, 0, 0, 0],
