@@ -25,7 +25,9 @@ def define_arguments():
 	parser.add_argument("n", help="system size", type=int)
 	parser.add_argument("D", help="bond dim of MPS used for compression", type=int)
 	parser.add_argument("mps_filename", help="file where compression mps is saved", type=str)
-	
+	parser.add_argument("--coarse_grain_method", help="which coarse graining maps to construct from given MPS", 
+					type=str, default = "plain", choices=["plain", "isometries"])
+
 	return parser
 	
 
@@ -43,7 +45,7 @@ def set_problem_and_make_solver(args, settings):
 	else:
 		logger.critical("no MPS file specified!!! proceeding with random MPS")
 		rng = settings['util_rng']
-		mps = rng.random((d,D,d,)) 
+		mps = rng.random((D,d,D,)) 
 		
 	
 	cg_impl = 'kron'
@@ -85,8 +87,11 @@ def set_problem_and_make_solver(args, settings):
 
 	
 	# compute isometries for CG
-	
-	V0, L, R = iso_from_MPS(mps, k0, n)
+	if args.coarse_grain_method == "isometries":
+		V0, L, R = iso_from_MPS(mps, k0, n)
+	else:
+		V0, L, R = plain_cg_from_MPS(mps, k0, n)
+
 	
 	# cg maps acting on rho
 	action_l0 = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}
