@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s: %(levelname)-8s: %
 # logger.setLevel(logging.DEBUG)
 
 import numpy as np
-from scs_funcs import SCS_Solver
+
 import scs_funcs
 # from  variables import OptVar
 from scipy.sparse.linalg import LinearOperator
@@ -70,11 +70,11 @@ def main():
 	logger.info(f'MULTITHREADING = {use_multithread}, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 	
 	
-	settings_from_args = {'scs_scaling_sigma' : 	3.0, 	# rescales b
-						'scs_scaling_rho' : 	20., 	# rescales c
-						'scs_adapt_scale_if_ratio' : 50,  
-						'thread_multithread' : use_multithread, 
-						'thread_max_workers' : OMP_NUM_THREADS,
+	settings_from_args = {'scs_scaling_sigma' 		: args.scs_scaling_sigma, 
+						'scs_scaling_rho' 			: arg.scs_scaling_rho, 
+						'scs_adapt_scale_if_ratio' 	: args.scs_adapt_scale_if_ratio,  
+						'thread_multithread' 		: use_multithread, 
+						'thread_max_workers' 		: OMP_NUM_THREADS,
 	}
 	
 	settings = default_settings.make()  

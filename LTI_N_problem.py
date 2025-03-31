@@ -5,12 +5,32 @@ from variables import RestrictedKeysDict
 from constraints import Constraint
 import matrix_aux_functions as mf
 import numpy as np
+import argparse
+from scs_funcs import SCS_Solver
 
 exact_sol = 0.25 -np.log(2) # exact sol heisenberg
  
-def set_LTI_N_problem(n,d):
+ 
+ 
+ 
+
+def define_arguments():
+	'''
+	define the command line arguments required to define this problem
+	'''
+	parser = argparse.ArgumentParser()
+	parser.add_argument("n", help="system size", type=int)
+	
+	return parser
+	
+
+ 
+
+def set_problem_and_make_solve(args, settings):
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
 	
+	n = args.n
+	d=2 
 	assert n>2, 'n must be > 2' 
 	
 	dims_rho = (d,)*(n-1)
@@ -143,4 +163,6 @@ def set_LTI_N_problem(n,d):
 	
 	OptVar._close_var_lists()
 	
-	return 0
+	solver = SCS_Solver(settings, exact_sol = exact_sol)
+	
+	return solver

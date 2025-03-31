@@ -7,6 +7,7 @@ import matrix_aux_functions as mf
 import numpy as np
 from hamiltonians import make_hamiltonian_term
 from matrix_aux_functions import anticomm
+from scs_funcs import SCS_Solver
 
 import argparse
 
@@ -65,6 +66,9 @@ def set_problem_and_make_solve(args, settings):
 	
 	
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  GAP LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
+	
+	n = args.n
+	
 	
 	model = {'name':'AKLT'}
 	
@@ -145,4 +149,6 @@ def set_problem_and_make_solve(args, settings):
 	
 	OptVar._close_var_lists()
 	
-	return 0
+	solver = SCS_Solver(settings)
+	
+	return solver

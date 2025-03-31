@@ -8,22 +8,53 @@ import numpy as np
 import util
 from CGmaps import iso_from_MPS
 import logging
+from scs_funcs import SCS_Solver
 logger = logging.getLogger(__name__)
 
-exact_sol = 0.25 -np.log(2) # exact sol heisenberg
+import argparse
 
-def set_relax_LTI_N_problem(n,D, mps, cg_impl = 'kron'):
+
+
+
+
+def define_arguments():
+	'''
+	define the command line arguments required to define this problem
+	'''
+	parser = argparse.ArgumentParser()
+	parser.add_argument("n", help="system size", type=int)
+	parser.add_argument("D", help="bond dim of MPS used for compression", type=int)
+	parser.add_argument("mps_filename", help="file where compression mps is saved", type=str)
+	
+	return parser
+	
+
+
+def set_problem_and_make_solve(args, settings):
 
 	logger.info('PROBLEM:  RELAX LTI N')
 	
-	 
+	n = args.n
+	D = args.D
+		
+	if args.mps_filename:
+		mps = read_mps_from_file(args.mps_filename)
+	else:
+		logger.critical("no MPS file specified!!! proceeding with random MPS")
+		rng = settings['util_rng']
+		mps = rng.random((d,D,d,)) 
+	
+	cg_impl = 'kron'
+		 
 	d=2
+	
 	# heisenberg model with sub-lattice rotation -H_xxz(1,1,-1)
 	h_term = np.array(  [[0.25, 0, 0, 0],
 					[0, -0.25, -0.5, 0],
 					[0, -0.5, -0.25, 0],
 					[0, 0, 0, 0.25]]
 				)
+	exact_sol = 0.25 -np.log(2) # exact sol heisenberg
 	
 	k0 = util.determine_k0(d, chi = D**2)
 	H = np.kron(h_term, np.identity(d**(k0+1-2))) # extend to size of rho
@@ -230,4 +261,16 @@ def set_relax_LTI_N_problem(n,D, mps, cg_impl = 'kron'):
 	
 	OptVar._close_var_lists()
 	
-	return  
+	solver = SCS_Solver(settings, exact_sol = exact_sol)
+	
+	return solver
+	
+
+
+def read_mps_from_file(mps_filename):
+	
+	# TODO read from file
+	mps = None
+		
+	return mps
+	
