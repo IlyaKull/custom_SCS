@@ -8,7 +8,25 @@ import numpy as np
 from hamiltonians import make_hamiltonian_term
 from matrix_aux_functions import anticomm
 
-def set_problem(n, model = {'name':'AKLT'}):
+import argparse
+
+
+
+
+def define_arguments():
+	'''
+	define the command line arguments required to define this problem
+	'''
+	parser = argparse.ArgumentParser()
+	parser.add_argument("n", help="system size", type=int)
+	
+	return parser
+	
+
+
+
+
+def set_problem_and_make_solve(args, settings):
 	"""
 	********** problem formulation 
 	primal:						| conj Var
@@ -47,6 +65,8 @@ def set_problem(n, model = {'name':'AKLT'}):
 	
 	
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  GAP LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
+	
+	model = {'name':'AKLT'}
 	
 	h_term,d  = make_hamiltonian_term(model)
 	

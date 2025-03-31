@@ -18,63 +18,71 @@ from maps import Maps
 import matrix_aux_functions as mf
 import LTI_N_problem, relax_LTI_N_problem, one_step_relax_LTI_N_problem, GAP_LTI_N_problem
 
-# problem_module = relax_LTI_N_problem 
-# problem_module = one_step_relax_LTI_N_problem
+import default_settings
+
 # problem_module = LTI_N_problem
+# problem_module = relax_LTI_N_problem 
 problem_module = GAP_LTI_N_problem
 
 
+
+
 def main():
-	
-	profile_lines = False
-	if profile_lines:
-		profile = line_profiler.LineProfiler()
 		
+	# define problem specific command-line arguments
+	parser = problem_module.define_arguments()
+	
+	# add general purpose command line arguments
+	parser.add_argument("--verbose", help="increase output verbosity",
+						action="store_true")
+	parser.add_argument("--profileLines", help="line profiler",
+						action="store_true")
+	parser.add_argument("--multithread", help="number of threads", 
+					type=int, default = 1)
+	parser.add_argument("--maxiters", help="maximum number of SCS iterations", 
+					type=int, default = 2000)
+	parser.add_argument("--dispiters", help="display every x iterations", 
+					type=int, default = 100)
+	parser.add_argument("--scs_scaling_sigma", help="SCS parameter that rescales b", 
+					type=float, default = 1.0)
+	parser.add_argument("--scs_scaling_rho", help="SCS parameter that rescales c", 
+					type=float, default = 10.0)
+	parser.add_argument("--scs_adapt_scale_if_ratio", help="adaptive rescalint if primal to dual residual ratio exceeds this amount", 
+					type=float, default = 50.0)
+					
+	args = parser.parse_args()
+	
+	if args.profileLines:
+		profile = line_profiler.LineProfiler()
 		profile.add_function(scs_funcs._impl_apply_constr)
 		profile.add_function(scs_funcs.SCS_Solver._project_to_cone)
-		
 		profile.enable_by_count()
 
-	n = int(sys.argv[1])
 	
-	maxiter =  int(sys.argv[2])
+	use_multithread = args.multithread > 1
 	
-	match sys.argv[3].lower():
-		case 'true':
-			use_multithread = True
-			OMP_NUM_THREADS = 1
-		case 'false':
-			use_multithread = False
-			OMP_NUM_THREADS = 4
-		case _:
-			raise Exception("argv[3]: multithreading = 'true' or 'false'")
+	if use_multithread:
+		OMP_NUM_THREADS = args.multithread
+	else:
+		OMP_NUM_THREADS = 1
 	
 	os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
 	logger.info(f'MULTITHREADING = {use_multithread}, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 	
-	# rng = np.random.default_rng(seed=166).random
-	# mps = rng((D,2,D))
 	
-	problem_module.set_problem(n)
- 	
-	settings = {'scs_scaling_sigma' : 	3.0, 	# rescales b
-				'scs_scaling_rho' : 	20., 	# rescales c
-				'scs_adapt_scale_if_ratio' : 50,  
-				'scs_q' : 				1.5,
-				'adaptive_cg_iters' : True,
-				'cg_adaptive_tol_resid_scale' : 20,
-				'thread_multithread' : use_multithread, 
-				'thread_max_workers' : 5,
-				# 'test_maps_SA_tol' : 1e-22
+	settings_from_args = {'scs_scaling_sigma' : 	3.0, 	# rescales b
+						'scs_scaling_rho' : 	20., 	# rescales c
+						'scs_adapt_scale_if_ratio' : 50,  
+						'thread_multithread' : use_multithread, 
+						'thread_max_workers' : OMP_NUM_THREADS,
 	}
 	
-	try: # see if exact problem solution is specified in problem file
-		exact_sol = problem_module.exact_sol  
-	except AttributeError:
-		exact_sol = None
-
-	scs_solver = SCS_Solver(settings , exact_sol = exact_sol)
-	scs_solver.run_scs(maxiter = maxiter, printout_every = 100)
+	settings = default_settings.make()  
+	settings.update(settings_from_args).
+		
+	solver = problem_module.set_problem_and_make_solver(args, settings)
+ 	
+	solver.run_scs(maxiter = args.maxiter, printout_every = args.dispiters)
 	
 	if logging.root.level <= 10:
 		Maps.print_maps_log()
