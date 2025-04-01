@@ -6,7 +6,7 @@ from constraints import Constraint
 import matrix_aux_functions as mf
 import numpy as np
 import util
-from CGmaps import iso_from_MPS
+import CGmaps  
 import logging
 from scs_funcs import SCS_Solver
 logger = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def set_problem_and_make_solver(args, settings):
 		mps = rng.random((D,d,D,)) 
 		
 	
-	cg_impl = 'kron'
+	cg_impl = 'kron' #which way to implement cg maps. see maps.py>CGmaps...implementation
 		 
 	
 	
@@ -88,9 +88,9 @@ def set_problem_and_make_solver(args, settings):
 	
 	# compute isometries for CG
 	if args.coarse_grain_method == "isometries":
-		V0, L, R = iso_from_MPS(mps, k0, n)
+		V0, L, R = CGmaps.iso_from_MPS(mps, k0, n)
 	else:
-		V0, L, R = plain_cg_from_MPS(mps, k0, n)
+		V0, L, R = CGmaps.plain_cg_from_MPS(mps, k0, n)
 
 	
 	# cg maps acting on rho

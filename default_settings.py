@@ -3,15 +3,14 @@ import numpy as np
 
 def make():
 	d = {
-		'cg_atol' : 1e-12,        # stopping criteria of cg:  norm(b - A @ x) <= max(rtol*norm(b), atol)
-		'cg_tol_max' : 1e-3, # when adaptive tolerance is True, cg starts from this tolerance and only decreases see  scs_solver._adapt_cg_tol()
-		'cg_tol_Minvh_init' : 1e-14, # tolerance for initial (one-time) solve of M^-1*h
-		'cg_maxiter' : 100,
-		'cg_adaptive_tol' : True, # adapt the tolerance as iterations progress, see  scs_solver._adapt_cg_tol()
+		'cg_atol' : 1e-12,        		# stopping criteria of cg:  norm(b - A @ x) <= max(rtol*norm(b), atol)
+		'cg_tol_max' : 1e-3, 	 		# when adaptive tolerance is True, cg starts from this tolerance and only decreases see  scs_solver._adapt_cg_tol()
+		'cg_tol_Minvh_init' : 1e-14, 	# tolerance for initial (one-time) solve of M^-1*h
+		'cg_maxiter' : 1000,
+		'cg_adaptive_tol' : True, 		# adapt the tolerance as iterations progress, see  scs_solver._adapt_cg_tol()
 		'cg_adaptive_tol_resid_scale' : 2.5, # tolerance is updated as min(resid[...]/resid_scale), see  scs_solver._adapt_cg_tol()
-		'fixed_cg_tol' : 1e-11, # used if adaptive is false
+		'fixed_cg_tol' : 1e-11, 		# used if adaptive is false
 		# 'adaptive_cg_iters' : True,
-		# 'cg_adaptive_tol_resid_scale' : 20,
 		#
 		'log_col_width' : 11, 
 		'log_time_func_calls' : True,
@@ -30,10 +29,10 @@ def make():
 		#
 		'test_pos_tol' : 1e-10,
 		'test_SA_num_rand_vecs' : 100,
-		'test_SA_tol' : 1e-9,
-		'test_maps_SA_tol' : 1e-9,
-		'test_Minv_h_tol' : 1e-12,
-		'test_projToAffine_tol' : 1e-9,
+		'test_SA_tol' : 1e-11,
+		'test_maps_SA_tol' : 1e-11,
+		'test_Minv_h_tol' : 1e-11,
+		'test_projToAffine_tol' : 1e-11,
 		#
 		'thread_multithread' : False,
 		'thread_max_workers' : 5,

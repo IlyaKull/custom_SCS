@@ -37,7 +37,9 @@ def main():
 						action="store_true")
 	parser.add_argument("--profileLines", help="line profiler",
 						action="store_true")
-	parser.add_argument("--multithread", help="number of threads", 
+	parser.add_argument("--workers", help="number of workers", 
+					type=int, default = 1)
+	parser.add_argument("--OMP_NUM_THREADS", help="OMP_NUM_THREADS evn var", 
 					type=int, default = 1)
 	parser.add_argument("--maxiter", help="maximum number of SCS iterations", 
 					type=int, default = 2000)
@@ -69,22 +71,21 @@ def main():
 		profile.enable_by_count()
 
 	
-	use_multithread = args.multithread > 1
+	use_multithread = args.workers > 1
 	
-	if use_multithread:
-		OMP_NUM_THREADS = args.multithread
-	else:
-		OMP_NUM_THREADS = 1
+	 
+	OMP_NUM_THREADS = args.OMP_NUM_THREADS
+	 
 	
 	os.environ["OMP_NUM_THREADS"] = str(OMP_NUM_THREADS)
-	logger.info(f'MULTITHREADING = {use_multithread}, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
+	logger.info(f'MULTITHREADING = {use_multithread}, num workers = {args.workers}, OMP_NUM_THREADS = {OMP_NUM_THREADS}')
 	
 	
 	settings_from_args = {'scs_scaling_sigma' 		: args.scs_scaling_sigma, 
 						'scs_scaling_rho' 			: args.scs_scaling_rho, 
 						'scs_adapt_scale_if_ratio' 	: args.scs_adapt_scale_if_ratio,  
 						'thread_multithread' 		: use_multithread, 
-						'thread_max_workers' 		: OMP_NUM_THREADS,
+						'thread_max_workers' 		: args.workers,
 	}
 	
 	settings = default_settings.make()  

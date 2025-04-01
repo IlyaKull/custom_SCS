@@ -140,7 +140,9 @@ class Maps:
 			
 			for n in range(n_samples):
 				x = rng.random((m.dims['in'],)*(2 if m.dims['in']>1 else 1))
+				x = x/np.linalg.norm(x)
 				y = rng.random((m.dims['out'],)*(2 if m.dims['out']>1 else 1))
+				y = y/np.linalg.norm(y)
 				Mx = m.apply(x)
 				M_dag_y = m.apply_adj(y)
 				map_tests.append(abs(np.vdot(y, Mx) - np.vdot(M_dag_y, x)) )

@@ -156,6 +156,8 @@ class SCS_Solver:
 		sa_tests = np.zeros(self.settings['test_SA_num_rand_vecs'])
 		for j in range(self.settings['test_SA_num_rand_vecs']):
 			x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,), dtype = self.dtype)
+			x = x/np.linalg.norm(x)
+			y = y/np.linalg.norm(y)
 			Ax = apply_dual_constr(self, x)
 			ATy = apply_primal_constr(self, y)
 			sa_tests[j] = np.vdot(y, Ax) - np.vdot(ATy, x)
@@ -197,6 +199,8 @@ class SCS_Solver:
 		tao = rng.random((1,))
 		x,y = rng.random((self.len_dual_vec_x,)) ,rng.random((self.len_primal_vec_y,), dtype = self.dtype)
 		u = np.concatenate([x,y,tao])
+		u = u/np.linalg.norm(u)
+		
 		one_plus_Qu = self.__one_plus_Q(u)
 		
 		if False: #tests from early debugging 
@@ -656,6 +660,7 @@ class SCS_Solver:
 			
 		ATw_y = apply_primal_constr(self, w_y)
 		z_x, exit_code = self._conj_grad_impl( w_x - ATw_y, tol = tol)
+		logger.debug(f' in __solve_M_inv_return: CG exit code {exit_code}') 
 		Az_x = apply_dual_constr(self, z_x)
 		z_y = w_y + Az_x
 		# print(f'cg exit code: {exit_code}')

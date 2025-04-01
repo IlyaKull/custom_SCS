@@ -33,120 +33,6 @@ def test_iso_from_MPS(V0, L, R, V, d, k0, n):
 			raise
 		else:
 			print('passed')
-	
-
-def plain_cg_from_MPS(MPS, k0, n):
-	'''
-	input MPS as 3-dim array
-	'''
-	logger.info(f'makin plain cg maps, k0 = {k0}, n = {n}')
-	
-	
-	d = MPS.shape[1]
-	D = MPS.shape[0]
-	assert D == MPS.shape[2], f'MPS shape problem: MPS.shape = {MPS.shape}'
-	
-	P = [[],]*(n+1)
-	
-	L = [[],]*(n+1)
-	R = [[],]*(n+1)
-	
-	
-	
-	indCell=[[-(k0+1), -1, 1],];
-	for l in range(1,k0-1):
-		indCell.append( [l, -(l+1), l+1])
-	indCell.append([(k0-1), -(k0), -(k0+2)])
-	
-	'''
-	compute the tensor composed of k mps tensors
-	contarction pattern: 
-						(-k-1) --A-(1)-A-(2)-A-(3)-A-(4)-A-- (-k-2)
-								 |     |     |     |     |
-								 -1    -2   -3    -4    -5
-	
-	 because we want 
-					   (-k-2)--VV--(-5)
-							   VV--(-4)
-							   VV--(-3)
-							   VV--(-2)
-					   (-k-1)--VV--(-1)
-	'''
-	# print(f'k={k}')
-	# print(f'indCell = {indCell}')
-	# print(f'P = {P}')
-	MPSProd = ncon([MPS,]*k0, indCell, forder=[-k0-1, -k0-2] + list(range(-1,-k0-1,-1)));
-	V0 = np.reshape(MPSProd,(D**2,d**k0))
-	
-
-	'''
-	Left and Right Isometries
-	 
-
-	   --LL--      -------        %   --RR----        .---    
-		 LL                       %     RR--          |             
-		 LL     =  --mmm--        %     RR     =   --www--        
-		 LL--         |           %     RR                        
-	   --LL----       .---        %   --RR--       -------         
-
-	  
-	 (mmm) and (www) stand for the mps tensor  :
-
-								 (d) 
-	   (l)--mmm--(r)              |  
-			 |         =    (r)--www--(l)
-			(d)                
-	 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-	  compute PmpsL and PmpsR
-	 PmpsL:
-	
-	 (-1)------(1)-PP--(-3)     
-	 (-1)--mps-(1)-PP--(-3)
-	        |           
-	        .----------(-2)       
-	
-	 PmpsR:
-	        .----------(-3)
-	        |
-	 (-1)--www-(1)-PP--(-2)     
-	 (-1)------(1)-PP--(-2)           
-	'''
-	
-	PmpsL = [[],]*(n+1)
-	PmpsR = [[],]*(n+1)
-		
-	mpsInflatedR = np.kron(np.expand_dims(np.identity(D),1), MPS)
-	mpsInflatedL = np.kron(MPS, np.expand_dims(np.identity(D),1))
-	
-	# # # # print(f'mps[:,0,:] = \n{MPS[:,0,:]}')
-	# # # # print(f'INFLmps_L[:,0,:] = \n{mpsInflatedL[:,0,:]}')
-	# # # # print(f'INFLmps_R[:,0,:] = \n{mpsInflatedR[:,0,:]}')
-	
-	          
-	for k in range(k0,n+1):     
-		# compute PL{k} and PR{k}
-		PmpsL[k] = ncon([mpsInflatedL, P[k]], [[-1,-2,1], [1,-3]]).reshape((D**2, D*D*d) )  
-		PmpsR[k] = ncon([mpsInflatedR, P[k]], [[1,-3,-1], [1,-2]]).reshape((D**2, D*D*d) )   
-
-
-
-	## compute left and right isometries
-	# recall that L and R are defined by P{k+1}*L{k} = MPS*r{k} =:PmpsL{k}
-	# ie  P{k+1}*L{k} = PL{k}
-	# and P{k+1}*R{k} = PR{k}
-	# we solve these equations for L and R 
-	 
-	for k in range(k0,n):
-		L[k] = np.linalg.solve(P[k+1], PmpsL[k])	   
-		R[k] = np.linalg.solve(P[k+1], PmpsR[k])  
-	
-	logger.info('done')
-	
-	if return_all_Vs:
-		return V0, L, R, V
-	else:
-		return V0, L, R
-	
 
 
 
@@ -304,6 +190,111 @@ def iso_from_MPS(MPS, k0, n, return_all_Vs=False):
 	else:
 		return V0, L, R
 	
+
+
+
+def plain_cg_from_MPS(MPS, k0, n):
+	'''
+	input MPS as 3-dim array
+	'''
+	logger.info(f'making plain cg maps, k0 = {k0}, n = {n}')
+		
+	
+	d = MPS.shape[1]
+	D = MPS.shape[0]
+	assert D == MPS.shape[2], f'MPS shape problem: MPS.shape = {MPS.shape}'
+	
+	# transform into left gauge
+	mps_as_map_to_left = MPS.reshape((d*D,D))
+	Q,r = np.linalg.qr(mps_as_map_to_left, mode='reduced')
+	MPS = Q.reshape((D,d,D))
+	
+	
+	P = [[],]*(n+1)
+	
+	L = [[],]*(n+1)
+	R = [[],]*(n+1)
+	
+	
+	
+	indCell=[[-(k0+1), -1, 1],];
+	for l in range(1,k0-1):
+		indCell.append( [l, -(l+1), l+1])
+	indCell.append([(k0-1), -(k0), -(k0+2)])
+	
+	'''
+	compute the tensor composed of k mps tensors
+	contarction pattern: 
+						(-k-1) --A-(1)-A-(2)-A-(3)-A-(4)-A-- (-k-2)
+								 |     |     |     |     |
+								 -1    -2   -3    -4    -5
+	
+	 because we want 
+					   (-k-2)--VV--(-5)
+							   VV--(-4)
+							   VV--(-3)
+							   VV--(-2)
+					   (-k-1)--VV--(-1)
+	'''
+	# print(f'k={k}')
+	# print(f'indCell = {indCell}')
+	# print(f'P = {P}')
+	MPSProd = ncon([MPS,]*k0, indCell, forder=[-k0-1, -k0-2] + list(range(-1,-k0-1,-1)));
+	V0 = np.reshape(MPSProd,(D**2,d**k0))
+	
+
+	'''
+	Left and Right Isometries
+	 
+
+	   --LL--      -------        %   --RR----        .---    
+		 LL                       %     RR--          |             
+		 LL     =  --mmm--        %     RR     =   --www--        
+		 LL--         |           %     RR                        
+	   --LL----       .---        %   --RR--       -------         
+
+	  
+	 (mmm) and (www) stand for the mps tensor  :
+
+								 (d) 
+	   (l)--mmm--(r)              |  
+			 |         =    (r)--www--(l)
+			(d)                
+
+	
+	 (-1)------(1)-PP--(-3)     
+	 (-1)--mps-(1)-PP--(-3)
+	        |           
+	        .----------(-2)       
+	
+	 PmpsR:
+	        .----------(-3)
+	        |
+	 (-1)--www-(1)-PP--(-2)     
+	 (-1)------(1)-PP--(-2)           
+	'''
+	mpsInflatedR = np.kron(np.expand_dims(np.identity(D),1), MPS)
+	mpsInflatedL = np.kron(MPS, np.expand_dims(np.identity(D),1))
+	
+	# when computing the isometreis we had
+	# PmpsL[k] = ncon([mpsInflatedL, P[k]], [[-1,-2,1], [1,-3]]).reshape((D**2, D*D*d) )  
+	# PmpsR[k] = ncon([mpsInflatedR, P[k]], [[1,-3,-1], [1,-2]]).reshape((D**2, D*D*d) )   
+	# here we dont have the Ps
+	       
+	mpsL = ncon([mpsInflatedL, ], [[-1,-2,-3], ]).reshape((D**2, D*D*d) )  
+	mpsR = ncon([mpsInflatedR, ], [[-2,-3,-1], ]).reshape((D**2, D*D*d) )   
+	
+	for k in range(k0,n):
+		L[k] = mpsL
+		R[k] = mpsR
+
+	
+	logger.info('done')
+	
+	return V0, L, R
+		
+	
+
 
 
 
