@@ -94,10 +94,7 @@ def set_problem_and_make_solver(args, settings):
 	else:
 		V0, L, R = CGmaps.plain_cg_from_MPS(mps, k0, n)
 
-	##  set logging option for calls to maps
-	logger.debug(f"setting Maps.log_calls class variable to {settings['log_time_func_calls']}")
-	maps.Maps.log_calls = settings['log_time_func_calls']
-	##
+	
 	
 	# cg maps acting on rho
 	action_l0 = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}

@@ -7,7 +7,7 @@ logging.addLevelName(logging.DEBUG, '...DEBUG')
 logging.addLevelName(5,"verbose")
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s: %(levelname)-8s: %(name)-20s:: %(message)s', datefmt='%H:%M:%S')
 
-
+import maps
 
 import default_settings
 
@@ -52,7 +52,6 @@ def main():
 		# import constraints
 		# profile.add_function(constraints.Constraint.__call__)
 		
-		import maps
 		profile.add_function(maps.Maps.__call__)
 		
 		profile.enable_by_count()
@@ -79,12 +78,17 @@ def main():
 	settings = default_settings.make()  
 	settings.update(settings_from_args)
 		
+	##  set logging option for calls to maps
+	logger.debug(f"setting Maps.log_calls class variable to {settings['log_time_func_calls']}")
+	maps.Maps.log_calls = settings['log_time_func_calls']
+	##
+	
+	
 	solver = problem_module.set_problem_and_make_solver(args, settings)
  	
 	solver.run_scs(maxiter = args.maxiter, printout_every = args.dispiters)
 	
 	if args.log_time_func_calls:
-		import maps
 		maps.Maps.print_maps_log()
 	
 	if args.profileLines:
