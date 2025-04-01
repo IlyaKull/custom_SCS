@@ -13,7 +13,7 @@ def make():
 		# 'adaptive_cg_iters' : True,
 		#
 		'log_col_width' : 11, 
-		'log_time_func_calls' : True,
+		'log_time_func_calls' : False,
 		#
 		'scs_maxiter': 2000,
 		'scs_q' : 1.5,

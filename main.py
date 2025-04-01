@@ -6,7 +6,7 @@ logger = logging.getLogger()
 logging.addLevelName(logging.DEBUG, '...DEBUG') 
 logging.addLevelName(5,"verbose")
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s: %(levelname)-8s: %(name)-20s:: %(message)s', datefmt='%H:%M:%S')
- 
+
 
 
 import default_settings
@@ -73,6 +73,7 @@ def main():
 						'scs_adapt_scale_if_ratio' 	: args.scs_adapt_scale_if_ratio,  
 						'thread_multithread' 		: use_multithread, 
 						'thread_max_workers' 		: args.workers,
+						'log_time_func_calls' 		: args.log_time_func_calls,
 	}
 	
 	settings = default_settings.make()  
@@ -82,8 +83,9 @@ def main():
  	
 	solver.run_scs(maxiter = args.maxiter, printout_every = args.dispiters)
 	
-	if logging.root.level <= 10:
-		Maps.print_maps_log()
+	if args.log_time_func_calls:
+		import maps
+		maps.Maps.print_maps_log()
 	
 	if args.profileLines:
 		profile.print_stats()
@@ -97,6 +99,7 @@ def make_parser():
 	parser = problem_module.define_arguments()
 	
 	# add general purpose command line arguments
+	
 	parser.add_argument("--verbose", help="increase output verbosity",
 						action="store_true")
 	parser.add_argument("--profileLines", help="line profiler",
@@ -115,7 +118,9 @@ def make_parser():
 					type=float, default = 1.0)
 	parser.add_argument("--scs_adapt_scale_if_ratio", help="adaptive rescalint if primal to dual residual ratio exceeds this amount", 
 					type=float, default = 50.0)
-					
+	parser.add_argument("--log_time_func_calls", help="activate logging of calls to maps",
+						action="store_true")
+						
 	return parser
 
 	

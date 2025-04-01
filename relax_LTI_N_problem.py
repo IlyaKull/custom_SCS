@@ -52,6 +52,7 @@ def set_problem_and_make_solver(args, settings):
 		 
 	
 	
+	
 	# heisenberg model with sub-lattice rotation -H_xxz(1,1,-1)
 	h_term = np.array(  [[0.25, 0, 0, 0],
 					[0, -0.25, -0.5, 0],
@@ -62,6 +63,7 @@ def set_problem_and_make_solver(args, settings):
 	
 	k0 = util.determine_k0(d, chi = D**2)
 	H = np.kron(h_term, np.identity(d**(k0+1-2))) # extend to size of rho
+	
 	
 	
 	
@@ -92,6 +94,10 @@ def set_problem_and_make_solver(args, settings):
 	else:
 		V0, L, R = CGmaps.plain_cg_from_MPS(mps, k0, n)
 
+	##  set logging option for calls to maps
+	logger.debug(f"setting Maps.log_calls class variable to {settings['log_time_func_calls']}")
+	maps.Maps.log_calls = settings['log_time_func_calls']
+	##
 	
 	# cg maps acting on rho
 	action_l0 = {'dims_in': dims_rho, 'pattern':(1,)*k0 + (0,), 'pattern_adj':(1,1,0), 'dims_out':(D,D,d)}

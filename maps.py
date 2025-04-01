@@ -14,7 +14,7 @@ class Maps:
 	"""
 	list_all_maps = []
 	
-	log_calls = (logging.root.level <= logging.DEBUG)
+	log_calls = False
 	
 	def __init__(self, 
 		name, # the name of the map in your paper notes. Used to for display.
