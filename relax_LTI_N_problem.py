@@ -13,7 +13,56 @@ logger = logging.getLogger(__name__)
 
 import argparse
 
-
+"""
+	********** problem formulation 
+	as in https://arxiv.org/abs/2212.03014
+	*************************************
+	primal:	(**)								| conj Var
+	min tr(rho_k0*H)
+	st 	rho_k0 >= 0 							: 
+		omega_k >= 0  for all k=k0+1...n		: 
+		tr(rho_k0) == 1							: epsilon
+		tr_L(rho_k0) == tr_R(rho_k0)			: a
+		V0_L(rho_k0) == tr_L(omega_{k0+1})		: b_L
+		V0_R(rho_k0) == tr_R(omega_{k0+1})		: b_R
+		L_{k0+1}(omega_{k0+1}) == tr_L(omega_{k0+2})	: g^{k0+1}_L
+		R_{k0+1}(omega_{k0+1}) == tr_R(omega_{k0+2})	: g^{k0+1}_R
+		and so on until
+		L_{n-1}(omega_{n-1}) == tr_L(omega_{n})			: g^{n-1}_L
+		R_{n-1}(omega_{n-1}) == tr_R(omega_{n})			: g^{n-1}_R
+		
+	dual:																							| conjVar
+	max delta
+	st	H - epsilon*I + Ixa - axI + V0_L^dag(b_L) + V0_R^dag(b_R) >= 0								: rho_k0
+		Ixb_L + b_RxI - L_{k0+1}^dag(g^{k0+1}_L) - R_{k0+1}^dag(g^{k0+1}_R) >= 0					: omega_{k0+1}
+		Ix g^{k0+1}_L + g^{k0+1}_L xI - L_{k0+2}^dag(g^{k0+2}_L) - R_{k0+2}^dag(g^{k0+2}_R) >= 0	: omega_{k0+2}
+		and so on 
+		Ix g^{k0+1}_L + g^{k0+1}_L xI  >= 0															: omega_{n}
+	
+	
+	*********** scs convention: 
+	as in https://doi.org/10.1007/s10957-016-0892-3
+	**********************************************
+	dual:
+		max -b.T*y
+		st -A.T*y = c
+		y >= 0
+	
+	primal:
+		min c.T*x
+		st A*x + s = b
+		s >= 0
+		x \in R^n
+		 
+	
+	==========> we read problem into scs dual:
+	b = [H,0,0,...]^T
+	y = [rho_k0, omega_{k0+1}, omega_{k0+1},..., omega_{n}]^T 
+	A.T*y = [ -tr(rho*H), -tr_L(rho) + tr_R(rho), V0_L(rho_k0) == tr_L(omega_{k0+1}), V0_R(rho_k0) == tr_R(omega_{k0+1}),... and so on the constraints in he primal (**) above  ]
+	c =  [1,0,0,0.....]^T
+	
+	
+	"""
 
 
 

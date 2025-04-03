@@ -11,25 +11,10 @@ from scs_funcs import SCS_Solver
 
 import argparse
 
-
-
-
-def define_arguments():
-	'''
-	define the command line arguments required to define this problem
-	'''
-	parser = argparse.ArgumentParser()
-	parser.add_argument("n", help="system size", type=int)
-	
-	return parser
-	
-
-
-
-
-def set_problem_and_make_solver(args, settings):
-	"""
+"""
 	********** problem formulation 
+	as in arxiv.org/abs/2411.03680
+	**********************************
 	primal:						| conj Var
 	min tr(rho*H2)
 	st 	rho >= 0 				: 
@@ -43,6 +28,8 @@ def set_problem_and_make_solver(args, settings):
 	
 	
 	*********** scs convention: 
+	as in https://doi.org/10.1007/s10957-016-0892-3
+	***********************************************
 	dual:
 		max -b.T*y
 		st -A.T*y = c
@@ -63,6 +50,23 @@ def set_problem_and_make_solver(args, settings):
 	
 	
 	"""
+
+
+def define_arguments():
+	'''
+	define the command line arguments required to define this problem
+	'''
+	parser = argparse.ArgumentParser()
+	parser.add_argument("n", help="system size", type=int)
+	
+	return parser
+	
+
+
+
+
+def set_problem_and_make_solver(args, settings):
+	
 	
 	
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  GAP LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')

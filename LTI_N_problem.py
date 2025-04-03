@@ -8,6 +8,48 @@ import numpy as np
 import argparse
 from scs_funcs import SCS_Solver
 
+
+"""
+	********** problem formulation  
+	as in https://arxiv.org/abs/2212.03014
+	********************************************
+	primal:						| conj Var
+	min tr(rho*H)
+	st 	rho >= 0 				: 
+		tr(rho) == 1			: epsilon
+		tr_L(rho) == tr_R(rho)	: a
+	
+	dual:									| conjVar
+	max delta
+	st	H - epsilon*\id + \id\otimes a - a\otimes\id >= 0		: rho 
+		
+	
+	
+	*********** scs convention: 
+	as in https://doi.org/10.1007/s10957-016-0892-3
+	**********************************************
+	dual:
+		max -b.T*y
+		st -A.T*y = c
+		y >= 0
+	
+	primal:
+		min c.T*x
+		st A*x + s = b
+		s >= 0
+		x \in R^n
+		 
+	
+	==========> we read primal problem as the scs dual:
+	b = H
+	y = rho
+	A.T(rho) = [ -tr(rho*H), -tr_L(rho) + tr_R(rho)]
+	c =  [1,0]
+	
+	
+	"""
+
+
 exact_sol = 0.25 -np.log(2) # exact sol heisenberg
  
  
@@ -27,6 +69,7 @@ def define_arguments():
  
 
 def set_problem_and_make_solver(args, settings):
+	
 	print('>>>>>>>>>>>>>>>>>>> PROBLEM:  LTI N <<<<<<<<<<<<<<<<<<<<<<<<<<')
 	
 	n = args.n
