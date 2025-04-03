@@ -73,7 +73,7 @@ def define_arguments():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("n", help="system size", type=int)
 	parser.add_argument("D", help="bond dim of MPS used for compression", type=int)
-	parser.add_argument("mps_filename", help="file where compression mps is saved", type=str)
+	parser.add_argument("--mps_filename", help="file where compression mps is saved", type=str, default = '')
 	parser.add_argument("--coarse_grain_method", help="which coarse graining maps to construct from given MPS", 
 					type=str, default = "plain", choices=["plain", "isometries"])
 
@@ -89,8 +89,13 @@ def set_problem_and_make_solver(args, settings):
 	D = args.D
 	d=2
 	
-	if args.mps_filename:
+	if len(args.mps_filename)>0:
 		mps = read_mps_from_file(args.mps_filename)
+		try:
+			assert mps.shape == (D,d,D)
+		except AssertionError:
+			logger.critical(f'loaded mps dimensions {mps.shape} are incompatible with problem dimensions {(D,d,D)}')
+			raise
 	else:
 		logger.critical("no MPS file specified!!! proceeding with random MPS")
 		rng = settings['util_rng']
@@ -327,9 +332,12 @@ def set_problem_and_make_solver(args, settings):
 
 
 def read_mps_from_file(mps_filename):
-	
-	# TODO read from file
-	mps = None
+	try:
+		with open(mps_filename, 'rb') as f:
+			mps = np.load(f)
+	except FileNotFoundError:
+		logger.critical(f"specified file '{mps_filename}' not found")
+		raise
 		
 	return mps
 	
