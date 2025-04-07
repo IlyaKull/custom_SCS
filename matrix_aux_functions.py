@@ -577,7 +577,9 @@ def  apply_kraus(x, dims, kraus, subsystem, checks = False):
 	'''
 	assert len(dims)<25, 'x has to many axes. (np.einsum supports up to 52)'
 	
-	dim_out = np.prod([d for i,d in enumerate(dims) if i != subsystem ]) * kraus[0].shape[0]
+	
+	dim_out = int( np.prod([d for i,d in enumerate(dims) if i != subsystem ]) * kraus[0].shape[0])
+	
 	
 	y = np.zeros((dim_out,dim_out), dtype = x.dtype)
 	

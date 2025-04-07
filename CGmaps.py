@@ -1,13 +1,17 @@
 import numpy as np
 from ncon import ncon
-import util
+
 
 import logging
 logger = logging.getLogger(__name__)
 
 
 def main():
-			
+	test_cptp_maps()
+	
+	
+	
+def test_cptp_maps():
 	Din = 2
 	Dout = 2
 	U = np.array([
@@ -25,14 +29,45 @@ def main():
 	
 	
 	## full test for two layers of cptp cg maps
-	Din = 2
-	Dout = 2
-	V = util.random_unitary(Din**2)
+	'''
+	      d2     V
+	     /  \
+	    /    \
+	   d1    d1  U
+	   /\    /\ 
+	  /  \  /  \
+	 d0  d0 d0 d0
+	'''
 	
-	kraus = cptp_from_unitary_w_gvec( Din, Dout, V)
-	for j in range(len(kraus)):
-		print(f'kraus op {j}\n {kraus[j]}')
+	d0 = 3
+	d1 = 3
+	d2 = 2
 	
+	import util
+	from matrix_aux_functions import apply_multiple_kraus_kron, apply_cg_maps, apply_single_kraus_kron
+	
+	U = util.random_unitary(d0**2)
+	u = U[:d1,...]
+	
+	V = util.random_unitary(d1**2)
+	v = V[:d2,...]
+	
+	kraus01 = cptp_from_unitary( d0, d1, U)
+	kraus12 = cptp_from_unitary_w_gvec( d1, d2, V)
+	rng = np.random.default_rng()
+	x = rng.random((d0**4, d0**4))
+	
+	uux = apply_cg_maps(x, [d0, d0, d0, d0], [u], [1,1,2,2])
+	vuux = apply_single_kraus_kron(uux, [v])
+	# print(f'shape of vuux = {vuux.shape}')
+	
+	k0x = apply_cg_maps(x, [d0, d0, d0, d0], kraus01, [1,1,2,2])
+	k1k0x = apply_cg_maps(k0x, [d1+1, d1+1], kraus12, [1,1])
+	# print(f'shape of k1k0x = {k1k0x.shape}')
+	restricted_k1k0x = k1k0x[:d2, :d2]
+	# print(f'shape of restricted_k1k0x = {restricted_k1k0x.shape}')
+	
+	print(f'results close {np.allclose(vuux, restricted_k1k0x)}')
 	
 	
 	
@@ -360,7 +395,7 @@ def cptp_from_unitary_w_gvec(Din, Dout, U):
 	the +1 dim is the garbage collectin vector. 
 	U is Din^2 x Din^2.
 	When we map from (Din+1) x (Din+1), whenever the input has support in either of the garbage vectors, we map it to the garbage of the output. 
-	e.g. (see test in main() func above) if 
+	e.g. (see test in test_cptp_maps() func above) if 
 	Din = 2
 	Dout = 2
 	U = np.array([
