@@ -33,7 +33,7 @@ class SCS_Solver:
 	https://web.stanford.edu/~boyd/papers/pdf/scs_long.pdf 3.2.3 and 3.3
 	
 	'''
-	def __init__(self, settings = dict(), exact_sol = None):
+	def __init__(self, settings = dict(), exact_sol = None, variational_sol = None):
 		
 		logger.info(f'initializing scs solver')
 		if not OptVar.lists_closed:  # closing the lists fixes the sizes of the primal and dual vectors
@@ -45,6 +45,8 @@ class SCS_Solver:
 		 
 		
 		self.exact_sol = exact_sol
+		self.variational_sol = variational_sol
+		
 		logger.debug(f"importing constraints lists from 'Constraint' calss (constraints.py)")		
 		self.primal_constraints = Constraint.primal_constraints
 		self.dual_constraints = Constraint.dual_constraints
@@ -348,7 +350,8 @@ class SCS_Solver:
 			
 			if not self.exact_sol is None:
 				print(f"E_exact - d_obj = {self.exact_sol - self.dual_objective}")
-		
+			elif: not self.variational_sol is None:
+				print(f"E_variational - d_obj = {self.variational_sol - self.dual_objective}")
 		
 	def _initilize_vec(self, f_init = None):
 		'''

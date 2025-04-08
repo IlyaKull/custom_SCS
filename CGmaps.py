@@ -12,6 +12,8 @@ def main():
 	
 	
 def test_cptp_maps():
+	
+	# basic test, inspect output 
 	Din = 2
 	Dout = 2
 	U = np.array([
@@ -46,27 +48,37 @@ def test_cptp_maps():
 	import util
 	from matrix_aux_functions import apply_multiple_kraus_kron, apply_cg_maps, apply_single_kraus_kron
 	
+	# U and V are unitary (orthogonal) matrices
+	# u and v are isometries
 	U = util.random_unitary(d0**2)
 	u = U[:d1,...]
-	
 	V = util.random_unitary(d1**2)
 	v = V[:d2,...]
 	
+	# we use the functions below to complete u and v to cptp maps
+	# in order to do so we need to add another "garbage" vector to the output of each map and compose them appropriately
 	kraus01 = cptp_from_unitary( d0, d1, U)
 	kraus12 = cptp_from_unitary_w_gvec( d1, d2, V)
+	
+	# we will apply them to a random matrix x
 	rng = np.random.default_rng()
 	x = rng.random((d0**4, d0**4))
-	
+	 
+	# we want to see that when we restric to the subspace orthogonal to the garbage vector we get the same as simply applying v\circ(u \otimes u)
+	# apply uu and then v
 	uux = apply_cg_maps(x, [d0, d0, d0, d0], [u], [1,1,2,2])
 	vuux = apply_single_kraus_kron(uux, [v])
 	# print(f'shape of vuux = {vuux.shape}')
 	
+	# apply the cptp maps
 	k0x = apply_cg_maps(x, [d0, d0, d0, d0], kraus01, [1,1,2,2])
 	k1k0x = apply_cg_maps(k0x, [d1+1, d1+1], kraus12, [1,1])
 	# print(f'shape of k1k0x = {k1k0x.shape}')
+	# project output to orthogonal complement of g = grabage vector
 	restricted_k1k0x = k1k0x[:d2, :d2]
 	# print(f'shape of restricted_k1k0x = {restricted_k1k0x.shape}')
 	
+	# compare
 	print(f'results close {np.allclose(vuux, restricted_k1k0x)}')
 	
 	
