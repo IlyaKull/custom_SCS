@@ -1,38 +1,22 @@
 import numpy as np
 from ncon import ncon
-import util
+
 
 import logging
 logger = logging.getLogger(__name__)
 
 
 def main():
-			
-	Din = 2
-	Dout = 2
-	U = np.array([
-					[1, 0, 1, 0],
-					[0, 1, 0, 1],
-					[1, 0, -1, 0],
-					[0, 1, 0, -1],
-				]
-	)
+	D = 5
+	d = 3
+	k0=3
+	n=7
+	A = np.random.rand(D,d,D)
 	
+	V0, L, R, V = iso_from_MPS(A, k0, n, True)
 	
-	kraus = cptp_from_unitary_w_gvec( Din, Dout, U)
-	for j in range(len(kraus)):
-		print(f'kraus op {j}\n {kraus[j]}')
-	
-	
-	## full test for two layers of cptp cg maps
-	Din = 2
-	Dout = 2
-	V = util.random_unitary(Din**2)
-	
-	kraus = cptp_from_unitary_w_gvec( Din, Dout, V)
-	for j in range(len(kraus)):
-		print(f'kraus op {j}\n {kraus[j]}')
-	
+	assert np.allclose(V[k0],V0)
+	test_iso_from_MPS(V0, L, R, V, d, k0, n)
 	
 	
 	
@@ -312,109 +296,6 @@ def plain_cg_from_MPS(MPS, k0, n):
 	
 
 
-
-def cptp_from_unitary(Din, Dout, U):
-	'''
-	make kraus operators of dims (Dout+1, Din**2) from unitary U of dims (Din^2 x Din^2).
-	The first Dout rows of U are taken to make the first kraus operator
-	An additional vector is added to the output dimension
-	kraus[0] = [U(1, ...),
-				U(2, ...), 
-				...
-				U(Dout, ...), 
-				[zeros ] ]  <--- additional garbage collection vector
-				
-	the other kraus operators are then rank one operators mapping the remaining rows of U to the additional vector
-	
-	'''
-	
-	assert U.shape == (Din**2, Din**2)
-	assert Dout <= Din**2
-	#   Dout+1  Dout+1
-	#    |      |
-	#   U       U     
-	#   /\      /\
-	#  /  \    /  \
-	#  o  o    o  o   
-	#Din  Din 
-	
-	
-	kraus = []
-	kraus.append( np.vstack([ U[:Dout, ...],
-							  np.zeros((1,Din**2))
-							]) 
-				)
-	for j in range(Dout,Din**2):
-		kraus.append( np.vstack([ 	np.zeros((Dout,Din**2)),
-									U[j, ...]									
-								]) 
-					)
-					
-	return kraus
-	
-
-
-def cptp_from_unitary_w_gvec(Din, Dout, U):
-	'''
-	same as above, only now we map from the product two spaces of dims Din+1, into Dout+1
-	the +1 dim is the garbage collectin vector. 
-	U is Din^2 x Din^2.
-	When we map from (Din+1) x (Din+1), whenever the input has support in either of the garbage vectors, we map it to the garbage of the output. 
-	e.g. (see test in main() func above) if 
-	Din = 2
-	Dout = 2
-	U = np.array([
-					[1, 0, 1, 0],
-					[0, 1, 0, 1],
-					[1, 0, -1, 0],
-					[0, 1, 0, -1],
-				]
-	of the 9 vectors in the input space, the following are mapped into the garbage vector of the output: 
-	[0  1  2*,
-	 3  4  5*, 
-	 6* 7* 8*]
-	The remaining ones are "work indices". in the "work space we make the first kraus op from the first two rows of U. 
-	Then every further row of U gets mapped to the output garbage. 
-	Finally, the garbage inds are also mapped to garbage.
-	
-				
-	'''
-	assert U.shape == (Din**2, Din**2)
-	assert Dout <= Din**2
-	#   Dout+1  Dout+1
-	#    |      |
-	#   U       U     
-	#   /\      /\
-	#  /  \    /  \
-	#  o  o    o  o   
-	#Din+1 Din+1 
-	
-	inds = np.arange((Din+1)**2).reshape((Din+1,Din+1))
-	g_inds = list(set(inds[-1,...]).union( set(inds[...,-1]) ))
-	w_inds = list( set(inds.ravel()).difference(set(g_inds)) )
-	g_inds.sort()
-	# print(f' g inds: {g_inds}')
-	w_inds.sort()
-	# print(f' w inds: {w_inds}')
-	
-	
-	kraus = []
-	kraus.append( np.zeros( (Dout+1, (Din+1)**2) )	)
-	kraus[0][:Dout, w_inds] = U[:Dout, ...]
-	
-	
-	for j in range(Dout,Din**2):
-		k= np.zeros( (Dout+1, (Din+1)**2)) 
-		k[Dout, w_inds] = U[j,...]
-		kraus.append(k)
-					
-	for j in range(len(g_inds)):
-		k= np.zeros( (Dout+1, (Din+1)**2)) 
-		k[Dout, g_inds[j]] = 1
-		kraus.append(k)
-		
-	return kraus
-	
 
 
 

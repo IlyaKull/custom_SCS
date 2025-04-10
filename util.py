@@ -1,6 +1,4 @@
 import time
-import numpy as np
-
 	 
 def sign_str(x): 
 	s = f"{x:+}"
@@ -18,12 +16,6 @@ def determine_k0(d,chi):
 	
 	return k0
 
-
-def random_unitary(d):
-	x = np.random.normal(size=(d,d))
-	q,r = np.linalg.qr(x)
-	return q
-	
 
 class NullContextManager:
 	def __init__(self, dummy_resource=None):
