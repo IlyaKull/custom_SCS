@@ -360,48 +360,6 @@ def plain_cg_from_MPS(MPS, k0, n):
 
 
 
-def cptp_maps_from_list_of_unitaries(Us, Ds):
-		
-	assert len(Ds) == len(Us)+1
-	
-	
-	for i,U in enumerate(Us):
-		try:
-			assert U.shape[1] == U.shape[0]
-			assert U.shape[0] == Ds[i]**2
-			assert U.shape[0] > Ds[i+1]
-		except AssertionError:
-			logger.critical(f'unitary {i} has dims {U.shape} and is incompatible with Ds[i] = {Ds[i]}')
-			raise
-		
-	#       Ds2+1 
-	#        |   
-	#        U[1]       <<<<<<<< DU[1] =  Ds1^2
-	#       /\     
-	#      /  \    
-	#     /    \   
-	#    /      \ 
-	#   Ds1+1 Ds1+1  
-	#    |      |		
-	#   U[0]    U[0]    <<<<<<<< DU[0]  =  Ds0^2
-	#   /\      /\
-	#  /  \    /  \
-	#  o  o    o  o   
-	#Ds0 Ds0 
-	
-	kraus = []
-		
-	for i,U in enumerate(Us):
-		if i==0:
-			kraus.append(cptp_from_unitary(Ds[i], Ds[i+1], Us))
-		else:
-			kraus.append(cptp_from_unitary_w_gvec(Ds[i], Ds[i+1], Us))
-	
-	return kraus
-		
-		
-
-
 def cptp_from_unitary(Din, Dout, U):
 	'''
 	make kraus operators of dims (Dout+1, Din**2) from unitary U of dims (Din^2 x Din^2).
@@ -440,8 +398,6 @@ def cptp_from_unitary(Din, Dout, U):
 					)
 					
 	return kraus
-	
-	
 	
 
 

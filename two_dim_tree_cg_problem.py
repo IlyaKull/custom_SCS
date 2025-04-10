@@ -99,8 +99,6 @@ def set_problem_and_make_solver(args, settings):
 	
 	
 	d=2
-	
-	
 		# todo: load isometries/unitaries from file
 	# if len(args.mps_filename)>0:
 		# mps = read_mps_from_file(args.mps_filename)
@@ -113,19 +111,7 @@ def set_problem_and_make_solver(args, settings):
 		# logger.critical("no MPS file specified!!! proceeding with random MPS")
 		# rng = settings['util_rng']
 		# mps = rng.random((D,d,D,)) 
-	
-	# simple test
-	d0 = d
-	d1 = 3
-	d2 = 3
-	Ds = [d0, d1, d2]
-	logger.critical('!!!!!!!!!!!!!! ovverriding CG dims for testing !!!!!!!!!!!!!!!!!')
-	cg_dims = Ds[1:]
-	Us = []
-	Us.append(util.random_unitary(d**2))
-	Us.append(util.random_unitary(d**2))
-	
-	kraus_ops = CGmaps.cptp_maps_from_list_of_unitaries(Us, Ds):
+		
 	
 	# heisenberg model with sub-lattice rotation -H_xxz(1,1,-1)
 	h_term = np.array(  [[0.25, 0, 0, 0],
@@ -377,6 +363,9 @@ def set_problem_and_make_solver(args, settings):
 			'conjugateVar': b[k],    
 			})
 	
+	
+	 
+
 	
 	############################################################
 	############################################################
