@@ -369,42 +369,42 @@ def set_problem_and_make_solver(args, settings):
 	
 	############################################################
 	############################################################
-	# dual constraints  
+	# dual constraints <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< continue here
 	
 	Constraint(**{
-			'label': f'D_{8}', 
-			'sign_list':  [ -1, +1, +1, -1],
-			'map_list': [cg_maps[8], tr_LTI_maps[8], tr_l_rho_MINUS_tr_r_rho, tr ],
+			'label': f'D_{k0+1}', 
+			'sign_list':  [ -1, -1, +1, -1],
+			'map_list': [C_l0, C_r0, tr_l_rho_MINUS_tr_r_rho, tr ],
 			'adj_flag_list': [True, True, True,  True ],
-			'var_list': [ b_l, a_ud[8], a_lr, e],
+			'var_list': [ b_l, b_r, a, e],
 			'primal_or_dual': 'dual',
 			'conjugateVar': rho,
 			'const': H.ravel(),
 			'const_name' : 'H'
 			}) 
+			
+	for k in range(k0+2,n):
+		# RECALL:
+		# beta_l = g_l[k0+1] is dual to V*rho*V^+ == pTr_l omega_k0+2
 	
-	for k in num_spins_per_level[1:-1]:
-		prev_k = int(k/2)
 		Constraint(**{
 				'label': f"D_{k}", 
-				'sign_list':  [+1, -1, +1],
-				'map_list': [tr_uu_maps[prev_k], cg_maps[k] , tr_LTI_maps[k] ]  ,
-				'adj_flag_list': [True, True, True ],
-				'var_list': [b[prev_k], b[k], a_ud[k]],
+				'sign_list':  [+1, +1, -1, -1],
+				'map_list': [tr_l_omega, tr_r_omega , C_l[k], C_r[k] ]  ,
+				'adj_flag_list': [True, True, True, True ],
+				'var_list': [g_l[k-1], g_r[k-1], g_l[k], g_r[k]],
 				'primal_or_dual': 'dual',
 				'conjugateVar': states[k],
 				}) 
 
-	k = num_spins_per_level[-1]
-	prev_k = int(k/2)
 	Constraint(**{
-			'label': f"D_{k}", 
-			'sign_list':  [+1, +1],
-			'map_list': [tr_uu_maps[prev_k], tr_LTI_maps[k] ]  ,
+			'label': f"D_{n}", 
+			'sign_list':  [+1, +1,],
+			'map_list': [tr_l_omega, tr_r_omega  ]  ,
 			'adj_flag_list': [True, True ],
-			'var_list': [b[prev_k], a_ud[k]],
+			'var_list': [g_l[n-1], g_r[n-1]],
 			'primal_or_dual': 'dual',
-			'conjugateVar': states[k],
+			'conjugateVar': states[n],
 			}) 
 
 	if logging.DEBUG >= logging.root.level:
