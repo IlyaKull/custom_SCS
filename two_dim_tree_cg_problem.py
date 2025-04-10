@@ -124,10 +124,10 @@ def set_problem_and_make_solver(args, settings):
 	variational_sol = -0.669437/2  # mcmc from  doi 10.1103/PhysRevB.56.11678
 	
 	
-	# rho is fully LTI so we can evaluate H as one interaction term h\otimes \id
-	H = np.kron(h_term, np.identity(d**(6))) # extend to size of rho
+	H = ??? #np.kron(h_term, np.identity(d**(k0+1-2))) # extend to size of rho
 	
-		
+	
+	
 	'''
 	Define the states, i.e. the primal variables:
 	
@@ -200,7 +200,7 @@ def set_problem_and_make_solver(args, settings):
 		
 	
 	 
-	############################################################
+	
 	# cg maps
 	
 	cg_impl = 'contract' #'kron' implementation inapplicable in case of multiple maps acting simultaneously 
@@ -229,84 +229,40 @@ def set_problem_and_make_solver(args, settings):
 		cg_maps[k] = maps.CGmap(f'C_{k}', kraus_ops[k], action = cg_actions[k] , implementation = cg_impl)
 	
 	
-	############################################################	
-	# partial trace maps
+	tr_l_rho = maps.PartTrace(subsystems = [1], state_dims = dims_rho )
+	tr_r_rho = maps.PartTrace(subsystems = [k0+1], state_dims = dims_rho )
 	
-	#for LTI constraints:
-	# we require rho to be LTI in both directions (vertical and horizontal)
-	'''
-		 
-	   1   5
-	   2   6	
-	   3 = 7
-	   4   8
-	'''
-	tr_l_rho = maps.PartTrace(subsystems = [1,2,3,4], state_dims = dims_rho )
-	tr_r_rho = maps.PartTrace(subsystems = [5,6,7,8], state_dims = dims_rho )
 	tr_l_rho_MINUS_tr_r_rho = maps.AddMaps([tr_l_rho, tr_r_rho], [-1, +1])
-	
-	'''
-		 
-	   1,5 		
-	   2,6 		2,6 
-	   3,7	=	3,7
-	    		4,8
-	'''
-	tr_u_rho = maps.PartTrace(subsystems = [1,5], state_dims = dims_rho )
-	tr_d_rho = maps.PartTrace(subsystems = [4,8], state_dims = dims_rho )
-	tr_u_rho_MINUS_tr_d_rho = maps.AddMaps([tr_u_rho, tr_d_rho], [-1, +1])
-	
-	# the other states only need the LTI condition that relates them to the prevoius state
-	tr_LTI_maps = RestrictedKeysDict(allowed_keys = num_spins_per_level) 
-	tr_LTI_maps[8] = tr_u_rho_MINUS_tr_d_rho
-		
-	for i,k in enumerate(num_spins_per_level[1:]): 
-		tr_u = maps.PartTrace(subsystems = [1,5], state_dims = dims_cg_states[k] )
-		tr_d = maps.PartTrace(subsystems = [4,8], state_dims = dims_cg_states[k] )
-		tr_LTI_maps[k] = maps.AddMaps([tr_u_rho, tr_d_rho], [-1, +1])
-	
-	
-	#for CG--><--ptr constraints:
-	'''
-	   1,5  --CG--> 1' 2'   <-ptr- 1',2',3',4'
-	   2,6 			3' 4'   	   5',6',7',8'
-	   3,7
-	   4,8
-	   	    		
-	'''
-	
-	tr_uu_maps = RestrictedKeysDict(allowed_keys = num_spins_per_level) 
-	for i,k in enumerate(num_spins_per_level[1:]): # ptr maps act on all states but the first (rho)
-		tr_uu_maps[k] = maps.PartTrace(subsystems = [1,2,5,6], state_dims = dims_cg_states[k] )
+			
+	tr_l_omega = maps.PartTrace(subsystems = [1], state_dims = dims_omega )
+	tr_r_omega = maps.PartTrace(subsystems = [4], state_dims = dims_omega )
 
-	
-	# trace map for normalization of rho
 	tr = maps.Trace(dim = rho.matdim )
 
-
-
-	############################################################
-	############################################################
+	# id_rho = maps.Identity( dim = rho.matdim)
+	# id_omega = maps.Identity( dim = states[k0+2].matdim)
+	# id_1 = maps.Identity( dim = 1)
+	
 	# dual varsiables
-	############################################################
-	############################################################
+	a = OptVar('alpha', 'dual', dims = (d,)*k0 , dtype = float )
+	b_l = OptVar('beta_l', 'dual', dims = (D,D,d), dtype = float)
+	b_r = OptVar('beta_r', 'dual', dims = (d,D,D), dtype = float)
+	g_l = RestrictedKeysDict(allowed_keys = list(range(k0+1,n))) 
+	g_r = RestrictedKeysDict(allowed_keys = list(range(k0+1,n)))
+
+	# beta_l = g_l[k0+1] is dual to V*rho*V^+ == pTr_l omega_k0+2
+	# g_l[k0+2] is dual to V*omega_k0+2*V^+ == pTr omega_k0+3 and so on
+	g_l[k0+1] = b_l
+	g_r[k0+1] = b_r
+
+	for k in range(k0+2,n):
+		g_l[k] = OptVar(f"gamma_L_{k}", 'dual', dims = (D,D,d), dtype = float)
+		g_r[k] = OptVar(f"gamma_R_{k}", 'dual', dims = (d,D,D), dtype = float)
+
 	e = OptVar('epsilon', 'dual', dims = (1,), dtype = float)
 	
-	a_lr = OptVar('alpha_lr', 'dual', dims = (d,)*4 , dtype = float )
-	
-	a_ud = RestrictedKeysDict(allowed_keys = num_spins_per_level) 
-	for k in num_spins_per_level:
-		a_ud[k] = OptVar(f'alpha_ud_{k}', 'dual', dims = (dims_cg_states[k][0],)*6 , dtype = float )
-	
-	for k in num_spins_per_level[:-1]:
-		b[k] = OptVar('beta', 'dual', dims = (dims_cg_states[k*2][0],)*4, dtype = float)
 	
 	
-	
-	
-
-	############################################################
-	############################################################
 	# primal constraints
 	# for the sign conventions see sign_convention_doc.txt
 	# the LHS in the primal constraints is -A.T
@@ -320,7 +276,7 @@ def set_problem_and_make_solver(args, settings):
 		'adj_flag_list': [False,],
 		'var_list': [rho,],
 		'primal_or_dual': 'primal',
-		'conjugateVar': e,  
+		'conjugateVar': e,
 		'const' : 1.0,
 		'const_name' : '1'      
 		})
@@ -328,48 +284,65 @@ def set_problem_and_make_solver(args, settings):
 	# when no constant is specified (or is None)
 	# the RHS is set as a vector of zeros of the correct size:
 	# np.zeros((conjugateVar.matdim, conjugateVar.matdim))
+	
+	
+	
 	Constraint(**{
-		'label': f'LTI_lr_rho', 
+		'label': 'LTI', 
 		'sign_list': [ +1,],
-		'map_list': [tr_l_rho_MINUS_tr_r_rho,],
+		'map_list': [tr_l_rho_MINUS_tr_r_rho],
 		'adj_flag_list': [False, ],
 		'var_list': [rho,],
 		'primal_or_dual': 'primal',
-		'conjugateVar': a_lr, 
+		'conjugateVar': a,
+		})
+		
+	Constraint(**{
+		'label': f'left_{k0+1}', 
+		'sign_list': [-1, +1],
+		'map_list': [C_l0, tr_l_omega],
+		'adj_flag_list': [False, False],
+		'var_list': [rho, states[k0+2]],
+		'primal_or_dual': 'primal',
+		'conjugateVar': b_l,
 		})
 	
 	
-	# LTI constraints are labeled by the size of the state they are acting on
-	for k in num_spins_per_level:
+	Constraint(**{
+		'label': f'right_{k0+1}', 
+		'sign_list': [-1, +1],
+		'map_list': [C_r0, tr_r_omega],
+		'adj_flag_list': [False, False],
+		'var_list': [rho, states[k0+2]],
+		'primal_or_dual': 'primal',
+		'conjugateVar': b_r,
+		})
+	
+	for k in range(k0+2,n):
+	
 		Constraint(**{
-			'label': f'LTI_ud_{k}', 
-			'sign_list': [ +1,],
-			'map_list': [tr_LTI_maps[k],],
-			'adj_flag_list': [False, ],
-			'var_list': [states[k],],
+			'label': f'left_{k}', 
+			'sign_list': [-1, +1],
+			'map_list': [C_l[k], tr_l_omega],
+			'adj_flag_list': [False, False],
+			'var_list': [states[k], states[k+1]],
 			'primal_or_dual': 'primal',
-			'conjugateVar': a_ud[k],  
+			'conjugateVar': g_l[k],
+			})
+			
+		Constraint(**{
+			'label': f'right_{k}', 
+			'sign_list': [-1, +1],
+			'map_list': [C_r[k], tr_r_omega],
+			'adj_flag_list': [False, False],
+			'var_list': [states[k], states[k+1]],
+			'primal_or_dual': 'primal',
+			'conjugateVar': g_r[k],
 			})
 		
-	# cg --><--ptr constraints
-	for k in num_spins_per_level[:-1]:
-		Constraint(**{
-			'label': f'cg_{k}=pTr_{k*2}', 
-			'sign_list': [-1, +1],
-			'map_list': [cg_maps[k], tr_uu_maps[k*2]],
-			'adj_flag_list': [False, False],
-			'var_list': [states[k], states[k*2]],
-			'primal_or_dual': 'primal',
-			'conjugateVar': b[k],    
-			})
+		
 	
-	
-	 
-
-	
-	############################################################
-	############################################################
-	# dual constraints <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< continue here
+	# dual constraints
 	
 	Constraint(**{
 			'label': f'D_{k0+1}', 
